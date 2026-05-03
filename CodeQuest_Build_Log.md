@@ -10,7 +10,7 @@ Current feature: Global ErrorDTO + GlobalExceptionHandler
 Last completed feature: Swagger/OpenAPI setup
 Next feature: Global ErrorDTO + GlobalExceptionHandler
 Current branch: main
-Latest commit: 6cf8e06 feat: add Flyway users migration
+Latest commit: 54d1708 feat: add Swagger OpenAPI setup
 Test status: Backend Maven Wrapper test PASS, Frontend build not required for backend-only task
 
 ## Completed Features
@@ -85,7 +85,7 @@ Test status: Backend Maven Wrapper test PASS, Frontend build not required for ba
 | 2 | 2026-05-03 | Backend health endpoint | Foundation/common | HealthController, HealthControllerTest, spring-boot-starter-web dependency | Backend `cd backend && .\mvnw.cmd test` PASS | `751dc6d feat: add backend health endpoint` |
 | 3 | 2026-05-03 | Database connection | Foundation/database | backend pom/config test profile updates | Backend `cd backend && .\mvnw.cmd test` PASS | `5b5bb4a feat: configure database connection` |
 | 4 | 2026-05-03 | Flyway migrations | Foundation/database | Flyway dependency/config + V1 users table migration | Backend `cd backend && .\mvnw.cmd test` PASS | `6cf8e06 feat: add Flyway users migration` |
-| 5 | 2026-05-03 | Swagger/OpenAPI setup | Foundation/common | springdoc dependency + OpenApiConfig | Backend `cd backend && .\mvnw.cmd test` PASS | commit pending |
+| 5 | 2026-05-03 | Swagger/OpenAPI setup | Foundation/common | springdoc dependency + OpenApiConfig | Backend `cd backend && .\mvnw.cmd test` PASS | `54d1708 feat: add Swagger OpenAPI setup` |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -143,9 +143,9 @@ Database: PostgreSQL + Flyway
 AI: Gemini API
 Code execution: Piston API
 Current module: Foundation
-Last completed feature: Flyway migrations
+Last completed feature: Swagger/OpenAPI setup
 Tests passed: Backend Maven Wrapper test PASS; frontend build previously PASS during project setup
 Known bugs: None
-Next task: Swagger/OpenAPI setup
+Next task: Global ErrorDTO + GlobalExceptionHandler
 Rules: Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Prompts, Build Log, and AGENTS.md. Do not redesign anything. Do not add Phase 2 features.
 ```
