@@ -6,16 +6,16 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 ## Current Status
 Phase: MVP
 Current module: Foundation
-Current feature: Backend health endpoint
-Last completed feature: Project setup
-Next feature: Backend health endpoint
+Current feature: Database connection
+Last completed feature: Backend health endpoint
+Next feature: Database connection
 Current branch: main
-Latest commit: 30c371d chore: initialize CodeQuest project skeleton
-Test status: Backend Maven Wrapper test PASS, Frontend build PASS
+Latest commit: 1df68a0 docs: update build log after project setup
+Test status: Backend Maven Wrapper test PASS, Frontend build not required for backend-only task
 
 ## Completed Features
 - [x] Project setup
-- [ ] Backend health endpoint
+- [x] Backend health endpoint
 - [ ] Database connection
 - [ ] Flyway migrations
 - [ ] Swagger/OpenAPI setup
@@ -82,12 +82,14 @@ Test status: Backend Maven Wrapper test PASS, Frontend build PASS
 | # | Date | Feature | Module | Files changed | Tests | Commit/Notes |
 |---|---|---|---|---|---|---|
 | 1 | 2026-05-03 | Project setup | Foundation | Root skeleton, backend Spring Boot skeleton, frontend Vite React Tailwind skeleton, docs cleanup, Maven Wrapper | Backend `cd backend && .\mvnw.cmd test` PASS; Frontend `cd frontend && npm run build` PASS | `30c371d chore: initialize CodeQuest project skeleton` |
+| 2 | 2026-05-03 | Backend health endpoint | Foundation/common | HealthController, HealthControllerTest, spring-boot-starter-web dependency | Backend `cd backend && .\mvnw.cmd test` PASS | commit pending |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
 |---|---|---|---|---|
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
 | 2026-05-03 | `cd frontend && npm run build` | PASS | - | - |
+| 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
 
 ## Next Chat Prompt
 Paste this into a fresh ChatGPT Project chat whenever the current chat becomes slow or confusing:
@@ -135,9 +137,9 @@ Database: PostgreSQL + Flyway
 AI: Gemini API
 Code execution: Piston API
 Current module: Foundation
-Last completed feature: Project setup
-Tests passed: Backend Maven Wrapper test PASS, Frontend build PASS
+Last completed feature: Backend health endpoint
+Tests passed: Backend Maven Wrapper test PASS; frontend build previously PASS during project setup
 Known bugs: None
-Next task: Backend health endpoint
+Next task: Database connection
 Rules: Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Prompts, Build Log, and AGENTS.md. Do not redesign anything. Do not add Phase 2 features.
 ```
