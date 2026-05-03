@@ -6,12 +6,12 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 ## Current Status
 Phase: MVP
 Current module: Auth
-Current feature: Auth register
-Last completed feature: Global ErrorDTO + GlobalExceptionHandler
-Next feature: Auth register
+Current feature: Auth login
+Last completed feature: Auth register
+Next feature: Auth login
 Current branch: main
-Latest commit: 78df72c feat: add global error handling
-Test status: Backend Maven Wrapper test PASS, Frontend build not required for backend-only task
+Latest commit: pending - feat: add auth register
+Test status: Backend Maven Wrapper test PASS for Auth register according to Codex output; manual/API smoke test recommended before commit; Frontend build not required for backend-only task
 
 ## Completed Features
 - [x] Project setup
@@ -20,7 +20,7 @@ Test status: Backend Maven Wrapper test PASS, Frontend build not required for ba
 - [x] Flyway migrations
 - [x] Swagger/OpenAPI setup
 - [x] Global ErrorDTO + GlobalExceptionHandler
-- [ ] Auth register
+- [x] Auth register
 - [ ] Auth login
 - [ ] JWT filter
 - [ ] Refresh token
@@ -66,6 +66,17 @@ Test status: Backend Maven Wrapper test PASS, Frontend build not required for ba
 - MVP first, no Phase 2 features yet.
 - Source-of-truth priority: CodeQuest_AI_Control_Master_Blueprint_v3, CodeQuest_Core_Rules, CodeQuest_DB_Schema, CodeQuest_API_Contracts, CodeQuest_Feature_Prompts, CodeQuest_Build_Log, then AGENTS.md.
 - For Codex specifically, use available repo files: AGENTS.md, docs/CodeQuest_Core_Rules.md, docs/CodeQuest_DB_Schema.md, docs/CodeQuest_API_Contracts.md, docs/CodeQuest_Feature_Prompts.md, and CodeQuest_Build_Log.md. The master .docx files live in ChatGPT Project resources and are not stored in the repo.
+- Use Maven Wrapper only for backend tests on Windows:
+  - `cd backend`
+  - `.\mvnw.cmd test`
+- After every Codex implementation, do not commit immediately. First verify:
+  1. `git status`
+  2. automated tests
+  3. manual/API smoke test for the implemented feature
+  4. Build Log update
+  5. commit only after verification passes
+- Do not start the next feature while the current feature has uncommitted changes.
+- For backend-only tasks, frontend build is not required unless the backend change affects frontend integration or shared API contract behavior.
 
 ## Current Source of Truth Files
 - CodeQuest_AI_Control_Master_Blueprint_v3.docx: full master blueprint in ChatGPT Project resources.
@@ -79,6 +90,10 @@ Test status: Backend Maven Wrapper test PASS, Frontend build not required for ba
 ## Bugs / Issues
 - None currently.
 - Note from Global ErrorDTO task: Codex initially looped and produced a broken test. The test was manually corrected to a stable standalone MockMvcBuilders test. Final backend test passed before commit.
+- Auth register note: Codex changed `backend/src/test/resources/application.yml` to use `ddl-auto: create` for test schema generation only. Production `ddl-auto` remains `none`, and production schema remains Flyway-controlled.
+- Auth register note: Codex added `spring-security-crypto` only for BCrypt password hashing. Full Spring Security filter chain, JWT filter, login, refresh token, and logout remain intentionally unimplemented.
+- Auth register note: The register response intentionally does not return JWT/accessToken because JwtService is not implemented yet and was explicitly out of scope for this task.
+- Auth register note: The response must not expose `passwordHash`, `password_hash`, role, JWT, refresh token, or any sensitive field.
 
 ## Feature History
 | # | Date | Feature | Module | Files changed | Tests | Commit/Notes |
@@ -89,6 +104,8 @@ Test status: Backend Maven Wrapper test PASS, Frontend build not required for ba
 | 4 | 2026-05-03 | Flyway migrations | Foundation/database | Flyway dependency/config + V1 users table migration | Backend `cd backend && .\mvnw.cmd test` PASS | `6cf8e06 feat: add Flyway users migration` |
 | 5 | 2026-05-03 | Swagger/OpenAPI setup | Foundation/common | springdoc dependency + OpenApiConfig | Backend `cd backend && .\mvnw.cmd test` PASS | `54d1708 feat: add Swagger OpenAPI setup` |
 | 6 | 2026-05-03 | Global ErrorDTO + GlobalExceptionHandler | Foundation/common | ErrorDTO + ErrorCode + ApiException + GlobalExceptionHandler + GlobalExceptionHandlerTest + validation dependency | Backend `cd backend && .\mvnw.cmd test` PASS | `78df72c feat: add global error handling` |
+| 7 | 2026-05-03 | Build Log update after Global ErrorDTO | Docs | CodeQuest_Build_Log.md | Git status clean after docs commit | `0161bdf docs: record global error handling completion` |
+| 8 | 2026-05-03 | Auth register | Auth | backend/pom.xml, AuthController, AuthService, RegisterRequest, RegisterResponse, AuthMapper, User entity, UserRepository, UserRank, UserRole, PasswordEncoderConfig, ErrorCode, GlobalExceptionHandler, AuthServiceTest, AuthControllerTest, test application.yml | Backend `cd backend && .\mvnw.cmd test` PASS according to Codex output; 15 tests total | Commit pending: `feat: add auth register` |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -100,6 +117,103 @@ Test status: Backend Maven Wrapper test PASS, Frontend build not required for ba
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | GlobalExceptionHandlerTest initially failed due missing validation provider/test context; fixed by adding validation starter and stable standalone MockMvcBuilders test | Yes |
+| 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | Auth register tests passed according to Codex output: AuthControllerTest, AuthServiceTest, HealthControllerTest, GlobalExceptionHandlerTest, CodeQuestApplicationTests; total 15 tests | Yes |
+
+## Manual Verification Log
+| Date | Feature | Manual/API check | Expected result | Status |
+|---|---|---|---|---|
+| 2026-05-03 | Backend health endpoint | GET `/api/health` | 200 OK with backend health response | Passed during feature task |
+| 2026-05-03 | Auth register | POST `/api/auth/register` with valid name, email, password | 201 Created with userId, name, email, rank BEGINNER, xp 0; no passwordHash | Recommended before commit |
+| 2026-05-03 | Auth register duplicate email | POST `/api/auth/register` again with same email | 409 Conflict with standard ErrorDTO and EMAIL_ALREADY_EXISTS | Recommended before commit |
+| 2026-05-03 | Auth register invalid password | POST `/api/auth/register` with weak password | 400 Bad Request with standard ErrorDTO and VALIDATION_ERROR | Recommended before commit |
+
+## Verification Protocol After Every Codex Task
+Before committing any Codex-generated change, always do this:
+
+1. Check changed files:
+   ```powershell
+   git status
+   ```
+
+2. Run the correct automated backend test command:
+   ```powershell
+   cd backend
+   .\mvnw.cmd test
+   cd ..
+   ```
+
+3. For frontend tasks, also run:
+   ```powershell
+   cd frontend
+   npm run build
+   cd ..
+   ```
+
+4. Manually test the exact implemented feature:
+   - For backend endpoints, use Swagger, Postman, Thunder Client, or curl.
+   - Test one success case.
+   - Test one important failure case.
+   - Confirm the response shape matches API contracts.
+   - Confirm standard ErrorDTO appears for errors.
+   - Confirm sensitive fields are not leaked.
+
+5. Only after tests and manual smoke test pass:
+   - update this Build Log
+   - commit changes
+   - confirm clean git status
+
+6. Do not start the next feature while current feature changes are uncommitted.
+
+## Auth Register Manual Test Commands
+Use these after starting the backend.
+
+Start backend:
+```powershell
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+Valid register request:
+```http
+POST http://localhost:8080/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Antara",
+  "email": "antara@example.com",
+  "password": "StrongPass123"
+}
+```
+
+Expected success:
+```json
+{
+  "userId": "uuid",
+  "name": "Antara",
+  "email": "antara@example.com",
+  "rank": "BEGINNER",
+  "xp": 0
+}
+```
+
+Duplicate email expected:
+```text
+HTTP 409 Conflict
+code: EMAIL_ALREADY_EXISTS
+```
+
+Invalid password expected:
+```text
+HTTP 400 Bad Request
+code: VALIDATION_ERROR
+```
+
+Important Auth register boundaries:
+- Response must not contain `passwordHash`.
+- Response must not contain `password_hash`.
+- Response must not contain `role`.
+- Response must not contain JWT/access token yet.
+- Login, JwtService, JWT filter, refresh token, logout, frontend auth, and dashboard are still not implemented.
 
 ## Next Chat Prompt
 Paste this into a fresh ChatGPT Project chat whenever the current chat becomes slow or confusing:
@@ -109,9 +223,13 @@ Read the project resources and this Build Log.
 Continue CodeQuest from the current status.
 Do not redesign anything.
 Do not implement Phase 2 features.
-Tell me the next safest MVP task.
-Give me one strict Codex prompt for that task only.
-Include exact files to touch, files not to touch, commands to run, and what to update in this Build Log after completion.
+Current module: Auth.
+Last completed feature: Auth register.
+Current feature / next feature: Auth login.
+Latest Auth register commit: pending unless I provide the final commit hash.
+Give me one strict Codex prompt for Auth login only.
+Do not implement JWT filter, refresh token, logout, frontend auth, dashboard, or Phase 2 features.
+Include exact files to touch, files not to touch, commands to run, manual API checks, expected output, and Build Log update after completion.
 ```
 
 ## Update Protocol After Every Feature
@@ -119,8 +237,11 @@ Include exact files to touch, files not to touch, commands to run, and what to u
 2. Tick the completed feature only after code compiles and manual testing is done.
 3. Add a Feature History row with files changed, tests, and commit message.
 4. Add bugs to Bugs / Issues immediately. Do not hide failing tests.
-5. Paste the next exact task into Next Chat Prompt before starting a new chat.
-6. If Codex made assumptions, record them in Feature History or Bugs / Issues.
+5. Add manual verification steps and result in Manual Verification Log.
+6. Paste the next exact task into Next Chat Prompt before starting a new chat.
+7. If Codex made assumptions, record them in Feature History or Bugs / Issues.
+8. Commit only after automated tests and manual smoke test pass.
+9. Confirm `git status` is clean after every feature commit.
 
 ## Definition of Done for Each Feature
 - [ ] Feature follows the master blueprint and Core Rules.
@@ -132,9 +253,13 @@ Include exact files to touch, files not to touch, commands to run, and what to u
 - [ ] GlobalExceptionHandler handles new failure cases if required.
 - [ ] Database changes use Flyway migration files.
 - [ ] At least one meaningful automated test exists for backend logic.
+- [ ] Automated tests pass using Maven Wrapper.
+- [ ] Manual/API smoke test passes for the exact feature.
+- [ ] Error case is manually checked where practical.
 - [ ] Manual test steps are documented.
 - [ ] Build Log is updated.
 - [ ] Commit is created with a clear message.
+- [ ] Git status is clean after commit.
 
 ## New Chat Continuation Summary Template
 ```text
@@ -146,10 +271,30 @@ Frontend: React + Vite + Tailwind
 Database: PostgreSQL + Flyway
 AI: Gemini API
 Code execution: Piston API
+
 Current module: Auth
-Last completed feature: Global ErrorDTO + GlobalExceptionHandler
-Tests passed: Backend Maven Wrapper test PASS; frontend build previously PASS during project setup
-Known bugs: None
-Next task: Auth register
-Rules: Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Prompts, Build Log, and AGENTS.md. Do not redesign anything. Do not add Phase 2 features.
+Last completed feature: Auth register
+Current feature / next task: Auth login
+Latest commit: pending - feat: add auth register
+Git status expected after commit: clean
+Tests passed: Backend Maven Wrapper test PASS for Auth register; frontend build not required for backend-only task
+Known bugs: None currently
+
+Important completed Auth register details:
+- POST /api/auth/register implemented.
+- Request fields: name, email, password.
+- Validation: name 2-100 chars, valid email, password at least 8 chars with letter and number.
+- Password hashing uses BCrypt via spring-security-crypto.
+- Duplicate email returns 409 with EMAIL_ALREADY_EXISTS.
+- Response returns userId, name, email, rank, xp.
+- Response does not return passwordHash, password_hash, role, JWT, or refresh token.
+- Login, JwtService, JWT filter, refresh token, logout, frontend auth, protected routes, and dashboard are not implemented yet.
+
+Rules:
+Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Prompts, Build Log, and AGENTS.md.
+Do not redesign anything.
+Do not add Phase 2 features.
+Use Maven Wrapper only:
+cd backend
+.\mvnw.cmd test
 ```

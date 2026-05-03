@@ -6,7 +6,7 @@ spring:
     password: 
   jpa:
     hibernate:
-      ddl-auto: none
+      ddl-auto: create
     open-in-view: false
   flyway:
     enabled: false
