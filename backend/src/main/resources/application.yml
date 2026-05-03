@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: codequest
+server:
+  port: 8080
+logging:
+  level:
+    root: INFO
