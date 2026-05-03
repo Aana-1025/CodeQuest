@@ -1,8 +1,10 @@
 package com.codequest.auth.mapper;
 
+import org.springframework.stereotype.Component;
+
+import com.codequest.auth.dto.LoginResponse;
 import com.codequest.auth.dto.RegisterResponse;
 import com.codequest.user.User;
-import org.springframework.stereotype.Component;
 
 @Component
 public class AuthMapper {
@@ -14,6 +16,17 @@ public class AuthMapper {
                 user.getEmail(),
                 user.getRank(),
                 user.getXp()
+        );
+    }
+
+    public LoginResponse toLoginResponse(User user) {
+        return new LoginResponse(
+                user.getId(),
+                user.getName(),
+                user.getEmail(),
+                user.getRank(),
+                user.getXp(),
+                user.getStreak()
         );
     }
 }

@@ -51,7 +51,7 @@ public class GlobalExceptionHandler {
     private HttpStatus mapErrorCodeToStatus(ErrorCode errorCode) {
         return switch (errorCode) {
             case VALIDATION_ERROR, BAD_REQUEST -> HttpStatus.BAD_REQUEST;
-            case UNAUTHORIZED -> HttpStatus.UNAUTHORIZED;
+            case UNAUTHORIZED, INVALID_CREDENTIALS -> HttpStatus.UNAUTHORIZED;
             case FORBIDDEN -> HttpStatus.FORBIDDEN;
             case NOT_FOUND -> HttpStatus.NOT_FOUND;
             case CONFLICT, EMAIL_ALREADY_EXISTS -> HttpStatus.CONFLICT;

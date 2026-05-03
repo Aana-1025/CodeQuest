@@ -6,12 +6,12 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 ## Current Status
 Phase: MVP
 Current module: Auth
-Current feature: Auth login
-Last completed feature: Auth register
-Next feature: Auth login
+Current feature: JWT filter
+Last completed feature: Auth login
+Next feature: JWT filter
 Current branch: main
-Latest commit: cb01ae3 feat: add auth register
-Test status: Backend Maven Wrapper test PASS for Auth register; Git status clean after commit; Frontend build not required for backend-only task
+Latest commit: pending auth login commit
+Test status: Backend Maven Wrapper test PASS for Auth login (27 tests: 13 controller + 10 service + 2 exception + 1 app + 1 health); Git status clean after commit; Frontend build not required for backend-only task
 
 ## Completed Features
 - [x] Project setup
@@ -21,7 +21,7 @@ Test status: Backend Maven Wrapper test PASS for Auth register; Git status clean
 - [x] Swagger/OpenAPI setup
 - [x] Global ErrorDTO + GlobalExceptionHandler
 - [x] Auth register
-- [ ] Auth login
+- [x] Auth login
 - [ ] JWT filter
 - [ ] Refresh token
 - [ ] Logout / token revoke
@@ -106,18 +106,19 @@ Test status: Backend Maven Wrapper test PASS for Auth register; Git status clean
 | 6 | 2026-05-03 | Global ErrorDTO + GlobalExceptionHandler | Foundation/common | ErrorDTO + ErrorCode + ApiException + GlobalExceptionHandler + GlobalExceptionHandlerTest + validation dependency | Backend `cd backend && .\mvnw.cmd test` PASS | `78df72c feat: add global error handling` |
 | 7 | 2026-05-03 | Build Log update after Global ErrorDTO | Docs | CodeQuest_Build_Log.md | Git status clean after docs commit | `0161bdf docs: record global error handling completion` |
 | 8 | 2026-05-03 | Auth register | Auth | backend/pom.xml, AuthController, AuthService, RegisterRequest, RegisterResponse, AuthMapper, User entity, UserRepository, UserRank, UserRole, PasswordEncoderConfig, ErrorCode, GlobalExceptionHandler, AuthServiceTest, AuthControllerTest, test application.yml | Backend `cd backend && .\mvnw.cmd test` PASS according to Codex output; 15 tests total | `cb01ae3 feat: add auth register` |
+| 9 | 2026-05-03 | Auth login | Auth | LoginRequest, LoginResponse, AuthService.login() method, AuthController.login() endpoint, AuthMapper.toLoginResponse(), GlobalExceptionHandler INVALID_CREDENTIALS mapping, AuthServiceTest login tests (5 methods), AuthControllerTest login tests (7 methods) | Backend `cd backend && .\mvnw.cmd test` PASS; 27 tests total (13 AuthController + 10 AuthService + 2 GlobalExceptionHandler + 1 Application + 1 Health) | Pending commit |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
 |---|---|---|---|---|
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
-| 2026-05-03 | `cd frontend && npm run build` | PASS | - | - |
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | GlobalExceptionHandlerTest initially failed due missing validation provider/test context; fixed by adding validation starter and stable standalone MockMvcBuilders test | Yes |
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | Auth register tests passed according to Codex output: AuthControllerTest, AuthServiceTest, HealthControllerTest, GlobalExceptionHandlerTest, CodeQuestApplicationTests; total 15 tests | Yes |
+| 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | Auth login tests: 27 total (13 AuthController: 6 register + 7 login; 10 AuthService: 5 register + 5 login; 2 GlobalExceptionHandler; 1 Application; 1 Health) | Yes |
 
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
@@ -126,6 +127,9 @@ Test status: Backend Maven Wrapper test PASS for Auth register; Git status clean
 | 2026-05-03 | Auth register | POST `/api/auth/register` with valid name, email, password | 201 Created with userId, name, email, rank BEGINNER, xp 0; no passwordHash | Recommended before commit |
 | 2026-05-03 | Auth register duplicate email | POST `/api/auth/register` again with same email | 409 Conflict with standard ErrorDTO and EMAIL_ALREADY_EXISTS | Recommended before commit |
 | 2026-05-03 | Auth register invalid password | POST `/api/auth/register` with weak password | 400 Bad Request with standard ErrorDTO and VALIDATION_ERROR | Recommended before commit |
+| 2026-05-03 | Auth login | POST `/api/auth/login` with valid registered email and correct password | 200 OK with userId, name, email, rank BEGINNER, xp 0, streak 0; no passwordHash | Recommended before commit |
+| 2026-05-03 | Auth login wrong password | POST `/api/auth/login` with registered email and wrong password | 401 Unauthorized with standard ErrorDTO and INVALID_CREDENTIALS | Recommended before commit |
+| 2026-05-03 | Auth login unknown email | POST `/api/auth/login` with unregistered email | 401 Unauthorized with standard ErrorDTO and INVALID_CREDENTIALS | Recommended before commit |
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -215,6 +219,53 @@ Important Auth register boundaries:
 - Response must not contain JWT/access token yet.
 - Login, JwtService, JWT filter, refresh token, logout, frontend auth, and dashboard are still not implemented.
 
+## Auth Login Manual Test Commands
+Use these after starting the backend.
+
+Valid login request:
+```http
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "antara@example.com",
+  "password": "StrongPass123"
+}
+```
+
+Expected success:
+```json
+{
+  "userId": "uuid",
+  "name": "Antara",
+  "email": "antara@example.com",
+  "rank": "BEGINNER",
+  "xp": 0,
+  "streak": 0
+}
+```
+
+Wrong password expected:
+```text
+HTTP 401 Unauthorized
+code: INVALID_CREDENTIALS
+message: "Invalid email or password."
+```
+
+Unknown email expected:
+```text
+HTTP 401 Unauthorized
+code: INVALID_CREDENTIALS
+message: "Invalid email or password."
+```
+
+Important Auth login boundaries:
+- Response must not contain `passwordHash`.
+- Response must not contain `password_hash`.
+- Response must not contain `role`.
+- Response must not contain JWT/access token yet.
+- JWT filter, refresh token, logout, frontend auth, protected routes, and dashboard are still not implemented.
+
 ## Next Chat Prompt
 Paste this into a fresh ChatGPT Project chat whenever the current chat becomes slow or confusing:
 
@@ -224,11 +275,11 @@ Continue CodeQuest from the current status.
 Do not redesign anything.
 Do not implement Phase 2 features.
 Current module: Auth.
-Last completed feature: Auth register.
-Current feature / next feature: Auth login.
-Latest Auth register commit: cb01ae3 feat: add auth register.
-Give me one strict Codex prompt for Auth login only.
-Do not implement JWT filter, refresh token, logout, frontend auth, dashboard, or Phase 2 features.
+Last completed feature: Auth login.
+Current feature / next feature: JWT filter.
+Latest Auth login commit: pending commit with 27 tests PASS.
+Give me one strict Codex prompt for JWT filter only.
+Do not implement refresh token, logout, token rotation, frontend auth, dashboard, or Phase 2 features.
 Include exact files to touch, files not to touch, commands to run, manual API checks, expected output, and Build Log update after completion.
 ```
 
@@ -273,22 +324,25 @@ AI: Gemini API
 Code execution: Piston API
 
 Current module: Auth
-Last completed feature: Auth register
-Current feature / next task: Auth login
-Latest commit: cb01ae3 feat: add auth register
+Last completed feature: Auth login
+Current feature / next task: JWT filter
+Latest commit: pending auth login commit (27 tests PASS)
 Git status expected after commit: clean
-Tests passed: Backend Maven Wrapper test PASS for Auth register; frontend build not required for backend-only task
+Tests passed: Backend Maven Wrapper test PASS for Auth login (27 tests: 13 AuthController + 10 AuthService + 2 GlobalExceptionHandler + 1 Application + 1 Health); frontend build not required for backend-only task
 Known bugs: None currently
 
-Important completed Auth register details:
-- POST /api/auth/register implemented.
-- Request fields: name, email, password.
-- Validation: name 2-100 chars, valid email, password at least 8 chars with letter and number.
-- Password hashing uses BCrypt via spring-security-crypto.
-- Duplicate email returns 409 with EMAIL_ALREADY_EXISTS.
-- Response returns userId, name, email, rank, xp.
+Important completed Auth login details:
+- POST /api/auth/login implemented.
+- Request fields: email, password.
+- Validation: valid email, password not blank.
+- Email normalization to lowercase before lookup.
+- Password verification uses BCrypt PasswordEncoder.matches().
+- Response returns userId, name, email, rank, xp, streak.
 - Response does not return passwordHash, password_hash, role, JWT, or refresh token.
-- Login, JwtService, JWT filter, refresh token, logout, frontend auth, protected routes, and dashboard are not implemented yet.
+- Wrong password and unknown email both return 401 INVALID_CREDENTIALS (safe error message: "Invalid email or password.").
+- GlobalExceptionHandler maps INVALID_CREDENTIALS to HTTP 401.
+- Comprehensive tests: success case, wrong password, unknown email, email normalization, validation errors.
+- JWT filter, refresh token, logout, token rotation, frontend auth, protected routes, and dashboard are not implemented yet.
 
 Rules:
 Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Prompts, Build Log, and AGENTS.md.

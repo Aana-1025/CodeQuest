@@ -1,10 +1,10 @@
 package com.codequest.auth;
 
-import com.codequest.auth.dto.RegisterRequest;
-import com.codequest.common.exception.ApiException;
-import com.codequest.common.exception.ErrorCode;
-import com.codequest.user.User;
-import com.codequest.user.UserRepository;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
@@ -13,7 +13,12 @@ import org.springframework.context.annotation.Import;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
-import static org.junit.jupiter.api.Assertions.*;
+import com.codequest.auth.dto.LoginRequest;
+import com.codequest.auth.dto.RegisterRequest;
+import com.codequest.common.exception.ApiException;
+import com.codequest.common.exception.ErrorCode;
+import com.codequest.user.User;
+import com.codequest.user.UserRepository;
 
 @DataJpaTest
 @ActiveProfiles("test")
@@ -114,5 +119,102 @@ class AuthServiceTest {
 
         assertEquals("Trimmed Name", user.getName());
         assertEquals("trimmed@example.com", user.getEmail());
+    }
+
+    @Test
+    void shouldLoginUserSuccessfully() {
+        RegisterRequest registerRequest = new RegisterRequest(
+                "Login Test",
+                "login@example.com",
+                "MyPassword123"
+        );
+        authService.register(registerRequest);
+
+        LoginRequest loginRequest = new LoginRequest(
+                "login@example.com",
+                "MyPassword123"
+        );
+
+        User user = authService.login(loginRequest);
+
+        assertNotNull(user.getId());
+        assertEquals("login@example.com", user.getEmail());
+        assertEquals("Login Test", user.getName());
+    }
+
+    @Test
+    void shouldLoginWithNormalizedEmail() {
+        RegisterRequest registerRequest = new RegisterRequest(
+                "Email Test",
+                "email@example.com",
+                "TestPass123"
+        );
+        authService.register(registerRequest);
+
+        LoginRequest loginRequest = new LoginRequest(
+                "EMAIL@EXAMPLE.COM",
+                "TestPass123"
+        );
+
+        User user = authService.login(loginRequest);
+
+        assertEquals("email@example.com", user.getEmail());
+    }
+
+    @Test
+    void shouldThrowExceptionForWrongPassword() {
+        RegisterRequest registerRequest = new RegisterRequest(
+                "Wrong Pass Test",
+                "wrong@example.com",
+                "CorrectPass123"
+        );
+        authService.register(registerRequest);
+
+        LoginRequest loginRequest = new LoginRequest(
+                "wrong@example.com",
+                "WrongPass123"
+        );
+
+        ApiException exception = assertThrows(ApiException.class, () ->
+                authService.login(loginRequest)
+        );
+
+        assertEquals(ErrorCode.INVALID_CREDENTIALS, exception.getErrorCode());
+        assertEquals("Invalid email or password.", exception.getMessage());
+    }
+
+    @Test
+    void shouldThrowExceptionForUnknownEmail() {
+        LoginRequest loginRequest = new LoginRequest(
+                "unknown@example.com",
+                "SomePass123"
+        );
+
+        ApiException exception = assertThrows(ApiException.class, () ->
+                authService.login(loginRequest)
+        );
+
+        assertEquals(ErrorCode.INVALID_CREDENTIALS, exception.getErrorCode());
+        assertEquals("Invalid email or password.", exception.getMessage());
+    }
+
+    @Test
+    void shouldNotExposePasswordHashInLoginResponse() {
+        RegisterRequest registerRequest = new RegisterRequest(
+                "Privacy Test",
+                "privacy@example.com",
+                "PrivatePass123"
+        );
+        authService.register(registerRequest);
+
+        LoginRequest loginRequest = new LoginRequest(
+                "privacy@example.com",
+                "PrivatePass123"
+        );
+
+        User user = authService.login(loginRequest);
+
+        assertNotNull(user.getPasswordHash());
+        assertTrue(user.getPasswordHash().length() > 0);
     }
 }
