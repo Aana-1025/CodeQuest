@@ -5,12 +5,12 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Foundation
-Current feature: Global ErrorDTO + GlobalExceptionHandler
-Last completed feature: Swagger/OpenAPI setup
-Next feature: Global ErrorDTO + GlobalExceptionHandler
+Current module: Auth
+Current feature: Auth register
+Last completed feature: Global ErrorDTO + GlobalExceptionHandler
+Next feature: Auth register
 Current branch: main
-Latest commit: 54d1708 feat: add Swagger OpenAPI setup
+Latest commit: 78df72c feat: add global error handling
 Test status: Backend Maven Wrapper test PASS, Frontend build not required for backend-only task
 
 ## Completed Features
@@ -19,7 +19,7 @@ Test status: Backend Maven Wrapper test PASS, Frontend build not required for ba
 - [x] Database connection
 - [x] Flyway migrations
 - [x] Swagger/OpenAPI setup
-- [ ] Global ErrorDTO + GlobalExceptionHandler
+- [x] Global ErrorDTO + GlobalExceptionHandler
 - [ ] Auth register
 - [ ] Auth login
 - [ ] JWT filter
@@ -65,9 +65,10 @@ Test status: Backend Maven Wrapper test PASS, Frontend build not required for ba
 - Deployment target: Vercel frontend, Render backend, Neon PostgreSQL, GitHub Actions CI.
 - MVP first, no Phase 2 features yet.
 - Source-of-truth priority: CodeQuest_AI_Control_Master_Blueprint_v3, CodeQuest_Core_Rules, CodeQuest_DB_Schema, CodeQuest_API_Contracts, CodeQuest_Feature_Prompts, CodeQuest_Build_Log, then AGENTS.md.
+- For Codex specifically, use available repo files: AGENTS.md, docs/CodeQuest_Core_Rules.md, docs/CodeQuest_DB_Schema.md, docs/CodeQuest_API_Contracts.md, docs/CodeQuest_Feature_Prompts.md, and CodeQuest_Build_Log.md. The master .docx files live in ChatGPT Project resources and are not stored in the repo.
 
 ## Current Source of Truth Files
-- CodeQuest_AI_Control_Master_Blueprint_v3.docx: full master blueprint.
+- CodeQuest_AI_Control_Master_Blueprint_v3.docx: full master blueprint in ChatGPT Project resources.
 - CodeQuest_Core_Rules.docx / .md: always-paste AI-control rules.
 - CodeQuest_DB_Schema.docx / .md: database rules and schema.
 - CodeQuest_API_Contracts.docx / .md: endpoint contracts and examples.
@@ -76,7 +77,8 @@ Test status: Backend Maven Wrapper test PASS, Frontend build not required for ba
 - AGENTS.md: repo-root AI instructions for Codex.
 
 ## Bugs / Issues
-- None yet.
+- None currently.
+- Note from Global ErrorDTO task: Codex initially looped and produced a broken test. The test was manually corrected to a stable standalone MockMvcBuilders test. Final backend test passed before commit.
 
 ## Feature History
 | # | Date | Feature | Module | Files changed | Tests | Commit/Notes |
@@ -86,6 +88,7 @@ Test status: Backend Maven Wrapper test PASS, Frontend build not required for ba
 | 3 | 2026-05-03 | Database connection | Foundation/database | backend pom/config test profile updates | Backend `cd backend && .\mvnw.cmd test` PASS | `5b5bb4a feat: configure database connection` |
 | 4 | 2026-05-03 | Flyway migrations | Foundation/database | Flyway dependency/config + V1 users table migration | Backend `cd backend && .\mvnw.cmd test` PASS | `6cf8e06 feat: add Flyway users migration` |
 | 5 | 2026-05-03 | Swagger/OpenAPI setup | Foundation/common | springdoc dependency + OpenApiConfig | Backend `cd backend && .\mvnw.cmd test` PASS | `54d1708 feat: add Swagger OpenAPI setup` |
+| 6 | 2026-05-03 | Global ErrorDTO + GlobalExceptionHandler | Foundation/common | ErrorDTO + ErrorCode + ApiException + GlobalExceptionHandler + GlobalExceptionHandlerTest + validation dependency | Backend `cd backend && .\mvnw.cmd test` PASS | `78df72c feat: add global error handling` |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -96,6 +99,7 @@ Test status: Backend Maven Wrapper test PASS, Frontend build not required for ba
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
+| 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | GlobalExceptionHandlerTest initially failed due missing validation provider/test context; fixed by adding validation starter and stable standalone MockMvcBuilders test | Yes |
 
 ## Next Chat Prompt
 Paste this into a fresh ChatGPT Project chat whenever the current chat becomes slow or confusing:
@@ -142,10 +146,10 @@ Frontend: React + Vite + Tailwind
 Database: PostgreSQL + Flyway
 AI: Gemini API
 Code execution: Piston API
-Current module: Foundation
-Last completed feature: Swagger/OpenAPI setup
+Current module: Auth
+Last completed feature: Global ErrorDTO + GlobalExceptionHandler
 Tests passed: Backend Maven Wrapper test PASS; frontend build previously PASS during project setup
 Known bugs: None
-Next task: Global ErrorDTO + GlobalExceptionHandler
+Next task: Auth register
 Rules: Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Prompts, Build Log, and AGENTS.md. Do not redesign anything. Do not add Phase 2 features.
 ```
