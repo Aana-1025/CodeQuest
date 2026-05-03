@@ -10,8 +10,8 @@ Current feature: Auth login
 Last completed feature: Auth register
 Next feature: Auth login
 Current branch: main
-Latest commit: pending - feat: add auth register
-Test status: Backend Maven Wrapper test PASS for Auth register according to Codex output; manual/API smoke test recommended before commit; Frontend build not required for backend-only task
+Latest commit: cb01ae3 feat: add auth register
+Test status: Backend Maven Wrapper test PASS for Auth register; Git status clean after commit; Frontend build not required for backend-only task
 
 ## Completed Features
 - [x] Project setup
@@ -105,7 +105,7 @@ Test status: Backend Maven Wrapper test PASS for Auth register according to Code
 | 5 | 2026-05-03 | Swagger/OpenAPI setup | Foundation/common | springdoc dependency + OpenApiConfig | Backend `cd backend && .\mvnw.cmd test` PASS | `54d1708 feat: add Swagger OpenAPI setup` |
 | 6 | 2026-05-03 | Global ErrorDTO + GlobalExceptionHandler | Foundation/common | ErrorDTO + ErrorCode + ApiException + GlobalExceptionHandler + GlobalExceptionHandlerTest + validation dependency | Backend `cd backend && .\mvnw.cmd test` PASS | `78df72c feat: add global error handling` |
 | 7 | 2026-05-03 | Build Log update after Global ErrorDTO | Docs | CodeQuest_Build_Log.md | Git status clean after docs commit | `0161bdf docs: record global error handling completion` |
-| 8 | 2026-05-03 | Auth register | Auth | backend/pom.xml, AuthController, AuthService, RegisterRequest, RegisterResponse, AuthMapper, User entity, UserRepository, UserRank, UserRole, PasswordEncoderConfig, ErrorCode, GlobalExceptionHandler, AuthServiceTest, AuthControllerTest, test application.yml | Backend `cd backend && .\mvnw.cmd test` PASS according to Codex output; 15 tests total | Commit pending: `feat: add auth register` |
+| 8 | 2026-05-03 | Auth register | Auth | backend/pom.xml, AuthController, AuthService, RegisterRequest, RegisterResponse, AuthMapper, User entity, UserRepository, UserRank, UserRole, PasswordEncoderConfig, ErrorCode, GlobalExceptionHandler, AuthServiceTest, AuthControllerTest, test application.yml | Backend `cd backend && .\mvnw.cmd test` PASS according to Codex output; 15 tests total | `cb01ae3 feat: add auth register` |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -226,7 +226,7 @@ Do not implement Phase 2 features.
 Current module: Auth.
 Last completed feature: Auth register.
 Current feature / next feature: Auth login.
-Latest Auth register commit: pending unless I provide the final commit hash.
+Latest Auth register commit: cb01ae3 feat: add auth register.
 Give me one strict Codex prompt for Auth login only.
 Do not implement JWT filter, refresh token, logout, frontend auth, dashboard, or Phase 2 features.
 Include exact files to touch, files not to touch, commands to run, manual API checks, expected output, and Build Log update after completion.
@@ -275,7 +275,7 @@ Code execution: Piston API
 Current module: Auth
 Last completed feature: Auth register
 Current feature / next task: Auth login
-Latest commit: pending - feat: add auth register
+Latest commit: cb01ae3 feat: add auth register
 Git status expected after commit: clean
 Tests passed: Backend Maven Wrapper test PASS for Auth register; frontend build not required for backend-only task
 Known bugs: None currently
