@@ -6,9 +6,9 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 ## Current Status
 Phase: MVP
 Current module: Foundation
-Current feature: Database connection
-Last completed feature: Backend health endpoint
-Next feature: Database connection
+Current feature: Flyway migrations
+Last completed feature: Database connection
+Next feature: Flyway migrations
 Current branch: main
 Latest commit: 751dc6d feat: add backend health endpoint
 Test status: Backend Maven Wrapper test PASS, Frontend build not required for backend-only task
@@ -16,7 +16,7 @@ Test status: Backend Maven Wrapper test PASS, Frontend build not required for ba
 ## Completed Features
 - [x] Project setup
 - [x] Backend health endpoint
-- [ ] Database connection
+- [x] Database connection
 - [ ] Flyway migrations
 - [ ] Swagger/OpenAPI setup
 - [ ] Global ErrorDTO + GlobalExceptionHandler
@@ -83,6 +83,7 @@ Test status: Backend Maven Wrapper test PASS, Frontend build not required for ba
 |---|---|---|---|---|---|---|
 | 1 | 2026-05-03 | Project setup | Foundation | Root skeleton, backend Spring Boot skeleton, frontend Vite React Tailwind skeleton, docs cleanup, Maven Wrapper | Backend `cd backend && .\mvnw.cmd test` PASS; Frontend `cd frontend && npm run build` PASS | `30c371d chore: initialize CodeQuest project skeleton` |
 | 2 | 2026-05-03 | Backend health endpoint | Foundation/common | HealthController, HealthControllerTest, spring-boot-starter-web dependency | Backend `cd backend && .\mvnw.cmd test` PASS | `751dc6d feat: add backend health endpoint` |
+| 3 | 2026-05-03 | Database connection | Foundation/database | backend pom/config test profile updates | Backend `cd backend && .\mvnw.cmd test` PASS | commit pending |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |

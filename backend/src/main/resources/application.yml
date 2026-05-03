@@ -1,6 +1,15 @@
 spring:
   application:
-    name: codequest
+    name: codequest-backend
+  datasource:
+    url: ${DATABASE_URL:}
+    username: ${DATABASE_USERNAME:}
+    password: ${DATABASE_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
 server:
   port: 8080
 logging:
