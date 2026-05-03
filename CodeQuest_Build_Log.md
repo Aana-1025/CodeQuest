@@ -10,7 +10,7 @@ Current feature: Database connection
 Last completed feature: Backend health endpoint
 Next feature: Database connection
 Current branch: main
-Latest commit: 1df68a0 docs: update build log after project setup
+Latest commit: 751dc6d feat: add backend health endpoint
 Test status: Backend Maven Wrapper test PASS, Frontend build not required for backend-only task
 
 ## Completed Features
@@ -82,7 +82,7 @@ Test status: Backend Maven Wrapper test PASS, Frontend build not required for ba
 | # | Date | Feature | Module | Files changed | Tests | Commit/Notes |
 |---|---|---|---|---|---|---|
 | 1 | 2026-05-03 | Project setup | Foundation | Root skeleton, backend Spring Boot skeleton, frontend Vite React Tailwind skeleton, docs cleanup, Maven Wrapper | Backend `cd backend && .\mvnw.cmd test` PASS; Frontend `cd frontend && npm run build` PASS | `30c371d chore: initialize CodeQuest project skeleton` |
-| 2 | 2026-05-03 | Backend health endpoint | Foundation/common | HealthController, HealthControllerTest, spring-boot-starter-web dependency | Backend `cd backend && .\mvnw.cmd test` PASS | commit pending |
+| 2 | 2026-05-03 | Backend health endpoint | Foundation/common | HealthController, HealthControllerTest, spring-boot-starter-web dependency | Backend `cd backend && .\mvnw.cmd test` PASS | `751dc6d feat: add backend health endpoint` |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
