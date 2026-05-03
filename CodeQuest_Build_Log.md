@@ -6,9 +6,9 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 ## Current Status
 Phase: MVP
 Current module: Foundation
-Current feature: Swagger/OpenAPI setup
-Last completed feature: Flyway migrations
-Next feature: Swagger/OpenAPI setup
+Current feature: Global ErrorDTO + GlobalExceptionHandler
+Last completed feature: Swagger/OpenAPI setup
+Next feature: Global ErrorDTO + GlobalExceptionHandler
 Current branch: main
 Latest commit: 6cf8e06 feat: add Flyway users migration
 Test status: Backend Maven Wrapper test PASS, Frontend build not required for backend-only task
@@ -18,7 +18,7 @@ Test status: Backend Maven Wrapper test PASS, Frontend build not required for ba
 - [x] Backend health endpoint
 - [x] Database connection
 - [x] Flyway migrations
-- [ ] Swagger/OpenAPI setup
+- [x] Swagger/OpenAPI setup
 - [ ] Global ErrorDTO + GlobalExceptionHandler
 - [ ] Auth register
 - [ ] Auth login
@@ -85,12 +85,14 @@ Test status: Backend Maven Wrapper test PASS, Frontend build not required for ba
 | 2 | 2026-05-03 | Backend health endpoint | Foundation/common | HealthController, HealthControllerTest, spring-boot-starter-web dependency | Backend `cd backend && .\mvnw.cmd test` PASS | `751dc6d feat: add backend health endpoint` |
 | 3 | 2026-05-03 | Database connection | Foundation/database | backend pom/config test profile updates | Backend `cd backend && .\mvnw.cmd test` PASS | `5b5bb4a feat: configure database connection` |
 | 4 | 2026-05-03 | Flyway migrations | Foundation/database | Flyway dependency/config + V1 users table migration | Backend `cd backend && .\mvnw.cmd test` PASS | `6cf8e06 feat: add Flyway users migration` |
+| 5 | 2026-05-03 | Swagger/OpenAPI setup | Foundation/common | springdoc dependency + OpenApiConfig | Backend `cd backend && .\mvnw.cmd test` PASS | commit pending |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
 |---|---|---|---|---|
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
 | 2026-05-03 | `cd frontend && npm run build` | PASS | - | - |
+| 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
