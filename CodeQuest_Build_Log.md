@@ -10,8 +10,8 @@ Current feature: JWT filter
 Last completed feature: Auth login
 Next feature: JWT filter
 Current branch: main
-Latest commit: pending auth login commit
-Test status: Backend Maven Wrapper test PASS for Auth login (27 tests: 13 controller + 10 service + 2 exception + 1 app + 1 health); Git status clean after commit; Frontend build not required for backend-only task
+Latest commit: a1b500d feat: add auth login
+Test status: Backend Maven Wrapper test PASS for Auth login (27 tests: 13 controller + 10 service + 2 exception + 1 app + 1 health); Git status clean after commit and push; Frontend build not required for backend-only task
 
 ## Completed Features
 - [x] Project setup
@@ -106,7 +106,7 @@ Test status: Backend Maven Wrapper test PASS for Auth login (27 tests: 13 contro
 | 6 | 2026-05-03 | Global ErrorDTO + GlobalExceptionHandler | Foundation/common | ErrorDTO + ErrorCode + ApiException + GlobalExceptionHandler + GlobalExceptionHandlerTest + validation dependency | Backend `cd backend && .\mvnw.cmd test` PASS | `78df72c feat: add global error handling` |
 | 7 | 2026-05-03 | Build Log update after Global ErrorDTO | Docs | CodeQuest_Build_Log.md | Git status clean after docs commit | `0161bdf docs: record global error handling completion` |
 | 8 | 2026-05-03 | Auth register | Auth | backend/pom.xml, AuthController, AuthService, RegisterRequest, RegisterResponse, AuthMapper, User entity, UserRepository, UserRank, UserRole, PasswordEncoderConfig, ErrorCode, GlobalExceptionHandler, AuthServiceTest, AuthControllerTest, test application.yml | Backend `cd backend && .\mvnw.cmd test` PASS according to Codex output; 15 tests total | `cb01ae3 feat: add auth register` |
-| 9 | 2026-05-03 | Auth login | Auth | LoginRequest, LoginResponse, AuthService.login() method, AuthController.login() endpoint, AuthMapper.toLoginResponse(), GlobalExceptionHandler INVALID_CREDENTIALS mapping, AuthServiceTest login tests (5 methods), AuthControllerTest login tests (7 methods) | Backend `cd backend && .\mvnw.cmd test` PASS; 27 tests total (13 AuthController + 10 AuthService + 2 GlobalExceptionHandler + 1 Application + 1 Health) | Pending commit |
+| 9 | 2026-05-03 | Auth login | Auth | LoginRequest, LoginResponse, AuthService.login() method, AuthController.login() endpoint, AuthMapper.toLoginResponse(), GlobalExceptionHandler INVALID_CREDENTIALS mapping, AuthServiceTest login tests (5 methods), AuthControllerTest login tests (7 methods) | Backend `cd backend && .\mvnw.cmd test` PASS; 27 tests total (13 AuthController + 10 AuthService + 2 GlobalExceptionHandler + 1 Application + 1 Health) | `a1b500d feat: add auth login` |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -277,7 +277,7 @@ Do not implement Phase 2 features.
 Current module: Auth.
 Last completed feature: Auth login.
 Current feature / next feature: JWT filter.
-Latest Auth login commit: pending commit with 27 tests PASS.
+Latest Auth login commit: a1b500d feat: add auth login.
 Give me one strict Codex prompt for JWT filter only.
 Do not implement refresh token, logout, token rotation, frontend auth, dashboard, or Phase 2 features.
 Include exact files to touch, files not to touch, commands to run, manual API checks, expected output, and Build Log update after completion.
@@ -326,7 +326,7 @@ Code execution: Piston API
 Current module: Auth
 Last completed feature: Auth login
 Current feature / next task: JWT filter
-Latest commit: pending auth login commit (27 tests PASS)
+Latest commit: a1b500d feat: add auth login
 Git status expected after commit: clean
 Tests passed: Backend Maven Wrapper test PASS for Auth login (27 tests: 13 AuthController + 10 AuthService + 2 GlobalExceptionHandler + 1 Application + 1 Health); frontend build not required for backend-only task
 Known bugs: None currently
