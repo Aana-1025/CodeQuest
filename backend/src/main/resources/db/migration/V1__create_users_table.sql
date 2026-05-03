@@ -1,0 +1,19 @@
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    xp INTEGER NOT NULL DEFAULT 0,
+    rank VARCHAR(50) NOT NULL DEFAULT 'BEGINNER',
+    streak INTEGER NOT NULL DEFAULT 0,
+    last_login TIMESTAMP,
+    avatar_url VARCHAR(500),
+    goal VARCHAR(100),
+    role VARCHAR(30) NOT NULL DEFAULT 'STUDENT',
+    created_at TIMESTAMP NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_xp_desc ON users (xp DESC);
