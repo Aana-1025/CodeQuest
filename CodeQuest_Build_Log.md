@@ -10,7 +10,7 @@ Current feature: Flyway migrations
 Last completed feature: Database connection
 Next feature: Flyway migrations
 Current branch: main
-Latest commit: 751dc6d feat: add backend health endpoint
+Latest commit: 5b5bb4a feat: configure database connection
 Test status: Backend Maven Wrapper test PASS, Frontend build not required for backend-only task
 
 ## Completed Features
@@ -83,7 +83,7 @@ Test status: Backend Maven Wrapper test PASS, Frontend build not required for ba
 |---|---|---|---|---|---|---|
 | 1 | 2026-05-03 | Project setup | Foundation | Root skeleton, backend Spring Boot skeleton, frontend Vite React Tailwind skeleton, docs cleanup, Maven Wrapper | Backend `cd backend && .\mvnw.cmd test` PASS; Frontend `cd frontend && npm run build` PASS | `30c371d chore: initialize CodeQuest project skeleton` |
 | 2 | 2026-05-03 | Backend health endpoint | Foundation/common | HealthController, HealthControllerTest, spring-boot-starter-web dependency | Backend `cd backend && .\mvnw.cmd test` PASS | `751dc6d feat: add backend health endpoint` |
-| 3 | 2026-05-03 | Database connection | Foundation/database | backend pom/config test profile updates | Backend `cd backend && .\mvnw.cmd test` PASS | commit pending |
+| 3 | 2026-05-03 | Database connection | Foundation/database | backend pom/config test profile updates | backend `.\mvnw.cmd test` PASS | `5b5bb4a feat: configure database connection` |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -138,9 +138,9 @@ Database: PostgreSQL + Flyway
 AI: Gemini API
 Code execution: Piston API
 Current module: Foundation
-Last completed feature: Backend health endpoint
+Last completed feature: Database connection
 Tests passed: Backend Maven Wrapper test PASS; frontend build previously PASS during project setup
 Known bugs: None
-Next task: Database connection
+Next task: Flyway migrations
 Rules: Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Prompts, Build Log, and AGENTS.md. Do not redesign anything. Do not add Phase 2 features.
 ```
