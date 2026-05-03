@@ -6,18 +6,18 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 ## Current Status
 Phase: MVP
 Current module: Foundation
-Current feature: Flyway migrations
-Last completed feature: Database connection
-Next feature: Flyway migrations
+Current feature: Swagger/OpenAPI setup
+Last completed feature: Flyway migrations
+Next feature: Swagger/OpenAPI setup
 Current branch: main
-Latest commit: 5b5bb4a feat: configure database connection
+Latest commit: 6cf8e06 feat: add Flyway users migration
 Test status: Backend Maven Wrapper test PASS, Frontend build not required for backend-only task
 
 ## Completed Features
 - [x] Project setup
 - [x] Backend health endpoint
 - [x] Database connection
-- [ ] Flyway migrations
+- [x] Flyway migrations
 - [ ] Swagger/OpenAPI setup
 - [ ] Global ErrorDTO + GlobalExceptionHandler
 - [ ] Auth register
@@ -83,13 +83,16 @@ Test status: Backend Maven Wrapper test PASS, Frontend build not required for ba
 |---|---|---|---|---|---|---|
 | 1 | 2026-05-03 | Project setup | Foundation | Root skeleton, backend Spring Boot skeleton, frontend Vite React Tailwind skeleton, docs cleanup, Maven Wrapper | Backend `cd backend && .\mvnw.cmd test` PASS; Frontend `cd frontend && npm run build` PASS | `30c371d chore: initialize CodeQuest project skeleton` |
 | 2 | 2026-05-03 | Backend health endpoint | Foundation/common | HealthController, HealthControllerTest, spring-boot-starter-web dependency | Backend `cd backend && .\mvnw.cmd test` PASS | `751dc6d feat: add backend health endpoint` |
-| 3 | 2026-05-03 | Database connection | Foundation/database | backend pom/config test profile updates | backend `.\mvnw.cmd test` PASS | `5b5bb4a feat: configure database connection` |
+| 3 | 2026-05-03 | Database connection | Foundation/database | backend pom/config test profile updates | Backend `cd backend && .\mvnw.cmd test` PASS | `5b5bb4a feat: configure database connection` |
+| 4 | 2026-05-03 | Flyway migrations | Foundation/database | Flyway dependency/config + V1 users table migration | Backend `cd backend && .\mvnw.cmd test` PASS | `6cf8e06 feat: add Flyway users migration` |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
 |---|---|---|---|---|
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
 | 2026-05-03 | `cd frontend && npm run build` | PASS | - | - |
+| 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
+| 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
 
 ## Next Chat Prompt
@@ -138,9 +141,9 @@ Database: PostgreSQL + Flyway
 AI: Gemini API
 Code execution: Piston API
 Current module: Foundation
-Last completed feature: Database connection
+Last completed feature: Flyway migrations
 Tests passed: Backend Maven Wrapper test PASS; frontend build previously PASS during project setup
 Known bugs: None
-Next task: Flyway migrations
+Next task: Swagger/OpenAPI setup
 Rules: Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Prompts, Build Log, and AGENTS.md. Do not redesign anything. Do not add Phase 2 features.
 ```
