@@ -6,13 +6,53 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 ## Current Status
 Phase: MVP
 Current module: Foundation
-Current feature: Project setup
+Current feature: Backend health endpoint
 Last completed feature: Project setup
 Next feature: Backend health endpoint
+Current branch: main
+Latest commit: 30c371d chore: initialize CodeQuest project skeleton
 Test status: Backend Maven Wrapper test PASS, Frontend build PASS
 
 ## Completed Features
 - [x] Project setup
+- [ ] Backend health endpoint
+- [ ] Database connection
+- [ ] Flyway migrations
+- [ ] Swagger/OpenAPI setup
+- [ ] Global ErrorDTO + GlobalExceptionHandler
+- [ ] Auth register
+- [ ] Auth login
+- [ ] JWT filter
+- [ ] Refresh token
+- [ ] Logout / token revoke
+- [ ] User profile
+- [ ] Frontend auth pages
+- [ ] Protected routes
+- [ ] Dashboard shell
+- [ ] Course generation
+- [ ] GeminiService + PromptBuilder
+- [ ] ResponseParser + AI validation
+- [ ] Course map
+- [ ] Level unlock logic
+- [ ] Lesson page
+- [ ] Flashcards
+- [ ] Notes
+- [ ] Quiz submit
+- [ ] Weak concept detection
+- [ ] XP/rank system
+- [ ] Streak system
+- [ ] Piston run code
+- [ ] Code submit
+- [ ] Code submissions history
+- [ ] AI code review
+- [ ] Leaderboard
+- [ ] Docker
+- [ ] CI/CD
+- [ ] Deployment
+- [ ] README
+- [ ] Screenshots
+- [ ] Demo video
+- [ ] Resume bullets updated
 
 ## Important Decisions
 - Architecture: modular monolith.
@@ -24,7 +64,7 @@ Test status: Backend Maven Wrapper test PASS, Frontend build PASS
 - AI: Gemini API through GeminiService only.
 - Deployment target: Vercel frontend, Render backend, Neon PostgreSQL, GitHub Actions CI.
 - MVP first, no Phase 2 features yet.
-- AGENTS.md and the CodeQuest resource docs are the source of truth for Codex.
+- Source-of-truth priority: CodeQuest_AI_Control_Master_Blueprint_v3, CodeQuest_Core_Rules, CodeQuest_DB_Schema, CodeQuest_API_Contracts, CodeQuest_Feature_Prompts, CodeQuest_Build_Log, then AGENTS.md.
 
 ## Current Source of Truth Files
 - CodeQuest_AI_Control_Master_Blueprint_v3.docx: full master blueprint.
@@ -32,18 +72,22 @@ Test status: Backend Maven Wrapper test PASS, Frontend build PASS
 - CodeQuest_DB_Schema.docx / .md: database rules and schema.
 - CodeQuest_API_Contracts.docx / .md: endpoint contracts and examples.
 - CodeQuest_Feature_Prompts.docx / .md: prompt bank for Codex tasks.
-- AGENTS.md: repo-root AI instructions for Codex.
 - CodeQuest_Build_Log.docx / .md: current progress and next task memory.
+- AGENTS.md: repo-root AI instructions for Codex.
 
 ## Bugs / Issues
 - None yet.
 
 ## Feature History
-1 | 2026-05-03 | Project setup | Foundation | backend/frontend skeleton, Maven Wrapper, docs cleanup | Backend PASS, Frontend PASS | pending commit
+| # | Date | Feature | Module | Files changed | Tests | Commit/Notes |
+|---|---|---|---|---|---|---|
+| 1 | 2026-05-03 | Project setup | Foundation | Root skeleton, backend Spring Boot skeleton, frontend Vite React Tailwind skeleton, docs cleanup, Maven Wrapper | Backend `cd backend && .\mvnw.cmd test` PASS; Frontend `cd frontend && npm run build` PASS | `30c371d chore: initialize CodeQuest project skeleton` |
 
 ## Test Results Log
-2026-05-03 | cd backend && .\mvnw.cmd test | PASS | - | -
-2026-05-03 | cd frontend && npm run build | PASS | - | -
+| Date | Command | Result | Failure summary | Fixed? |
+|---|---|---|---|---|
+| 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
+| 2026-05-03 | `cd frontend && npm run build` | PASS | - | - |
 
 ## Next Chat Prompt
 Paste this into a fresh ChatGPT Project chat whenever the current chat becomes slow or confusing:
@@ -90,10 +134,10 @@ Frontend: React + Vite + Tailwind
 Database: PostgreSQL + Flyway
 AI: Gemini API
 Code execution: Piston API
-Current module: [UPDATE]
-Last completed feature: [UPDATE]
-Tests passed: [UPDATE]
-Known bugs: [UPDATE]
-Next task: [UPDATE]
-Rules: Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Prompts, and AGENTS.md. Do not redesign anything. Do not add Phase 2 features.
+Current module: Foundation
+Last completed feature: Project setup
+Tests passed: Backend Maven Wrapper test PASS, Frontend build PASS
+Known bugs: None
+Next task: Backend health endpoint
+Rules: Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Prompts, Build Log, and AGENTS.md. Do not redesign anything. Do not add Phase 2 features.
 ```
