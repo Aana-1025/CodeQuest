@@ -6,13 +6,13 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 ## Current Status
 Phase: MVP
 Current module: Auth
-Current feature: Logout / token revoke completed; awaiting commit
+Current feature: Logout / token revoke completed, committed, and pushed
 Last completed feature: Logout / token revoke
-Next feature: User profile / next MVP auth-adjacent task, but do not start until logout changes are committed and git status is clean
+Next feature: User profile / next MVP auth-adjacent task, but do not start until git status is clean and next feature scope is confirmed
 Current branch: main
-Latest commit: 26fc7c5 feat: add refresh token
-Pending commit: feat: add auth logout
+Latest commit: feat: add auth logout
 Test status: Backend Maven Wrapper clean test PASS for Logout / token revoke (39 tests); frontend build not required for backend-only task
+Git status: clean after logout commit and push
 
 ## Completed Features
 - [x] Project setup
@@ -134,7 +134,7 @@ Test status: Backend Maven Wrapper clean test PASS for Logout / token revoke (39
 | 9 | 2026-05-03 | Auth login | Auth | LoginRequest, LoginResponse, AuthService.login() method, AuthController.login() endpoint, AuthMapper.toLoginResponse(), GlobalExceptionHandler INVALID_CREDENTIALS mapping, AuthServiceTest login tests (5 methods), AuthControllerTest login tests (7 methods) | Backend `cd backend && .\mvnw.cmd test` PASS; 27 tests total (13 AuthController + 10 AuthService + 2 GlobalExceptionHandler + 1 Application + 1 Health) | `a1b500d feat: add auth login` |
 | 10 | 2026-05-04 | JWT authentication | Auth/security | backend/pom.xml, application.yml, test application.yml, LoginResponse, AuthService, AuthController, AuthMapper, JwtService, CurrentUserPrincipal, JwtAuthenticationFilter, RestAuthenticationEntryPoint, SecurityConfig, AuthServiceTest, AuthControllerTest, HealthControllerTest, JwtServiceTest, SecurityConfigTest | Backend `cd backend && .\mvnw.cmd test` PASS; 33 tests total | `89564e7 feat: add jwt authentication` |
 | 11 | 2026-05-04 | Refresh token | Auth | V2 refresh_tokens Flyway migration, RefreshToken entity, RefreshTokenRepository, RefreshTokenService, RefreshTokenRequest, RefreshTokenResponse, LoginResponse refreshToken field, AuthService refresh flow, AuthController refresh endpoint, AuthMapper update, ErrorCode INVALID_REFRESH_TOKEN, GlobalExceptionHandler mapping, SecurityConfig public refresh endpoint, application.yml refresh-token config, AuthServiceTest, AuthControllerTest, JwtService jti fix | Backend `cd backend && .\mvnw.cmd test` PASS; 37 tests total | `26fc7c5 feat: add refresh token` |
-| 12 | 2026-05-04 | Logout / token revoke | Auth | AuthController logout endpoint, AuthService.logout(), RefreshTokenService.revokeRefreshToken(), AuthMapper.toLogoutResponse(), LogoutRequest, LogoutResponse, AuthServiceTest logout tests | Backend `cd backend && .\mvnw.cmd clean test` PASS; 39 tests total | Pending commit: `feat: add auth logout`. Stale `target/` build output initially caused `GlobalExceptionHandler$1` class error; fixed by clean test. |
+| 12 | 2026-05-04 | Logout / token revoke | Auth | AuthController logout endpoint, AuthService.logout(), RefreshTokenService.revokeRefreshToken(), AuthMapper.toLogoutResponse(), LogoutRequest, LogoutResponse, AuthServiceTest logout tests | Backend `cd backend && .\mvnw.cmd clean test` PASS; 39 tests total | `feat: add auth logout`. Stale `target/` build output initially caused `GlobalExceptionHandler$1` class error; fixed by clean test. Commit pushed; git status clean. |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -172,9 +172,9 @@ Test status: Backend Maven Wrapper clean test PASS for Logout / token revoke (39
 | 2026-05-04 | Refresh token endpoint | POST `/api/auth/refresh` with valid refreshToken | 200 OK with new accessToken, tokenType Bearer, expiresInSeconds | Automated tests passed; manual API smoke test recommended |
 | 2026-05-04 | Invalid refresh token | POST `/api/auth/refresh` with invalid refreshToken | 401 Unauthorized with standard ErrorDTO and INVALID_REFRESH_TOKEN | Automated tests passed; manual API smoke test recommended |
 | 2026-05-04 | Missing refresh token | POST `/api/auth/refresh` with blank/missing refreshToken | 400 Bad Request with standard ErrorDTO and VALIDATION_ERROR | Automated tests passed; manual API smoke test recommended |
-| 2026-05-04 | Logout / token revoke | POST `/api/auth/logout` with valid refreshToken from login | 200 OK with safe success message; refresh token row has `revokedAt` set | Automated service tests passed; manual API smoke test recommended before commit |
-| 2026-05-04 | Refresh after logout | POST `/api/auth/refresh` using same refreshToken after logout | 401 Unauthorized with standard ErrorDTO and INVALID_REFRESH_TOKEN | Automated service tests passed; manual API smoke test recommended before commit |
-| 2026-05-04 | Logout safety | Inspect logout response | Response must not include tokenHash, raw token, passwordHash, password_hash, role, or internal user data | Automated service tests passed; manual API smoke test recommended before commit |
+| 2026-05-04 | Logout / token revoke | POST `/api/auth/logout` with valid refreshToken from login | 200 OK with safe success message; refresh token row has `revokedAt` set | Automated service tests passed; manual API smoke test recommended |
+| 2026-05-04 | Refresh after logout | POST `/api/auth/refresh` using same refreshToken after logout | 401 Unauthorized with standard ErrorDTO and INVALID_REFRESH_TOKEN | Automated service tests passed; manual API smoke test recommended |
+| 2026-05-04 | Logout safety | Inspect logout response | Response must not include tokenHash, raw token, passwordHash, password_hash, role, or internal user data | Automated service tests passed; manual API smoke test recommended |
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -547,9 +547,9 @@ Do not implement Phase 2 features.
 
 Current module: Auth.
 Last completed feature: Logout / token revoke.
-Current feature status: Logout / token revoke implemented, backend clean tests passed, awaiting commit if not already committed.
-Latest committed feature before logout: 26fc7c5 feat: add refresh token.
-Pending/expected logout commit message: feat: add auth logout.
+Current feature status: Logout / token revoke implemented, backend clean tests passed, committed and pushed.
+Latest completed commit: feat: add auth logout.
+Git status: clean after logout commit and push.
 
 Current logout implementation details:
 - POST /api/auth/logout implemented.
@@ -570,11 +570,11 @@ Testing:
 - Result: 39 tests, 0 failures, 0 errors, 0 skipped, BUILD SUCCESS.
 - During testing, stale target output caused GlobalExceptionHandler$1 NoClassDefFoundError. This was fixed by running clean test.
 
-Do not implement frontend auth, dashboard, user profile, protected routes UI, course, AI, leaderboard, Docker, CI/CD, deployment, or Phase 2 features until current logout changes are committed and git status is clean.
+Do not implement frontend auth, dashboard, user profile, protected routes UI, course, AI, leaderboard, Docker, CI/CD, deployment, or Phase 2 features unless that exact MVP feature is explicitly selected.
 
 Give me the next safest step only:
-1. If logout is not committed, help me commit and push it safely.
-2. If logout is already committed and git status is clean, propose one strict Codex prompt for the next MVP feature only.
+1. First confirm git status is clean.
+2. If git status is clean, propose one strict Codex prompt for the next MVP feature only.
 Include exact files to touch, files not to touch, commands to run, manual API checks, expected output, and Build Log update after completion.
 ```
 
@@ -620,11 +620,10 @@ Code execution: Piston API
 
 Current module: Auth
 Last completed feature: Logout / token revoke
-Current feature status: Logout / token revoke implemented and backend clean tests passed; commit may still be pending depending on latest git status
-Next task: Commit logout safely if not committed; otherwise select next MVP feature only
-Latest committed feature before logout: 26fc7c5 feat: add refresh token
-Pending/expected logout commit message: feat: add auth logout
-Git status expected after logout commit: clean
+Current feature status: Logout / token revoke implemented, backend clean tests passed, committed and pushed
+Next task: Select next MVP feature only after confirming git status is clean
+Latest completed commit: feat: add auth logout
+Git status: clean after logout commit and push
 Tests passed: Backend Maven Wrapper clean test PASS for Logout / token revoke (39 tests); frontend build not required for backend-only task
 Known bugs: None currently
 
