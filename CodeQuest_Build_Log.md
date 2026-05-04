@@ -6,13 +6,13 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 ## Current Status
 Phase: MVP
 Current module: User
-Current feature: User profile API contract alignment completed, tests passed, pending commit
-Last completed feature: User profile
-Next feature: Frontend auth pages only, but do not start until git status is clean after API alignment commit
+Current feature: User profile API contract alignment completed, committed, and pushed
+Last completed feature: User profile API contract alignment
+Next feature: Frontend auth pages only
 Current branch: main
-Latest commit: 051f278 docs: record user profile completion; pending commit for API contract alignment
+Latest commit: b9039ad fix: align user profile endpoint contract
 Test status: Backend Maven Wrapper test PASS for User profile API alignment (43 tests); frontend build not required for backend-only task
-Git status: modified files pending commit for user profile API contract alignment
+Git status: clean after API alignment commit and push
 
 ## Completed Features
 - [x] Project setup
@@ -93,9 +93,10 @@ Git status: modified files pending commit for user profile API contract alignmen
 - User profile response must stay safe and must not expose `passwordHash`, `password_hash`, `tokenHash`, `refreshToken`, `role`, or raw password.
 - User profile API contract is now aligned to GET `/api/user/profile`.
 - No PATCH profile endpoint is implemented yet.
-- Frontend must use GET `/api/user/profile` for current user profile after the API alignment commit.
-- Running `.\mvnw.cmd spring-boot:run` without a configured local database fails because the default profile has no datasource URL. This is not caused by the user profile API alignment. Do not fix database runtime configuration inside the API alignment task.
+- Frontend must use GET `/api/user/profile` for current user profile.
+- Running `.\mvnw.cmd spring-boot:run` without a configured local database fails because the default profile has no datasource URL. This is not caused by the user profile API alignment. Do not fix database runtime configuration inside unrelated feature tasks.
 - Local manual API smoke testing with `spring-boot:run` requires a configured PostgreSQL datasource/profile or environment variables. Backend tests can still pass using the test configuration.
+- Next feature must be Frontend auth pages only. Do not combine frontend auth pages with protected routes, dashboard, course, AI, Docker, deployment, or Phase 2 features.
 
 ## Current Source of Truth Files
 - CodeQuest_AI_Control_Master_Blueprint_v3.docx: full master blueprint in ChatGPT Project resources.
@@ -136,7 +137,8 @@ Git status: modified files pending commit for user profile API contract alignmen
 - User profile note: No frontend work was implemented in this task.
 - User profile API alignment note: The original user profile implementation used GET `/api/users/me`; it was later aligned to the API contract endpoint GET `/api/user/profile`.
 - User profile API alignment note: The alignment changed endpoint path and tests only. No business logic, DTO, security, database, Flyway, auth, refresh token, logout, or frontend changes were made.
-- Runtime database config note: A manual `.\mvnw.cmd spring-boot:run` attempt failed because no active profile was set and no datasource URL was configured. This is a local runtime configuration issue, not a failed API alignment. Do not mix this with the user profile endpoint alignment task.
+- User profile API alignment note: Commit `b9039ad fix: align user profile endpoint contract` was pushed to `main`, and git status was clean afterward.
+- Runtime database config note: A manual `.\mvnw.cmd spring-boot:run` attempt failed because no active profile was set and no datasource URL was configured. This is a local runtime configuration issue, not a failed API alignment. Do not mix this with user profile endpoint alignment or frontend auth pages.
 
 ## Feature History
 | # | Date | Feature | Module | Files changed | Tests | Commit/Notes |
@@ -155,7 +157,7 @@ Git status: modified files pending commit for user profile API contract alignmen
 | 12 | 2026-05-04 | Logout / token revoke | Auth | AuthController logout endpoint, AuthService.logout(), RefreshTokenService.revokeRefreshToken(), AuthMapper.toLogoutResponse(), LogoutRequest, LogoutResponse, AuthServiceTest logout tests | Backend `cd backend && .\mvnw.cmd clean test` PASS; 39 tests total | `feat: add auth logout`. Stale `target/` build output initially caused `GlobalExceptionHandler$1` class error; fixed by clean test. Commit pushed; git status clean. |
 | 13 | 2026-05-04 | User profile | User | UserProfileResponse, UserMapper, UserService, UserController, UserServiceTest, UserControllerTest | Backend `cd backend && .\mvnw.cmd test` PASS; 43 tests total | `9ba94ad feat: add user profile endpoint`. Initially implemented authenticated GET `/api/users/me` with safe response fields. Commit pushed; git status clean. |
 | 14 | 2026-05-04 | Build Log update after User profile | Docs | CodeQuest_Build_Log.md | Git status clean after docs commit | `051f278 docs: record user profile completion` |
-| 15 | 2026-05-04 | User profile API contract alignment | User | UserController, UserControllerTest, CodeQuest_Build_Log.md | Backend `cd backend && .\mvnw.cmd -Dtest=UserControllerTest test` PASS; Backend `cd backend && .\mvnw.cmd test` PASS; 43 tests total | Pending commit. Changed authenticated profile endpoint from GET `/api/users/me` to GET `/api/user/profile`. No business logic, DTO, security, DB, Flyway, auth, refresh token, logout, or frontend changes. No PATCH profile endpoint implemented. |
+| 15 | 2026-05-04 | User profile API contract alignment | User | UserController, UserControllerTest, CodeQuest_Build_Log.md | Backend `cd backend && .\mvnw.cmd -Dtest=UserControllerTest test` PASS; Backend `cd backend && .\mvnw.cmd test` PASS; 43 tests total | `b9039ad fix: align user profile endpoint contract`. Changed authenticated profile endpoint from GET `/api/users/me` to GET `/api/user/profile`. No business logic, DTO, security, DB, Flyway, auth, refresh token, logout, or frontend changes. No PATCH profile endpoint implemented. Commit pushed; git status clean. |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -672,11 +674,10 @@ Do not redesign anything.
 Do not implement Phase 2 features.
 
 Current module: User.
-Last completed feature: User profile.
-Current feature status: User profile implemented, API contract aligned to GET /api/user/profile, backend tests passed, pending API alignment commit.
-Latest completed commit: 051f278 docs: record user profile completion.
-Pending commit: user profile API contract alignment from GET /api/users/me to GET /api/user/profile.
-Git status: modified files pending commit for API alignment.
+Last completed feature: User profile API contract alignment.
+Current feature status: User profile implemented, API contract aligned to GET /api/user/profile, backend tests passed, committed and pushed.
+Latest completed commit: b9039ad fix: align user profile endpoint contract.
+Git status: clean after API alignment commit and push.
 
 Current user profile implementation details:
 - GET /api/user/profile implemented.
@@ -702,16 +703,14 @@ Testing:
 Important runtime note:
 - Running `cd backend && .\mvnw.cmd spring-boot:run` without local datasource variables/profile currently fails with `Failed to determine suitable jdbc url`.
 - This is a local runtime DB configuration issue, not a failed API alignment.
-- Do not fix database runtime configuration inside the API alignment task.
+- Do not fix database runtime configuration inside Frontend auth pages.
 
 Before starting any next feature:
-1. Commit the API alignment changes if not already committed.
-2. Confirm git status is clean.
-3. Do not implement frontend auth, dashboard, protected routes UI, course, AI, leaderboard, Docker, CI/CD, deployment, or Phase 2 features until git status is clean and the next feature scope is confirmed.
+1. Confirm git status is clean.
+2. Next feature must be Frontend auth pages only.
+3. Do not implement protected routes, dashboard, course, AI, leaderboard, Docker, CI/CD, deployment, or Phase 2 features in the Frontend auth pages task.
 
-Give me the next safest step only:
-1. First confirm git status is clean.
-2. If git status is clean, propose one strict Codex prompt for Frontend auth pages only.
+Give me one strict Codex prompt for Frontend auth pages only.
 Include exact files to touch, files not to touch, commands to run, manual checks, expected output, and Build Log update after completion.
 ```
 
@@ -756,12 +755,11 @@ AI: Gemini API
 Code execution: Piston API
 
 Current module: User
-Last completed feature: User profile
-Current feature status: User profile implemented, API contract aligned to GET /api/user/profile, backend tests passed, pending API alignment commit
-Next task: Commit API alignment if pending, confirm git status clean, then select Frontend auth pages only
-Latest completed commit: 051f278 docs: record user profile completion
-Pending commit: User profile API contract alignment from GET /api/users/me to GET /api/user/profile
-Git status: modified files pending commit for API alignment
+Last completed feature: User profile API contract alignment
+Current feature status: User profile implemented, API contract aligned to GET /api/user/profile, backend tests passed, committed and pushed
+Next task: Frontend auth pages only
+Latest completed commit: b9039ad fix: align user profile endpoint contract
+Git status: clean after API alignment commit and push
 Tests passed: Backend Maven Wrapper test PASS for User profile API alignment (43 tests); frontend build not required for backend-only task
 Known bugs: None currently
 
