@@ -6,13 +6,13 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 ## Current Status
 Phase: MVP
 Current module: User
-Current feature: User profile completed, committed, and pushed
+Current feature: User profile API contract alignment completed, tests passed, pending commit
 Last completed feature: User profile
-Next feature: Frontend auth pages / protected routes, but do not start until git status is clean and next feature scope is confirmed
+Next feature: Frontend auth pages only, but do not start until git status is clean after API alignment commit
 Current branch: main
-Latest commit: 9ba94ad feat: add user profile endpoint
-Test status: Backend Maven Wrapper test PASS for User profile (43 tests); frontend build not required for backend-only task
-Git status: clean after user profile commit and push
+Latest commit: 051f278 docs: record user profile completion; pending commit for API contract alignment
+Test status: Backend Maven Wrapper test PASS for User profile API alignment (43 tests); frontend build not required for backend-only task
+Git status: modified files pending commit for user profile API contract alignment
 
 ## Completed Features
 - [x] Project setup
@@ -70,13 +70,15 @@ Git status: clean after user profile commit and push
 - Use Maven Wrapper only for backend tests on Windows:
   - `cd backend`
   - `.\mvnw.cmd test`
+- Do not use plain `mvn`.
+- Do not tell Codex or ChatGPT to run `mvn test`; always use Maven Wrapper commands.
 - For suspicious stale compiled class issues, use:
   - `cd backend`
   - `.\mvnw.cmd clean test`
 - After every Codex implementation, do not commit immediately. First verify:
   1. `git status`
   2. automated tests
-  3. manual/API smoke test for the implemented feature
+  3. manual/API smoke test for the implemented feature when practical
   4. Build Log update
   5. commit only after verification passes
 - Do not start the next feature while the current feature has uncommitted changes.
@@ -89,6 +91,11 @@ Git status: clean after user profile commit and push
 - User profile uses the authenticated user from JWT/SecurityContext through `CurrentUserPrincipal`.
 - User profile endpoint must not accept user id from request params, request body, or path.
 - User profile response must stay safe and must not expose `passwordHash`, `password_hash`, `tokenHash`, `refreshToken`, `role`, or raw password.
+- User profile API contract is now aligned to GET `/api/user/profile`.
+- No PATCH profile endpoint is implemented yet.
+- Frontend must use GET `/api/user/profile` for current user profile after the API alignment commit.
+- Running `.\mvnw.cmd spring-boot:run` without a configured local database fails because the default profile has no datasource URL. This is not caused by the user profile API alignment. Do not fix database runtime configuration inside the API alignment task.
+- Local manual API smoke testing with `spring-boot:run` requires a configured PostgreSQL datasource/profile or environment variables. Backend tests can still pass using the test configuration.
 
 ## Current Source of Truth Files
 - CodeQuest_AI_Control_Master_Blueprint_v3.docx: full master blueprint in ChatGPT Project resources.
@@ -121,12 +128,15 @@ Git status: clean after user profile commit and push
 - Logout/token revoke note: Logout does not require a new Flyway migration because `revoked_at` already exists.
 - Logout/token revoke note: Logout service tests passed.
 - Logout/token revoke testing note: During testing, `AuthControllerTest` initially failed with `NoClassDefFoundError: GlobalExceptionHandler$1` because stale compiled output in `target/` was missing an enum-switch helper class. This was a stale build artifact issue, not a logout business logic issue. Running `.\mvnw.cmd clean test` fixed it.
-- Logout/token revoke note: Frontend auth, protected routes UI, dashboard, user profile, token rotation, and Phase 2 features were intentionally unimplemented at that stage.
-- User profile note: GET `/api/users/me` is implemented as an authenticated endpoint using the existing JWT authentication flow and `CurrentUserPrincipal`.
+- Logout/token revoke note: Frontend auth, protected routes UI, dashboard, user profile update, token rotation, and Phase 2 features were intentionally unimplemented at that stage.
+- User profile note: GET `/api/user/profile` is implemented as an authenticated endpoint using the existing JWT authentication flow and `CurrentUserPrincipal`.
 - User profile note: User profile response exposes safe user fields only and does not expose `passwordHash`, `password_hash`, `tokenHash`, `refreshToken`, `role`, or raw password.
-- User profile note: Controller test uses real register -> login -> JWT -> `/api/users/me` flow instead of mocking `CurrentUserPrincipal`.
+- User profile note: Controller test uses real register -> login -> JWT -> `/api/user/profile` flow instead of mocking `CurrentUserPrincipal`.
 - User profile note: No update profile endpoint was implemented in this task.
 - User profile note: No frontend work was implemented in this task.
+- User profile API alignment note: The original user profile implementation used GET `/api/users/me`; it was later aligned to the API contract endpoint GET `/api/user/profile`.
+- User profile API alignment note: The alignment changed endpoint path and tests only. No business logic, DTO, security, database, Flyway, auth, refresh token, logout, or frontend changes were made.
+- Runtime database config note: A manual `.\mvnw.cmd spring-boot:run` attempt failed because no active profile was set and no datasource URL was configured. This is a local runtime configuration issue, not a failed API alignment. Do not mix this with the user profile endpoint alignment task.
 
 ## Feature History
 | # | Date | Feature | Module | Files changed | Tests | Commit/Notes |
@@ -143,7 +153,9 @@ Git status: clean after user profile commit and push
 | 10 | 2026-05-04 | JWT authentication | Auth/security | backend/pom.xml, application.yml, test application.yml, LoginResponse, AuthService, AuthController, AuthMapper, JwtService, CurrentUserPrincipal, JwtAuthenticationFilter, RestAuthenticationEntryPoint, SecurityConfig, AuthServiceTest, AuthControllerTest, HealthControllerTest, JwtServiceTest, SecurityConfigTest | Backend `cd backend && .\mvnw.cmd test` PASS; 33 tests total | `89564e7 feat: add jwt authentication` |
 | 11 | 2026-05-04 | Refresh token | Auth | V2 refresh_tokens Flyway migration, RefreshToken entity, RefreshTokenRepository, RefreshTokenService, RefreshTokenRequest, RefreshTokenResponse, LoginResponse refreshToken field, AuthService refresh flow, AuthController refresh endpoint, AuthMapper update, ErrorCode INVALID_REFRESH_TOKEN, GlobalExceptionHandler mapping, SecurityConfig public refresh endpoint, application.yml refresh-token config, AuthServiceTest, AuthControllerTest, JwtService jti fix | Backend `cd backend && .\mvnw.cmd test` PASS; 37 tests total | `26fc7c5 feat: add refresh token` |
 | 12 | 2026-05-04 | Logout / token revoke | Auth | AuthController logout endpoint, AuthService.logout(), RefreshTokenService.revokeRefreshToken(), AuthMapper.toLogoutResponse(), LogoutRequest, LogoutResponse, AuthServiceTest logout tests | Backend `cd backend && .\mvnw.cmd clean test` PASS; 39 tests total | `feat: add auth logout`. Stale `target/` build output initially caused `GlobalExceptionHandler$1` class error; fixed by clean test. Commit pushed; git status clean. |
-| 13 | 2026-05-04 | User profile | User | UserProfileResponse, UserMapper, UserService, UserController, UserServiceTest, UserControllerTest | Backend `cd backend && .\mvnw.cmd test` PASS; 43 tests total | `9ba94ad feat: add user profile endpoint`. Implemented authenticated GET `/api/users/me` with safe response fields. Commit pushed; git status clean. |
+| 13 | 2026-05-04 | User profile | User | UserProfileResponse, UserMapper, UserService, UserController, UserServiceTest, UserControllerTest | Backend `cd backend && .\mvnw.cmd test` PASS; 43 tests total | `9ba94ad feat: add user profile endpoint`. Initially implemented authenticated GET `/api/users/me` with safe response fields. Commit pushed; git status clean. |
+| 14 | 2026-05-04 | Build Log update after User profile | Docs | CodeQuest_Build_Log.md | Git status clean after docs commit | `051f278 docs: record user profile completion` |
+| 15 | 2026-05-04 | User profile API contract alignment | User | UserController, UserControllerTest, CodeQuest_Build_Log.md | Backend `cd backend && .\mvnw.cmd -Dtest=UserControllerTest test` PASS; Backend `cd backend && .\mvnw.cmd test` PASS; 43 tests total | Pending commit. Changed authenticated profile endpoint from GET `/api/users/me` to GET `/api/user/profile`. No business logic, DTO, security, DB, Flyway, auth, refresh token, logout, or frontend changes. No PATCH profile endpoint implemented. |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -164,8 +176,11 @@ Git status: clean after user profile commit and push
 | 2026-05-04 | `cd backend && .\mvnw.cmd -Dtest=AuthControllerTest#shouldReturnConflictForDuplicateEmail test` | FAIL | Exposed real cause: `NoClassDefFoundError: com/codequest/common/exception/GlobalExceptionHandler$1`, caused by stale compiled class output in `target/`. | Yes |
 | 2026-05-04 | `cd backend && .\mvnw.cmd clean test` | PASS | Full backend clean test passed after removing stale target output: 39 tests, 0 failures, 0 errors, 0 skipped. | Yes |
 | 2026-05-04 | `cd backend && .\mvnw.cmd -Dtest=UserServiceTest test` | PASS | User profile service tests passed: 2 tests, 0 failures, 0 errors, 0 skipped. | Yes |
-| 2026-05-04 | `cd backend && .\mvnw.cmd -Dtest=UserControllerTest test` | PASS | User profile controller tests passed: 2 tests, 0 failures, 0 errors, 0 skipped. Tests use real register -> login -> JWT -> `/api/users/me` flow. | Yes |
-| 2026-05-04 | `cd backend && .\mvnw.cmd test` | PASS | User profile full backend tests passed: 43 total, 0 failures, 0 errors, 0 skipped. Includes UserServiceTest and UserControllerTest for authenticated GET `/api/users/me`. | Yes |
+| 2026-05-04 | `cd backend && .\mvnw.cmd -Dtest=UserControllerTest test` | PASS | User profile controller tests passed: 2 tests, 0 failures, 0 errors, 0 skipped. Tests used real register -> login -> JWT -> `/api/users/me` flow before API contract alignment. | Yes |
+| 2026-05-04 | `cd backend && .\mvnw.cmd test` | PASS | User profile full backend tests passed: 43 total, 0 failures, 0 errors, 0 skipped. Included UserServiceTest and UserControllerTest for authenticated GET `/api/users/me` before API contract alignment. | Yes |
+| 2026-05-04 | `cd backend && .\mvnw.cmd -Dtest=UserControllerTest test` | PASS | User profile API contract alignment controller tests passed. Tests now use real register -> login -> JWT -> `/api/user/profile` flow. | Yes |
+| 2026-05-04 | `cd backend && .\mvnw.cmd test` | PASS | User profile API contract alignment full backend tests passed: 43 total, 0 failures, 0 errors, 0 skipped. | Yes |
+| 2026-05-04 | `cd backend && .\mvnw.cmd spring-boot:run` | FAIL | Runtime startup failed because no active profile was set and no datasource URL was configured. Error: `Failed to determine suitable jdbc url`. This is a local runtime DB configuration issue, not a user profile API alignment failure. | No action in this task; handle local runtime DB config separately later if needed. |
 
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
@@ -187,9 +202,13 @@ Git status: clean after user profile commit and push
 | 2026-05-04 | Logout / token revoke | POST `/api/auth/logout` with valid refreshToken from login | 200 OK with safe success message; refresh token row has `revokedAt` set | Automated service tests passed; manual API smoke test recommended |
 | 2026-05-04 | Refresh after logout | POST `/api/auth/refresh` using same refreshToken after logout | 401 Unauthorized with standard ErrorDTO and INVALID_REFRESH_TOKEN | Automated service tests passed; manual API smoke test recommended |
 | 2026-05-04 | Logout safety | Inspect logout response | Response must not include tokenHash, raw token, passwordHash, password_hash, role, or internal user data | Automated service tests passed; manual API smoke test recommended |
-| 2026-05-04 | User profile with token | GET `/api/users/me` with valid JWT access token | 200 OK with userId, name, email, rank, xp, streak, goal, avatarUrl, createdAt | Automated integration test passed; manual API smoke test recommended |
-| 2026-05-04 | User profile without token | GET `/api/users/me` without Authorization header | 401 Unauthorized | Automated integration test passed; manual API smoke test recommended |
-| 2026-05-04 | User profile safety | Inspect GET `/api/users/me` response | Response must not include passwordHash, password_hash, tokenHash, refreshToken, role, or raw password | Automated integration test passed |
+| 2026-05-04 | User profile with token before API alignment | GET `/api/users/me` with valid JWT access token | 200 OK with userId, name, email, rank, xp, streak, goal, avatarUrl, createdAt | Automated integration test passed |
+| 2026-05-04 | User profile without token before API alignment | GET `/api/users/me` without Authorization header | 401 Unauthorized | Automated integration test passed |
+| 2026-05-04 | User profile safety before API alignment | Inspect GET `/api/users/me` response | Response must not include passwordHash, password_hash, tokenHash, refreshToken, role, or raw password | Automated integration test passed |
+| 2026-05-04 | User profile API alignment with token | GET `/api/user/profile` with valid JWT access token | 200 OK with userId, name, email, rank, xp, streak, goal, avatarUrl, createdAt | Automated integration test passed; manual API smoke test blocked until local runtime DB config is set |
+| 2026-05-04 | User profile API alignment without token | GET `/api/user/profile` without Authorization header | 401 Unauthorized | Automated integration test passed; manual API smoke test blocked until local runtime DB config is set |
+| 2026-05-04 | User profile API alignment safety | Inspect GET `/api/user/profile` response | Response must not include passwordHash, password_hash, tokenHash, refreshToken, role, or raw password | Automated integration test passed |
+| 2026-05-04 | Backend runtime startup | `cd backend && .\mvnw.cmd spring-boot:run` | Backend starts only if datasource URL/profile is configured | Failed due missing local datasource URL; not related to API alignment |
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -220,15 +239,16 @@ Before committing any Codex-generated change, always do this:
    cd ..
    ```
 
-5. Manually test the exact implemented feature:
+5. Manually test the exact implemented feature when runtime configuration allows it:
    - For backend endpoints, use Swagger, Postman, Thunder Client, or curl.
    - Test one success case.
    - Test one important failure case.
    - Confirm the response shape matches API contracts.
    - Confirm standard ErrorDTO appears for errors.
    - Confirm sensitive fields are not leaked.
+   - If `spring-boot:run` fails because local datasource variables are missing, record the runtime config issue separately and do not mix it with the feature implementation unless the task is explicitly database runtime setup.
 
-6. Only after tests and manual smoke test pass:
+6. Only after tests and practical manual smoke checks pass:
    - update this Build Log
    - commit changes
    - confirm clean git status
@@ -236,7 +256,7 @@ Before committing any Codex-generated change, always do this:
 7. Do not start the next feature while current feature changes are uncommitted.
 
 ## Auth Register Manual Test Commands
-Use these after starting the backend.
+Use these after starting the backend with a configured local datasource/profile.
 
 Start backend:
 ```powershell
@@ -287,7 +307,7 @@ Important Auth register boundaries:
 - Login, JwtService, JWT filter, refresh token, logout, frontend auth, and dashboard were separate tasks.
 
 ## Auth Login Manual Test Commands
-Use these after starting the backend.
+Use these after starting the backend with a configured local datasource/profile.
 
 Valid login request:
 ```http
@@ -337,11 +357,11 @@ Important Auth login boundaries:
 - Response must not contain `tokenHash`.
 - Login response now contains JWT accessToken, opaque refreshToken, tokenType, and expiresInSeconds.
 - Logout/token revoke is implemented for refresh token revocation.
-- User profile is implemented as authenticated GET `/api/users/me`.
+- User profile is implemented as authenticated GET `/api/user/profile`.
 - Token rotation, frontend auth, protected routes UI, and dashboard are still not implemented.
 
 ## JWT Authentication Manual Test Commands
-Use these after starting the backend.
+Use these after starting the backend with a configured local datasource/profile.
 
 Login and copy token:
 ```http
@@ -397,12 +417,13 @@ Important JWT authentication boundaries:
 - Refresh token is implemented as an opaque token stored only as a hash.
 - Logout/token revoke is implemented by revoking refresh tokens only.
 - User profile uses authenticated JWT principal.
+- User profile endpoint is GET `/api/user/profile`.
 - No access-token blacklist implemented.
 - No token rotation implemented yet.
 - No frontend auth implemented yet.
 
 ## Refresh Token Manual Test Commands
-Use these after starting the backend.
+Use these after starting the backend with a configured local datasource/profile.
 
 Login and copy refresh token:
 ```http
@@ -466,12 +487,12 @@ Important Refresh token boundaries:
 - Refresh endpoint returns new accessToken only.
 - Refresh endpoint does not return new refreshToken.
 - Logout/token revoke is implemented.
-- User profile is implemented.
+- User profile is implemented as GET `/api/user/profile`.
 - Token rotation is not implemented yet.
 - Frontend auth is not implemented yet.
 
 ## Logout / Token Revoke Manual Test Commands
-Use these after starting the backend.
+Use these after starting the backend with a configured local datasource/profile.
 
 Start backend:
 ```powershell
@@ -555,7 +576,7 @@ Important Logout / token revoke boundaries:
 - Logout response must not expose internal user data.
 
 ## User Profile Manual Test Commands
-Use these after starting the backend.
+Use these after starting the backend with a configured local datasource/profile.
 
 Start backend:
 ```powershell
@@ -598,7 +619,7 @@ Expected login token fields:
 
 Get current user profile:
 ```http
-GET http://localhost:8080/api/users/me
+GET http://localhost:8080/api/user/profile
 Authorization: Bearer <accessToken>
 ```
 
@@ -619,7 +640,7 @@ Expected profile success:
 
 Without token:
 ```http
-GET http://localhost:8080/api/users/me
+GET http://localhost:8080/api/user/profile
 ```
 
 Expected:
@@ -636,6 +657,8 @@ Important User profile boundaries:
 - Response must not expose `refreshToken`.
 - Response must not expose `role`.
 - Response must not expose raw password.
+- Current implemented endpoint is GET `/api/user/profile`.
+- Old GET `/api/users/me` path should no longer be used after API contract alignment.
 - No update profile endpoint implemented yet.
 - Frontend auth is not implemented yet.
 
@@ -650,35 +673,46 @@ Do not implement Phase 2 features.
 
 Current module: User.
 Last completed feature: User profile.
-Current feature status: User profile implemented, backend tests passed, committed and pushed.
-Latest completed commit: 9ba94ad feat: add user profile endpoint.
-Git status: clean after user profile commit and push.
+Current feature status: User profile implemented, API contract aligned to GET /api/user/profile, backend tests passed, pending API alignment commit.
+Latest completed commit: 051f278 docs: record user profile completion.
+Pending commit: user profile API contract alignment from GET /api/users/me to GET /api/user/profile.
+Git status: modified files pending commit for API alignment.
 
 Current user profile implementation details:
-- GET /api/users/me implemented.
+- GET /api/user/profile implemented.
 - Endpoint requires JWT authentication.
 - Endpoint uses CurrentUserPrincipal from SecurityContext.
 - Endpoint does not accept userId from params, body, or path.
 - UserProfileResponse returns safe fields only: userId, name, email, rank, xp, streak, goal, avatarUrl, createdAt.
 - UserProfileResponse does not expose passwordHash, password_hash, tokenHash, refreshToken, role, or raw password.
-- UserControllerTest uses real register -> login -> JWT -> /api/users/me flow.
+- UserControllerTest uses real register -> login -> JWT -> /api/user/profile flow.
 - UserServiceTest and UserControllerTest pass.
 - No update profile endpoint implemented.
 - No frontend work added.
 
 Testing:
 - Use Maven Wrapper only.
-- Backend test passed:
+- Backend tests passed:
+  cd backend
+  .\mvnw.cmd -Dtest=UserControllerTest test
   cd backend
   .\mvnw.cmd test
 - Result: 43 tests, 0 failures, 0 errors, 0 skipped, BUILD SUCCESS.
 
-Do not implement frontend auth, dashboard, protected routes UI, course, AI, leaderboard, Docker, CI/CD, deployment, or Phase 2 features until git status is clean and the next feature scope is confirmed.
+Important runtime note:
+- Running `cd backend && .\mvnw.cmd spring-boot:run` without local datasource variables/profile currently fails with `Failed to determine suitable jdbc url`.
+- This is a local runtime DB configuration issue, not a failed API alignment.
+- Do not fix database runtime configuration inside the API alignment task.
+
+Before starting any next feature:
+1. Commit the API alignment changes if not already committed.
+2. Confirm git status is clean.
+3. Do not implement frontend auth, dashboard, protected routes UI, course, AI, leaderboard, Docker, CI/CD, deployment, or Phase 2 features until git status is clean and the next feature scope is confirmed.
 
 Give me the next safest step only:
 1. First confirm git status is clean.
-2. If git status is clean, propose one strict Codex prompt for the next MVP feature only.
-Include exact files to touch, files not to touch, commands to run, manual API checks, expected output, and Build Log update after completion.
+2. If git status is clean, propose one strict Codex prompt for Frontend auth pages only.
+Include exact files to touch, files not to touch, commands to run, manual checks, expected output, and Build Log update after completion.
 ```
 
 ## Update Protocol After Every Feature
@@ -703,7 +737,7 @@ Include exact files to touch, files not to touch, commands to run, manual API ch
 - [ ] Database changes use Flyway migration files.
 - [ ] At least one meaningful automated test exists for backend logic.
 - [ ] Automated tests pass using Maven Wrapper.
-- [ ] Manual/API smoke test passes for the exact feature.
+- [ ] Manual/API smoke test passes for the exact feature, or blocker is documented clearly.
 - [ ] Error case is manually checked where practical.
 - [ ] Manual test steps are documented.
 - [ ] Build Log is updated.
@@ -723,11 +757,12 @@ Code execution: Piston API
 
 Current module: User
 Last completed feature: User profile
-Current feature status: User profile implemented, backend tests passed, committed and pushed
-Next task: Select next MVP feature only after confirming git status is clean
-Latest completed commit: 9ba94ad feat: add user profile endpoint
-Git status: clean after user profile commit and push
-Tests passed: Backend Maven Wrapper test PASS for User profile (43 tests); frontend build not required for backend-only task
+Current feature status: User profile implemented, API contract aligned to GET /api/user/profile, backend tests passed, pending API alignment commit
+Next task: Commit API alignment if pending, confirm git status clean, then select Frontend auth pages only
+Latest completed commit: 051f278 docs: record user profile completion
+Pending commit: User profile API contract alignment from GET /api/users/me to GET /api/user/profile
+Git status: modified files pending commit for API alignment
+Tests passed: Backend Maven Wrapper test PASS for User profile API alignment (43 tests); frontend build not required for backend-only task
 Known bugs: None currently
 
 Important completed Auth details:
@@ -753,13 +788,13 @@ Important completed Auth details:
 - No refresh-token rotation implemented.
 
 Important completed User profile details:
-- GET /api/users/me implemented.
+- GET /api/user/profile implemented.
 - Endpoint requires JWT authentication.
 - Endpoint uses CurrentUserPrincipal from SecurityContext.
 - Endpoint does not accept userId from params, body, or path.
 - UserProfileResponse returns safe fields: userId, name, email, rank, xp, streak, goal, avatarUrl, createdAt.
 - UserProfileResponse does not expose passwordHash, password_hash, tokenHash, refreshToken, role, or raw password.
-- UserControllerTest uses real register -> login -> JWT -> /api/users/me flow.
+- UserControllerTest uses real register -> login -> JWT -> /api/user/profile flow.
 - UserServiceTest and UserControllerTest pass.
 - No update profile endpoint implemented.
 - Frontend auth, protected routes UI, dashboard, token rotation, and Phase 2 features are not implemented yet.
@@ -771,9 +806,14 @@ Testing notes:
 - If stale compiled class issues appear, run:
   cd backend
   .\mvnw.cmd clean test
-- User profile test result:
+- User profile API alignment test result:
   Tests run: 43, Failures: 0, Errors: 0, Skipped: 0
   BUILD SUCCESS
+
+Runtime note:
+- `cd backend && .\mvnw.cmd spring-boot:run` currently requires local datasource configuration.
+- Without datasource URL/profile it fails with `Failed to determine suitable jdbc url`.
+- This is not an API alignment bug.
 
 Rules:
 Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Prompts, Build Log, and AGENTS.md.

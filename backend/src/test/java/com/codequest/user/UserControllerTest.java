@@ -56,8 +56,8 @@ class UserControllerTest {
         LoginResponse loginResponse = objectMapper.readValue(loginResponseStr, LoginResponse.class);
         String accessToken = loginResponse.accessToken();
 
-        // Call GET /api/users/me with token
-        mockMvc.perform(get("/api/users/me")
+        // Call GET /api/user/profile with token
+        mockMvc.perform(get("/api/user/profile")
                 .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.userId").exists())
@@ -78,7 +78,7 @@ class UserControllerTest {
 
     @Test
     void shouldReturn401WhenNotAuthenticated() throws Exception {
-        mockMvc.perform(get("/api/users/me"))
+        mockMvc.perform(get("/api/user/profile"))
                 .andExpect(status().isUnauthorized());
     }
 }

@@ -14,7 +14,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/api/user")
 public class UserController {
 
     private final UserService userService;
@@ -23,7 +23,7 @@ public class UserController {
         this.userService = userService;
     }
 
-    @GetMapping("/me")
+    @GetMapping("/profile")
     @Operation(summary = "Get current user profile", description = "Retrieve the profile of the authenticated user")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "User profile retrieved successfully"),
