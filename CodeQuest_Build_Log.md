@@ -6,12 +6,13 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 ## Current Status
 Phase: MVP
 Current module: Auth
-Current feature: Logout / token revoke
-Last completed feature: Refresh token
-Next feature: Logout / token revoke
+Current feature: Logout / token revoke completed; awaiting commit
+Last completed feature: Logout / token revoke
+Next feature: User profile / next MVP auth-adjacent task, but do not start until logout changes are committed and git status is clean
 Current branch: main
 Latest commit: 26fc7c5 feat: add refresh token
-Test status: Backend Maven Wrapper test PASS for Refresh token (37 tests); Git status clean after commit and push; Frontend build not required for backend-only task
+Pending commit: feat: add auth logout
+Test status: Backend Maven Wrapper clean test PASS for Logout / token revoke (39 tests); frontend build not required for backend-only task
 
 ## Completed Features
 - [x] Project setup
@@ -24,7 +25,7 @@ Test status: Backend Maven Wrapper test PASS for Refresh token (37 tests); Git s
 - [x] Auth login
 - [x] JWT filter
 - [x] Refresh token
-- [ ] Logout / token revoke
+- [x] Logout / token revoke
 - [ ] User profile
 - [ ] Frontend auth pages
 - [ ] Protected routes
@@ -69,6 +70,9 @@ Test status: Backend Maven Wrapper test PASS for Refresh token (37 tests); Git s
 - Use Maven Wrapper only for backend tests on Windows:
   - `cd backend`
   - `.\mvnw.cmd test`
+- For suspicious stale compiled class issues, use:
+  - `cd backend`
+  - `.\mvnw.cmd clean test`
 - After every Codex implementation, do not commit immediately. First verify:
   1. `git status`
   2. automated tests
@@ -77,6 +81,11 @@ Test status: Backend Maven Wrapper test PASS for Refresh token (37 tests); Git s
   5. commit only after verification passes
 - Do not start the next feature while the current feature has uncommitted changes.
 - For backend-only tasks, frontend build is not required unless the backend change affects frontend integration or shared API contract behavior.
+- Logout/token revoke revokes refresh tokens only. Existing JWT access tokens remain stateless until expiry.
+- No access-token blacklist was added for logout.
+- No refresh-token rotation was added for logout.
+- No new Flyway migration was added for logout because `revoked_at` already existed in the `refresh_tokens` table.
+- Logout response must stay safe and must not expose `tokenHash`, raw token, user role, password, passwordHash, or password_hash.
 
 ## Current Source of Truth Files
 - CodeQuest_AI_Control_Master_Blueprint_v3.docx: full master blueprint in ChatGPT Project resources.
@@ -100,7 +109,16 @@ Test status: Backend Maven Wrapper test PASS for Refresh token (37 tests); Git s
 - Refresh token note: Refresh tokens are opaque tokens, stored only as hashes in the database, and exposed only as raw token values in the login response.
 - Refresh token note: POST `/api/auth/refresh` returns a new accessToken, tokenType, and expiresInSeconds. It does not return a new refreshToken because token rotation was not implemented in this task.
 - Refresh token note: V2 Flyway migration creates `refresh_tokens` table. Existing migrations were not edited.
-- Refresh token note: Logout, token revoke endpoint, token rotation, frontend auth, protected routes UI, and dashboard are still intentionally unimplemented.
+- Refresh token note: JwtService includes unique `jti` claim so newly generated access tokens differ even when generated in the same second.
+- Logout/token revoke note: POST `/api/auth/logout` is implemented.
+- Logout/token revoke note: Logout accepts a refresh token and revokes it by setting `revokedAt`.
+- Logout/token revoke note: Logout does not delete refresh token rows.
+- Logout/token revoke note: Logout does not blacklist JWT access tokens.
+- Logout/token revoke note: Logout does not implement refresh-token rotation.
+- Logout/token revoke note: Logout does not require a new Flyway migration because `revoked_at` already exists.
+- Logout/token revoke note: Logout service tests passed.
+- Logout/token revoke testing note: During testing, `AuthControllerTest` initially failed with `NoClassDefFoundError: GlobalExceptionHandler$1` because stale compiled output in `target/` was missing an enum-switch helper class. This was a stale build artifact issue, not a logout business logic issue. Running `.\mvnw.cmd clean test` fixed it.
+- Logout/token revoke note: Frontend auth, protected routes UI, dashboard, user profile, token rotation, and Phase 2 features are still intentionally unimplemented.
 
 ## Feature History
 | # | Date | Feature | Module | Files changed | Tests | Commit/Notes |
@@ -116,6 +134,7 @@ Test status: Backend Maven Wrapper test PASS for Refresh token (37 tests); Git s
 | 9 | 2026-05-03 | Auth login | Auth | LoginRequest, LoginResponse, AuthService.login() method, AuthController.login() endpoint, AuthMapper.toLoginResponse(), GlobalExceptionHandler INVALID_CREDENTIALS mapping, AuthServiceTest login tests (5 methods), AuthControllerTest login tests (7 methods) | Backend `cd backend && .\mvnw.cmd test` PASS; 27 tests total (13 AuthController + 10 AuthService + 2 GlobalExceptionHandler + 1 Application + 1 Health) | `a1b500d feat: add auth login` |
 | 10 | 2026-05-04 | JWT authentication | Auth/security | backend/pom.xml, application.yml, test application.yml, LoginResponse, AuthService, AuthController, AuthMapper, JwtService, CurrentUserPrincipal, JwtAuthenticationFilter, RestAuthenticationEntryPoint, SecurityConfig, AuthServiceTest, AuthControllerTest, HealthControllerTest, JwtServiceTest, SecurityConfigTest | Backend `cd backend && .\mvnw.cmd test` PASS; 33 tests total | `89564e7 feat: add jwt authentication` |
 | 11 | 2026-05-04 | Refresh token | Auth | V2 refresh_tokens Flyway migration, RefreshToken entity, RefreshTokenRepository, RefreshTokenService, RefreshTokenRequest, RefreshTokenResponse, LoginResponse refreshToken field, AuthService refresh flow, AuthController refresh endpoint, AuthMapper update, ErrorCode INVALID_REFRESH_TOKEN, GlobalExceptionHandler mapping, SecurityConfig public refresh endpoint, application.yml refresh-token config, AuthServiceTest, AuthControllerTest, JwtService jti fix | Backend `cd backend && .\mvnw.cmd test` PASS; 37 tests total | `26fc7c5 feat: add refresh token` |
+| 12 | 2026-05-04 | Logout / token revoke | Auth | AuthController logout endpoint, AuthService.logout(), RefreshTokenService.revokeRefreshToken(), AuthMapper.toLogoutResponse(), LogoutRequest, LogoutResponse, AuthServiceTest logout tests | Backend `cd backend && .\mvnw.cmd clean test` PASS; 39 tests total | Pending commit: `feat: add auth logout`. Stale `target/` build output initially caused `GlobalExceptionHandler$1` class error; fixed by clean test. |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -130,6 +149,11 @@ Test status: Backend Maven Wrapper test PASS for Refresh token (37 tests); Git s
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | Auth login tests: 27 total (13 AuthController: 6 register + 7 login; 10 AuthService: 5 register + 5 login; 2 GlobalExceptionHandler; 1 Application; 1 Health) | Yes |
 | 2026-05-04 | `cd backend && .\mvnw.cmd test` | PASS | JWT authentication tests passed: 33 total including JwtServiceTest and SecurityConfigTest; SecurityConfigTest ran 3 tests | Yes |
 | 2026-05-04 | `cd backend && .\mvnw.cmd test` | PASS | Refresh token tests passed: 37 total, 0 failures, 0 errors, 0 skipped. Initial refresh-token test failed because refreshed JWT matched original token when generated in same second; fixed by adding unique JWT `jti` claim in JwtService. | Yes |
+| 2026-05-04 | `cd backend && .\mvnw.cmd test` | FAIL | Logout task initially showed 4 `AuthControllerTest` errors where `ApiException` appeared to escape instead of becoming standard ErrorDTO. Investigation found stale compiled build output, later confirmed by `NoClassDefFoundError: GlobalExceptionHandler$1`. | Yes |
+| 2026-05-04 | `cd backend && .\mvnw.cmd -Dtest=AuthServiceTest test` | PASS | Logout service tests passed: 14 AuthService tests, 0 failures, 0 errors, 0 skipped. | Yes |
+| 2026-05-04 | `cd backend && .\mvnw.cmd -Dtest=AuthControllerTest#shouldRegisterUserSuccessfully test` | PASS | Controller success path verified: 1 test, 0 failures, 0 errors, 0 skipped. | Yes |
+| 2026-05-04 | `cd backend && .\mvnw.cmd -Dtest=AuthControllerTest#shouldReturnConflictForDuplicateEmail test` | FAIL | Exposed real cause: `NoClassDefFoundError: com/codequest/common/exception/GlobalExceptionHandler$1`, caused by stale compiled class output in `target/`. | Yes |
+| 2026-05-04 | `cd backend && .\mvnw.cmd clean test` | PASS | Full backend clean test passed after removing stale target output: 39 tests, 0 failures, 0 errors, 0 skipped. | Yes |
 
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
@@ -148,6 +172,9 @@ Test status: Backend Maven Wrapper test PASS for Refresh token (37 tests); Git s
 | 2026-05-04 | Refresh token endpoint | POST `/api/auth/refresh` with valid refreshToken | 200 OK with new accessToken, tokenType Bearer, expiresInSeconds | Automated tests passed; manual API smoke test recommended |
 | 2026-05-04 | Invalid refresh token | POST `/api/auth/refresh` with invalid refreshToken | 401 Unauthorized with standard ErrorDTO and INVALID_REFRESH_TOKEN | Automated tests passed; manual API smoke test recommended |
 | 2026-05-04 | Missing refresh token | POST `/api/auth/refresh` with blank/missing refreshToken | 400 Bad Request with standard ErrorDTO and VALIDATION_ERROR | Automated tests passed; manual API smoke test recommended |
+| 2026-05-04 | Logout / token revoke | POST `/api/auth/logout` with valid refreshToken from login | 200 OK with safe success message; refresh token row has `revokedAt` set | Automated service tests passed; manual API smoke test recommended before commit |
+| 2026-05-04 | Refresh after logout | POST `/api/auth/refresh` using same refreshToken after logout | 401 Unauthorized with standard ErrorDTO and INVALID_REFRESH_TOKEN | Automated service tests passed; manual API smoke test recommended before commit |
+| 2026-05-04 | Logout safety | Inspect logout response | Response must not include tokenHash, raw token, passwordHash, password_hash, role, or internal user data | Automated service tests passed; manual API smoke test recommended before commit |
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -164,14 +191,21 @@ Before committing any Codex-generated change, always do this:
    cd ..
    ```
 
-3. For frontend tasks, also run:
+3. If tests fail in a suspicious way after multiple Java/test edits, run a clean backend test:
+   ```powershell
+   cd backend
+   .\mvnw.cmd clean test
+   cd ..
+   ```
+
+4. For frontend tasks, also run:
    ```powershell
    cd frontend
    npm run build
    cd ..
    ```
 
-4. Manually test the exact implemented feature:
+5. Manually test the exact implemented feature:
    - For backend endpoints, use Swagger, Postman, Thunder Client, or curl.
    - Test one success case.
    - Test one important failure case.
@@ -179,12 +213,12 @@ Before committing any Codex-generated change, always do this:
    - Confirm standard ErrorDTO appears for errors.
    - Confirm sensitive fields are not leaked.
 
-5. Only after tests and manual smoke test pass:
+6. Only after tests and manual smoke test pass:
    - update this Build Log
    - commit changes
    - confirm clean git status
 
-6. Do not start the next feature while current feature changes are uncommitted.
+7. Do not start the next feature while current feature changes are uncommitted.
 
 ## Auth Register Manual Test Commands
 Use these after starting the backend.
@@ -251,7 +285,7 @@ Content-Type: application/json
 }
 ```
 
-Expected success after Refresh token feature:
+Expected success after Logout / token revoke feature:
 ```json
 {
   "userId": "uuid",
@@ -287,7 +321,8 @@ Important Auth login boundaries:
 - Response must not contain `role`.
 - Response must not contain `tokenHash`.
 - Login response now contains JWT accessToken, opaque refreshToken, tokenType, and expiresInSeconds.
-- Logout, token revoke, frontend auth, protected routes UI, and dashboard are still not implemented.
+- Logout/token revoke is now implemented for refresh token revocation.
+- Token rotation, frontend auth, protected routes UI, and dashboard are still not implemented.
 
 ## JWT Authentication Manual Test Commands
 Use these after starting the backend.
@@ -340,10 +375,12 @@ Valid JWT should populate Spring SecurityContext and allow authenticated protect
 
 Important JWT authentication boundaries:
 - JWT subject is user id.
+- JWT includes unique `jti` claim.
 - JWT claims must not include passwordHash, password_hash, raw password, refresh token, secrets, or private data.
 - JWT secret and expiry must come from config/environment.
 - Refresh token is implemented as an opaque token stored only as a hash.
-- No logout/token revoke implemented yet.
+- Logout/token revoke is implemented by revoking refresh tokens only.
+- No access-token blacklist implemented.
 - No token rotation implemented yet.
 - No frontend auth implemented yet.
 
@@ -411,9 +448,93 @@ Important Refresh token boundaries:
 - tokenHash must never be returned in API response.
 - Refresh endpoint returns new accessToken only.
 - Refresh endpoint does not return new refreshToken.
-- Logout/token revoke is not implemented yet.
+- Logout/token revoke is now implemented.
 - Token rotation is not implemented yet.
 - Frontend auth is not implemented yet.
+
+## Logout / Token Revoke Manual Test Commands
+Use these after starting the backend.
+
+Start backend:
+```powershell
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+Login and copy refresh token:
+```http
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "antara@example.com",
+  "password": "StrongPass123"
+}
+```
+
+Expected login token fields:
+```json
+{
+  "accessToken": "jwt-token",
+  "refreshToken": "opaque-refresh-token",
+  "tokenType": "Bearer",
+  "expiresInSeconds": 900
+}
+```
+
+Logout using refresh token:
+```http
+POST http://localhost:8080/api/auth/logout
+Content-Type: application/json
+
+{
+  "refreshToken": "<refreshToken from login>"
+}
+```
+
+Expected logout success:
+```json
+{
+  "message": "Logged out successfully."
+}
+```
+
+Try refreshing with same refresh token after logout:
+```http
+POST http://localhost:8080/api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "<same refreshToken used in logout>"
+}
+```
+
+Expected after logout:
+```text
+HTTP 401 Unauthorized
+code: INVALID_REFRESH_TOKEN
+message: "Invalid refresh token."
+```
+
+Blank logout refresh token expected:
+```text
+HTTP 400 Bad Request
+code: VALIDATION_ERROR
+```
+
+Important Logout / token revoke boundaries:
+- Logout revokes refresh token by setting `revokedAt`.
+- Logout does not delete refresh token rows.
+- Logout does not blacklist existing JWT access tokens.
+- Existing access tokens remain valid until expiry.
+- Logout does not rotate refresh tokens.
+- Logout does not require a Flyway migration.
+- Logout response must not contain `refreshToken`.
+- Logout response must not contain `tokenHash`.
+- Logout response must not contain `passwordHash`.
+- Logout response must not contain `password_hash`.
+- Logout response must not contain `role`.
+- Logout response must not expose internal user data.
 
 ## Next Chat Prompt
 Paste this into a fresh ChatGPT Project chat whenever the current chat becomes slow or confusing:
@@ -423,12 +544,37 @@ Read the project resources and this Build Log.
 Continue CodeQuest from the current status.
 Do not redesign anything.
 Do not implement Phase 2 features.
+
 Current module: Auth.
-Last completed feature: Refresh token.
-Current feature / next feature: Logout / token revoke.
-Latest Refresh token commit: 26fc7c5 feat: add refresh token.
-Give me one strict Codex prompt for Logout / token revoke only.
-Do not implement frontend auth, dashboard, user profile, protected routes UI, or Phase 2 features.
+Last completed feature: Logout / token revoke.
+Current feature status: Logout / token revoke implemented, backend clean tests passed, awaiting commit if not already committed.
+Latest committed feature before logout: 26fc7c5 feat: add refresh token.
+Pending/expected logout commit message: feat: add auth logout.
+
+Current logout implementation details:
+- POST /api/auth/logout implemented.
+- Logout accepts refreshToken in LogoutRequest.
+- Logout returns LogoutResponse with safe message.
+- Logout revokes refresh token by setting revokedAt.
+- Refresh tokens are opaque and stored only as hashes.
+- Existing JWT access tokens remain stateless and are not blacklisted.
+- No refresh-token rotation implemented.
+- No Flyway migration added because revoked_at already exists.
+- No frontend work added.
+
+Testing:
+- Use Maven Wrapper only.
+- Backend clean test passed:
+  cd backend
+  .\mvnw.cmd clean test
+- Result: 39 tests, 0 failures, 0 errors, 0 skipped, BUILD SUCCESS.
+- During testing, stale target output caused GlobalExceptionHandler$1 NoClassDefFoundError. This was fixed by running clean test.
+
+Do not implement frontend auth, dashboard, user profile, protected routes UI, course, AI, leaderboard, Docker, CI/CD, deployment, or Phase 2 features until current logout changes are committed and git status is clean.
+
+Give me the next safest step only:
+1. If logout is not committed, help me commit and push it safely.
+2. If logout is already committed and git status is clean, propose one strict Codex prompt for the next MVP feature only.
 Include exact files to touch, files not to touch, commands to run, manual API checks, expected output, and Build Log update after completion.
 ```
 
@@ -473,11 +619,13 @@ AI: Gemini API
 Code execution: Piston API
 
 Current module: Auth
-Last completed feature: Refresh token
-Current feature / next task: Logout / token revoke
-Latest commit: 26fc7c5 feat: add refresh token
-Git status expected after commit: clean
-Tests passed: Backend Maven Wrapper test PASS for Refresh token (37 tests); frontend build not required for backend-only task
+Last completed feature: Logout / token revoke
+Current feature status: Logout / token revoke implemented and backend clean tests passed; commit may still be pending depending on latest git status
+Next task: Commit logout safely if not committed; otherwise select next MVP feature only
+Latest committed feature before logout: 26fc7c5 feat: add refresh token
+Pending/expected logout commit message: feat: add auth logout
+Git status expected after logout commit: clean
+Tests passed: Backend Maven Wrapper clean test PASS for Logout / token revoke (39 tests); frontend build not required for backend-only task
 Known bugs: None currently
 
 Important completed Refresh token details:
@@ -490,13 +638,34 @@ Important completed Refresh token details:
 - Refresh endpoint does not return a new refreshToken because token rotation is not implemented yet.
 - INVALID_REFRESH_TOKEN maps to HTTP 401 with a safe generic message.
 - JwtService now includes unique jti claim so newly generated access tokens differ even when generated in the same second.
-- Logout, token revoke, token rotation, frontend auth, protected routes UI, user profile, and dashboard are not implemented yet.
+
+Important completed Logout / token revoke details:
+- POST /api/auth/logout implemented.
+- Logout accepts refreshToken through LogoutRequest.
+- Logout returns safe LogoutResponse message.
+- Logout revokes refresh token by setting revokedAt.
+- Logout does not delete refresh token rows.
+- Logout does not blacklist JWT access tokens.
+- Existing access tokens remain valid until expiry.
+- No refresh-token rotation implemented.
+- No Flyway migration added because revoked_at already exists.
+- Frontend auth, protected routes UI, user profile, dashboard, token rotation, and Phase 2 features are not implemented yet.
+
+Testing notes:
+- Always use Maven Wrapper only:
+  cd backend
+  .\mvnw.cmd test
+- If stale compiled class issues appear, run:
+  cd backend
+  .\mvnw.cmd clean test
+- Logout clean test result:
+  Tests run: 39, Failures: 0, Errors: 0, Skipped: 0
+  BUILD SUCCESS
 
 Rules:
 Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Prompts, Build Log, and AGENTS.md.
 Do not redesign anything.
 Do not add Phase 2 features.
-Use Maven Wrapper only:
-cd backend
-.\mvnw.cmd test
+Do not start the next feature while current feature changes are uncommitted.
+Use Maven Wrapper only.
 ```

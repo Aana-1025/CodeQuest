@@ -12,6 +12,9 @@ import com.codequest.auth.dto.LoginResponse;
 import com.codequest.auth.dto.RefreshTokenRequest;
 import com.codequest.auth.dto.RefreshTokenResponse;
 import com.codequest.auth.dto.RegisterRequest;
+import com.codequest.auth.dto.RegisterResponse;
+import com.codequest.auth.dto.LogoutRequest;
+import com.codequest.auth.dto.LogoutResponse;
 import com.codequest.auth.mapper.AuthMapper;
 import com.codequest.common.exception.ApiException;
 import com.codequest.common.exception.ErrorCode;
@@ -87,5 +90,11 @@ public class AuthService {
         int expiresInSeconds = jwtService.getAccessTokenExpirySeconds();
 
         return authMapper.toRefreshTokenResponse(accessToken, refreshToken, expiresInSeconds);
+    }
+
+    public LogoutResponse logout(LogoutRequest request) {
+        String token = request.refreshToken().trim();
+        refreshTokenService.revokeRefreshToken(token);
+        return authMapper.toLogoutResponse();
     }
 }

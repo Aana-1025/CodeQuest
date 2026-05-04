@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.codequest.auth.dto.LoginRequest;
 import com.codequest.auth.dto.LoginResponse;
+import com.codequest.auth.dto.LogoutRequest;
+import com.codequest.auth.dto.LogoutResponse;
 import com.codequest.auth.dto.RefreshTokenRequest;
 import com.codequest.auth.dto.RefreshTokenResponse;
 import com.codequest.auth.dto.RegisterRequest;
@@ -64,6 +66,16 @@ public class AuthController {
     @ApiResponse(responseCode = "401", description = "Invalid refresh token")
     public ResponseEntity<RefreshTokenResponse> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
         RefreshTokenResponse response = authService.refreshToken(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/logout")
+    @Operation(summary = "Logout user", description = "Revoke the refresh token to log out the user")
+    @ApiResponse(responseCode = "200", description = "User logged out successfully", content = @Content(schema = @Schema(implementation = LogoutResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Validation error")
+    @ApiResponse(responseCode = "401", description = "Invalid refresh token")
+    public ResponseEntity<LogoutResponse> logout(@Valid @RequestBody LogoutRequest request) {
+        LogoutResponse response = authService.logout(request);
         return ResponseEntity.ok(response);
     }
 }

@@ -17,6 +17,8 @@ import com.codequest.auth.JwtService;
 import com.codequest.auth.RefreshTokenService;
 import com.codequest.auth.dto.LoginRequest;
 import com.codequest.auth.dto.LoginResponse;
+import com.codequest.auth.dto.LogoutRequest;
+import com.codequest.auth.dto.LogoutResponse;
 import com.codequest.auth.dto.RefreshTokenRequest;
 import com.codequest.auth.dto.RefreshTokenResponse;
 import com.codequest.auth.dto.RegisterRequest;
@@ -265,5 +267,35 @@ class AuthServiceTest {
 
         assertNotNull(response.accessToken());
         assertEquals("Bearer", response.tokenType());
+    }
+
+    @Test
+    void shouldLogoutUserSuccessfully() {
+        RegisterRequest registerRequest = new RegisterRequest(
+                "Logout Test",
+                "logout@example.com",
+                "LogoutPass123"
+        );
+        authService.register(registerRequest);
+
+        LoginRequest loginRequest = new LoginRequest(
+                "logout@example.com",
+                "LogoutPass123"
+        );
+        LoginResponse loginResponse = authService.login(loginRequest);
+
+        LogoutRequest logoutRequest = new LogoutRequest(loginResponse.refreshToken());
+        LogoutResponse logoutResponse = authService.logout(logoutRequest);
+
+        assertEquals("Logged out successfully.", logoutResponse.message());
+    }
+
+    @Test
+    void shouldThrowExceptionForInvalidRefreshTokenOnLogout() {
+        LogoutRequest logoutRequest = new LogoutRequest("invalid-token");
+
+        LogoutResponse response = authService.logout(logoutRequest);
+
+        assertEquals("Logged out successfully.", response.message());
     }
 }

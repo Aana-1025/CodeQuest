@@ -3,6 +3,7 @@ package com.codequest.auth.mapper;
 import org.springframework.stereotype.Component;
 
 import com.codequest.auth.dto.LoginResponse;
+import com.codequest.auth.dto.LogoutResponse;
 import com.codequest.auth.dto.RefreshTokenResponse;
 import com.codequest.auth.dto.RegisterResponse;
 import com.codequest.user.User;
@@ -52,5 +53,9 @@ public class AuthMapper {
 
     public RefreshTokenResponse toRefreshTokenResponse(String accessToken, String refreshToken, int expiresInSeconds) {
         return new RefreshTokenResponse(accessToken, refreshToken, "Bearer", expiresInSeconds);
+    }
+
+    public LogoutResponse toLogoutResponse() {
+        return new LogoutResponse("Logged out successfully.");
     }
 }

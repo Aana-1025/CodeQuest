@@ -7,6 +7,7 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -90,6 +91,18 @@ public class RefreshTokenService {
             return hexString.toString();
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException("SHA-256 algorithm not available.", ex);
+        }
+    }
+
+    public void revokeRefreshToken(String rawToken) {
+        String tokenHash = hashToken(rawToken);
+        Optional<RefreshToken> optionalRefreshToken = refreshTokenRepository.findByTokenHash(tokenHash);
+        if (optionalRefreshToken.isPresent()) {
+            RefreshToken refreshToken = optionalRefreshToken.get();
+            if (refreshToken.getRevokedAt() == null) {
+                refreshToken.setRevokedAt(Instant.now());
+                refreshTokenRepository.save(refreshToken);
+            }
         }
     }
 }
