@@ -51,8 +51,7 @@ public class AuthController {
     @ApiResponse(responseCode = "400", description = "Validation error")
     @ApiResponse(responseCode = "401", description = "Invalid email or password")
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
-        User user = authService.login(request);
-        LoginResponse response = authMapper.toLoginResponse(user);
+        LoginResponse response = authService.login(request);
         return ResponseEntity.ok(response);
     }
 }

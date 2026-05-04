@@ -15,6 +15,9 @@ spring:
     locations: classpath:db/migration
 server:
   port: 8080
+jwt:
+  secret: ${JWT_SECRET:dev-only-change-this-secret-dev-only-change-this-secret}
+  access-minutes: ${JWT_ACCESS_MINUTES:15}
 logging:
   level:
     root: INFO

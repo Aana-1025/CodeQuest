@@ -167,6 +167,9 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.rank").value("BEGINNER"))
                 .andExpect(jsonPath("$.xp").value(0))
                 .andExpect(jsonPath("$.streak").value(0))
+                .andExpect(jsonPath("$.accessToken").exists())
+                .andExpect(jsonPath("$.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.expiresInSeconds").value(900))
                 .andExpect(jsonPath("$.passwordHash").doesNotExist());
     }
 

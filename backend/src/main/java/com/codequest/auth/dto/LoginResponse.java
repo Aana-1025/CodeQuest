@@ -10,6 +10,9 @@ public record LoginResponse(
         String email,
         UserRank rank,
         Integer xp,
-        Integer streak
+        Integer streak,
+        String accessToken,
+        String tokenType,
+        Integer expiresInSeconds
 ) {
 }

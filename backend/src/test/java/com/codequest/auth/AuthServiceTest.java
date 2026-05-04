@@ -13,8 +13,11 @@ import org.springframework.context.annotation.Import;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
+import com.codequest.auth.JwtService;
 import com.codequest.auth.dto.LoginRequest;
+import com.codequest.auth.dto.LoginResponse;
 import com.codequest.auth.dto.RegisterRequest;
+import com.codequest.auth.mapper.AuthMapper;
 import com.codequest.common.exception.ApiException;
 import com.codequest.common.exception.ErrorCode;
 import com.codequest.user.User;
@@ -22,7 +25,7 @@ import com.codequest.user.UserRepository;
 
 @DataJpaTest
 @ActiveProfiles("test")
-@Import({AuthService.class, com.codequest.common.config.PasswordEncoderConfig.class})
+@Import({AuthService.class, JwtService.class, AuthMapper.class, com.codequest.common.config.PasswordEncoderConfig.class})
 class AuthServiceTest {
 
     @Autowired
@@ -135,11 +138,14 @@ class AuthServiceTest {
                 "MyPassword123"
         );
 
-        User user = authService.login(loginRequest);
+        LoginResponse response = authService.login(loginRequest);
 
-        assertNotNull(user.getId());
-        assertEquals("login@example.com", user.getEmail());
-        assertEquals("Login Test", user.getName());
+        assertNotNull(response.userId());
+        assertEquals("login@example.com", response.email());
+        assertEquals("Login Test", response.name());
+        assertNotNull(response.accessToken());
+        assertEquals("Bearer", response.tokenType());
+        assertEquals(900, response.expiresInSeconds());
     }
 
     @Test
@@ -156,9 +162,9 @@ class AuthServiceTest {
                 "TestPass123"
         );
 
-        User user = authService.login(loginRequest);
+        LoginResponse response = authService.login(loginRequest);
 
-        assertEquals("email@example.com", user.getEmail());
+        assertEquals("email@example.com", response.email());
     }
 
     @Test
@@ -212,9 +218,9 @@ class AuthServiceTest {
                 "PrivatePass123"
         );
 
-        User user = authService.login(loginRequest);
+        LoginResponse response = authService.login(loginRequest);
 
-        assertNotNull(user.getPasswordHash());
-        assertTrue(user.getPasswordHash().length() > 0);
+        assertNotNull(response.accessToken());
+        assertEquals("Bearer", response.tokenType());
     }
 }

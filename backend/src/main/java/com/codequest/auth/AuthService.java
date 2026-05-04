@@ -8,7 +8,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.codequest.auth.dto.LoginRequest;
+import com.codequest.auth.dto.LoginResponse;
 import com.codequest.auth.dto.RegisterRequest;
+import com.codequest.auth.mapper.AuthMapper;
 import com.codequest.common.exception.ApiException;
 import com.codequest.common.exception.ErrorCode;
 import com.codequest.user.User;
@@ -19,10 +21,14 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
+    private final AuthMapper authMapper;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService, AuthMapper authMapper) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
+        this.authMapper = authMapper;
     }
 
     @Transactional
@@ -48,7 +54,7 @@ public class AuthService {
         return userRepository.save(user);
     }
 
-    public User login(LoginRequest request) {
+    public LoginResponse login(LoginRequest request) {
         String normalizedEmail = request.email().toLowerCase().trim();
 
         User user = userRepository.findByEmail(normalizedEmail)
@@ -58,6 +64,8 @@ public class AuthService {
             throw new ApiException(ErrorCode.INVALID_CREDENTIALS, "Invalid email or password.");
         }
 
-        return user;
+        String accessToken = jwtService.generateAccessToken(user);
+        int expiresInSeconds = jwtService.getAccessTokenExpirySeconds();
+        return authMapper.toLoginResponse(user, accessToken, expiresInSeconds);
     }
 }

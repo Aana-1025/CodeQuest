@@ -26,7 +26,24 @@ public class AuthMapper {
                 user.getEmail(),
                 user.getRank(),
                 user.getXp(),
-                user.getStreak()
+                user.getStreak(),
+                null,
+                null,
+                null
+        );
+    }
+
+    public LoginResponse toLoginResponse(User user, String accessToken, int expiresInSeconds) {
+        return new LoginResponse(
+                user.getId(),
+                user.getName(),
+                user.getEmail(),
+                user.getRank(),
+                user.getXp(),
+                user.getStreak(),
+                accessToken,
+                "Bearer",
+                expiresInSeconds
         );
     }
 }
