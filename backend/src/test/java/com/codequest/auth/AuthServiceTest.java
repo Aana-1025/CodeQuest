@@ -14,8 +14,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.codequest.auth.JwtService;
+import com.codequest.auth.RefreshTokenService;
 import com.codequest.auth.dto.LoginRequest;
 import com.codequest.auth.dto.LoginResponse;
+import com.codequest.auth.dto.RefreshTokenRequest;
+import com.codequest.auth.dto.RefreshTokenResponse;
 import com.codequest.auth.dto.RegisterRequest;
 import com.codequest.auth.mapper.AuthMapper;
 import com.codequest.common.exception.ApiException;
@@ -25,7 +28,7 @@ import com.codequest.user.UserRepository;
 
 @DataJpaTest
 @ActiveProfiles("test")
-@Import({AuthService.class, JwtService.class, AuthMapper.class, com.codequest.common.config.PasswordEncoderConfig.class})
+@Import({AuthService.class, JwtService.class, RefreshTokenService.class, AuthMapper.class, com.codequest.common.config.PasswordEncoderConfig.class})
 class AuthServiceTest {
 
     @Autowired
@@ -144,8 +147,48 @@ class AuthServiceTest {
         assertEquals("login@example.com", response.email());
         assertEquals("Login Test", response.name());
         assertNotNull(response.accessToken());
+        assertNotNull(response.refreshToken());
+        assertNotEquals(response.accessToken(), response.refreshToken());
         assertEquals("Bearer", response.tokenType());
         assertEquals(900, response.expiresInSeconds());
+    }
+
+    @Test
+    void shouldRefreshTokenSuccessfully() {
+        RegisterRequest registerRequest = new RegisterRequest(
+                "Refresh Test",
+                "refresh@example.com",
+                "RefreshPass123"
+        );
+        authService.register(registerRequest);
+
+        LoginRequest loginRequest = new LoginRequest(
+                "refresh@example.com",
+                "RefreshPass123"
+        );
+        LoginResponse loginResponse = authService.login(loginRequest);
+
+        RefreshTokenRequest refreshRequest = new RefreshTokenRequest(loginResponse.refreshToken());
+        RefreshTokenResponse refreshResponse = authService.refreshToken(refreshRequest);
+
+        assertNotNull(refreshResponse.accessToken());
+        assertNotNull(refreshResponse.refreshToken());
+        assertNotEquals(loginResponse.accessToken(), refreshResponse.accessToken());
+        assertNotEquals(loginResponse.refreshToken(), refreshResponse.refreshToken());
+        assertEquals("Bearer", refreshResponse.tokenType());
+        assertEquals(900, refreshResponse.expiresInSeconds());
+    }
+
+    @Test
+    void shouldThrowExceptionForInvalidRefreshToken() {
+        RefreshTokenRequest refreshRequest = new RefreshTokenRequest("invalid-token");
+
+        ApiException exception = assertThrows(ApiException.class, () ->
+                authService.refreshToken(refreshRequest)
+        );
+
+        assertEquals(ErrorCode.INVALID_REFRESH_TOKEN, exception.getErrorCode());
+        assertEquals("Invalid refresh token.", exception.getMessage());
     }
 
     @Test

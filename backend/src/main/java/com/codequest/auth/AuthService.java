@@ -9,6 +9,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.codequest.auth.dto.LoginRequest;
 import com.codequest.auth.dto.LoginResponse;
+import com.codequest.auth.dto.RefreshTokenRequest;
+import com.codequest.auth.dto.RefreshTokenResponse;
 import com.codequest.auth.dto.RegisterRequest;
 import com.codequest.auth.mapper.AuthMapper;
 import com.codequest.common.exception.ApiException;
@@ -22,12 +24,18 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final RefreshTokenService refreshTokenService;
     private final AuthMapper authMapper;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService, AuthMapper authMapper) {
+    public AuthService(UserRepository userRepository,
+                       PasswordEncoder passwordEncoder,
+                       JwtService jwtService,
+                       RefreshTokenService refreshTokenService,
+                       AuthMapper authMapper) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.refreshTokenService = refreshTokenService;
         this.authMapper = authMapper;
     }
 
@@ -65,7 +73,19 @@ public class AuthService {
         }
 
         String accessToken = jwtService.generateAccessToken(user);
+        String refreshToken = refreshTokenService.createRefreshToken(user);
         int expiresInSeconds = jwtService.getAccessTokenExpirySeconds();
-        return authMapper.toLoginResponse(user, accessToken, expiresInSeconds);
+        return authMapper.toLoginResponse(user, accessToken, refreshToken, expiresInSeconds);
+    }
+
+    public RefreshTokenResponse refreshToken(RefreshTokenRequest request) {
+        String token = request.refreshToken().trim();
+        User user = refreshTokenService.validateRefreshToken(token);
+
+        String accessToken = jwtService.generateAccessToken(user);
+        String refreshToken = refreshTokenService.createRefreshToken(user);
+        int expiresInSeconds = jwtService.getAccessTokenExpirySeconds();
+
+        return authMapper.toRefreshTokenResponse(accessToken, refreshToken, expiresInSeconds);
     }
 }

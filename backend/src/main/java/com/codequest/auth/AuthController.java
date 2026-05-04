@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.codequest.auth.dto.LoginRequest;
 import com.codequest.auth.dto.LoginResponse;
+import com.codequest.auth.dto.RefreshTokenRequest;
+import com.codequest.auth.dto.RefreshTokenResponse;
 import com.codequest.auth.dto.RegisterRequest;
 import com.codequest.auth.dto.RegisterResponse;
 import com.codequest.auth.mapper.AuthMapper;
@@ -52,6 +54,16 @@ public class AuthController {
     @ApiResponse(responseCode = "401", description = "Invalid email or password")
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         LoginResponse response = authService.login(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/refresh")
+    @Operation(summary = "Refresh access token", description = "Exchange a refresh token for a new access token and refresh token")
+    @ApiResponse(responseCode = "200", description = "Token refreshed successfully", content = @Content(schema = @Schema(implementation = RefreshTokenResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Validation error")
+    @ApiResponse(responseCode = "401", description = "Invalid refresh token")
+    public ResponseEntity<RefreshTokenResponse> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
+        RefreshTokenResponse response = authService.refreshToken(request);
         return ResponseEntity.ok(response);
     }
 }

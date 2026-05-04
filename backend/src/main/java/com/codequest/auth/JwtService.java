@@ -41,6 +41,7 @@ public class JwtService {
         Instant expiry = now.plus(accessMinutes, ChronoUnit.MINUTES);
 
         return Jwts.builder()
+                .setId(UUID.randomUUID().toString())
                 .setSubject(user.getId().toString())
                 .setIssuedAt(Date.from(now))
                 .setExpiration(Date.from(expiry))

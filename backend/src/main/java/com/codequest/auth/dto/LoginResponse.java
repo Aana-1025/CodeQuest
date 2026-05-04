@@ -12,6 +12,7 @@ public record LoginResponse(
         Integer xp,
         Integer streak,
         String accessToken,
+        String refreshToken,
         String tokenType,
         Integer expiresInSeconds
 ) {
