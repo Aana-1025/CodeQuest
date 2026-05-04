@@ -6,12 +6,12 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 ## Current Status
 Phase: MVP
 Current module: Auth
-Current feature: JWT filter
-Last completed feature: Auth login
-Next feature: JWT filter
+Current feature: Refresh token
+Last completed feature: JWT filter
+Next feature: Refresh token
 Current branch: main
-Latest commit: a1b500d feat: add auth login
-Test status: Backend Maven Wrapper test PASS for Auth login (27 tests: 13 controller + 10 service + 2 exception + 1 app + 1 health); Git status clean after commit and push; Frontend build not required for backend-only task
+Latest commit: 89564e7 feat: add jwt authentication
+Test status: Backend Maven Wrapper test PASS for JWT authentication (33 tests); Git status clean after commit and push; Frontend build not required for backend-only task
 
 ## Completed Features
 - [x] Project setup
@@ -22,7 +22,7 @@ Test status: Backend Maven Wrapper test PASS for Auth login (27 tests: 13 contro
 - [x] Global ErrorDTO + GlobalExceptionHandler
 - [x] Auth register
 - [x] Auth login
-- [ ] JWT filter
+- [x] JWT filter
 - [ ] Refresh token
 - [ ] Logout / token revoke
 - [ ] User profile
@@ -94,6 +94,8 @@ Test status: Backend Maven Wrapper test PASS for Auth login (27 tests: 13 contro
 - Auth register note: Codex added `spring-security-crypto` only for BCrypt password hashing. Full Spring Security filter chain, JWT filter, login, refresh token, and logout remain intentionally unimplemented.
 - Auth register note: The register response intentionally does not return JWT/accessToken because JwtService is not implemented yet and was explicitly out of scope for this task.
 - Auth register note: The response must not expose `passwordHash`, `password_hash`, role, JWT, refresh token, or any sensitive field.
+- JWT authentication note: Login response now returns accessToken, tokenType, and expiresInSeconds. Refresh token, logout, token rotation, frontend auth, protected routes UI, and dashboard are still intentionally unimplemented.
+- JWT authentication note: JWT secret and access token expiry are configuration-driven through application.yml/test application.yml with safe local/test defaults only. Real production secrets must come from environment variables.
 
 ## Feature History
 | # | Date | Feature | Module | Files changed | Tests | Commit/Notes |
@@ -107,6 +109,7 @@ Test status: Backend Maven Wrapper test PASS for Auth login (27 tests: 13 contro
 | 7 | 2026-05-03 | Build Log update after Global ErrorDTO | Docs | CodeQuest_Build_Log.md | Git status clean after docs commit | `0161bdf docs: record global error handling completion` |
 | 8 | 2026-05-03 | Auth register | Auth | backend/pom.xml, AuthController, AuthService, RegisterRequest, RegisterResponse, AuthMapper, User entity, UserRepository, UserRank, UserRole, PasswordEncoderConfig, ErrorCode, GlobalExceptionHandler, AuthServiceTest, AuthControllerTest, test application.yml | Backend `cd backend && .\mvnw.cmd test` PASS according to Codex output; 15 tests total | `cb01ae3 feat: add auth register` |
 | 9 | 2026-05-03 | Auth login | Auth | LoginRequest, LoginResponse, AuthService.login() method, AuthController.login() endpoint, AuthMapper.toLoginResponse(), GlobalExceptionHandler INVALID_CREDENTIALS mapping, AuthServiceTest login tests (5 methods), AuthControllerTest login tests (7 methods) | Backend `cd backend && .\mvnw.cmd test` PASS; 27 tests total (13 AuthController + 10 AuthService + 2 GlobalExceptionHandler + 1 Application + 1 Health) | `a1b500d feat: add auth login` |
+| 10 | 2026-05-04 | JWT authentication | Auth/security | backend/pom.xml, application.yml, test application.yml, LoginResponse, AuthService, AuthController, AuthMapper, JwtService, CurrentUserPrincipal, JwtAuthenticationFilter, RestAuthenticationEntryPoint, SecurityConfig, AuthServiceTest, AuthControllerTest, HealthControllerTest, JwtServiceTest, SecurityConfigTest | Backend `cd backend && .\mvnw.cmd test` PASS; 33 tests total | `89564e7 feat: add jwt authentication` |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -119,6 +122,7 @@ Test status: Backend Maven Wrapper test PASS for Auth login (27 tests: 13 contro
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | GlobalExceptionHandlerTest initially failed due missing validation provider/test context; fixed by adding validation starter and stable standalone MockMvcBuilders test | Yes |
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | Auth register tests passed according to Codex output: AuthControllerTest, AuthServiceTest, HealthControllerTest, GlobalExceptionHandlerTest, CodeQuestApplicationTests; total 15 tests | Yes |
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | Auth login tests: 27 total (13 AuthController: 6 register + 7 login; 10 AuthService: 5 register + 5 login; 2 GlobalExceptionHandler; 1 Application; 1 Health) | Yes |
+| 2026-05-04 | `cd backend && .\mvnw.cmd test` | PASS | JWT authentication tests passed: 33 total including JwtServiceTest and SecurityConfigTest; SecurityConfigTest ran 3 tests | Yes |
 
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
@@ -130,6 +134,9 @@ Test status: Backend Maven Wrapper test PASS for Auth login (27 tests: 13 contro
 | 2026-05-03 | Auth login | POST `/api/auth/login` with valid registered email and correct password | 200 OK with userId, name, email, rank BEGINNER, xp 0, streak 0; no passwordHash | Recommended before commit |
 | 2026-05-03 | Auth login wrong password | POST `/api/auth/login` with registered email and wrong password | 401 Unauthorized with standard ErrorDTO and INVALID_CREDENTIALS | Recommended before commit |
 | 2026-05-03 | Auth login unknown email | POST `/api/auth/login` with unregistered email | 401 Unauthorized with standard ErrorDTO and INVALID_CREDENTIALS | Recommended before commit |
+| 2026-05-04 | JWT authentication | POST `/api/auth/login` with valid credentials | 200 OK with userId, name, email, rank, xp, streak, accessToken, tokenType Bearer, expiresInSeconds | Recommended before commit |
+| 2026-05-04 | JWT protected endpoint without token | Request any protected endpoint without Authorization header | 401 Unauthorized with standard ErrorDTO | Recommended before commit |
+| 2026-05-04 | JWT public health endpoint | GET `/api/health` without token | 200 OK | Covered by automated tests |
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -216,8 +223,8 @@ Important Auth register boundaries:
 - Response must not contain `passwordHash`.
 - Response must not contain `password_hash`.
 - Response must not contain `role`.
-- Response must not contain JWT/access token yet.
-- Login, JwtService, JWT filter, refresh token, logout, frontend auth, and dashboard are still not implemented.
+- Register response still does not return JWT/access token.
+- Login, JwtService, JWT filter, refresh token, logout, frontend auth, and dashboard were separate tasks.
 
 ## Auth Login Manual Test Commands
 Use these after starting the backend.
@@ -233,7 +240,7 @@ Content-Type: application/json
 }
 ```
 
-Expected success:
+Expected success after JWT authentication feature:
 ```json
 {
   "userId": "uuid",
@@ -241,7 +248,10 @@ Expected success:
   "email": "antara@example.com",
   "rank": "BEGINNER",
   "xp": 0,
-  "streak": 0
+  "streak": 0,
+  "accessToken": "jwt-token",
+  "tokenType": "Bearer",
+  "expiresInSeconds": 900
 }
 ```
 
@@ -263,8 +273,65 @@ Important Auth login boundaries:
 - Response must not contain `passwordHash`.
 - Response must not contain `password_hash`.
 - Response must not contain `role`.
-- Response must not contain JWT/access token yet.
-- JWT filter, refresh token, logout, frontend auth, protected routes, and dashboard are still not implemented.
+- Login response now contains JWT accessToken, tokenType, and expiresInSeconds.
+- Refresh token, logout, frontend auth, protected routes UI, and dashboard are still not implemented.
+
+## JWT Authentication Manual Test Commands
+Use these after starting the backend.
+
+Login and copy token:
+```http
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "antara@example.com",
+  "password": "StrongPass123"
+}
+```
+
+Expected token fields:
+```json
+{
+  "accessToken": "jwt-token",
+  "tokenType": "Bearer",
+  "expiresInSeconds": 900
+}
+```
+
+Public endpoint without token:
+```http
+GET http://localhost:8080/api/health
+```
+
+Expected:
+```text
+HTTP 200 OK
+```
+
+Protected endpoint without token:
+```text
+Any non-public endpoint should return HTTP 401 Unauthorized without Authorization header.
+```
+
+Protected endpoint with token:
+```http
+Authorization: Bearer <accessToken>
+```
+
+Expected:
+```text
+Valid JWT should populate Spring SecurityContext and allow authenticated protected access.
+```
+
+Important JWT authentication boundaries:
+- JWT subject is user id.
+- JWT claims must not include passwordHash, password_hash, raw password, refresh token, secrets, or private data.
+- JWT secret and expiry must come from config/environment.
+- No refresh token implemented yet.
+- No logout/token revoke implemented yet.
+- No token rotation implemented yet.
+- No frontend auth implemented yet.
 
 ## Next Chat Prompt
 Paste this into a fresh ChatGPT Project chat whenever the current chat becomes slow or confusing:
@@ -275,11 +342,11 @@ Continue CodeQuest from the current status.
 Do not redesign anything.
 Do not implement Phase 2 features.
 Current module: Auth.
-Last completed feature: Auth login.
-Current feature / next feature: JWT filter.
-Latest Auth login commit: a1b500d feat: add auth login.
-Give me one strict Codex prompt for JWT filter only.
-Do not implement refresh token, logout, token rotation, frontend auth, dashboard, or Phase 2 features.
+Last completed feature: JWT filter.
+Current feature / next feature: Refresh token.
+Latest JWT authentication commit: 89564e7 feat: add jwt authentication.
+Give me one strict Codex prompt for Refresh token only.
+Do not implement logout, token rotation beyond what refresh-token safety requires, frontend auth, dashboard, or Phase 2 features.
 Include exact files to touch, files not to touch, commands to run, manual API checks, expected output, and Build Log update after completion.
 ```
 
@@ -324,25 +391,25 @@ AI: Gemini API
 Code execution: Piston API
 
 Current module: Auth
-Last completed feature: Auth login
-Current feature / next task: JWT filter
-Latest commit: a1b500d feat: add auth login
+Last completed feature: JWT filter
+Current feature / next task: Refresh token
+Latest commit: 89564e7 feat: add jwt authentication
 Git status expected after commit: clean
-Tests passed: Backend Maven Wrapper test PASS for Auth login (27 tests: 13 AuthController + 10 AuthService + 2 GlobalExceptionHandler + 1 Application + 1 Health); frontend build not required for backend-only task
+Tests passed: Backend Maven Wrapper test PASS for JWT authentication (33 tests); frontend build not required for backend-only task
 Known bugs: None currently
 
-Important completed Auth login details:
-- POST /api/auth/login implemented.
-- Request fields: email, password.
-- Validation: valid email, password not blank.
-- Email normalization to lowercase before lookup.
-- Password verification uses BCrypt PasswordEncoder.matches().
-- Response returns userId, name, email, rank, xp, streak.
-- Response does not return passwordHash, password_hash, role, JWT, or refresh token.
-- Wrong password and unknown email both return 401 INVALID_CREDENTIALS (safe error message: "Invalid email or password.").
-- GlobalExceptionHandler maps INVALID_CREDENTIALS to HTTP 401.
-- Comprehensive tests: success case, wrong password, unknown email, email normalization, validation errors.
-- JWT filter, refresh token, logout, token rotation, frontend auth, protected routes, and dashboard are not implemented yet.
+Important completed JWT authentication details:
+- JWT access token support implemented.
+- Login response now returns accessToken, tokenType Bearer, and expiresInSeconds.
+- JwtService generates and validates access tokens.
+- JwtAuthenticationFilter parses Bearer tokens and populates Spring SecurityContext.
+- SecurityConfig uses stateless API security.
+- Public endpoints remain accessible without token: POST /api/auth/register, POST /api/auth/login, GET /api/health, Swagger/OpenAPI docs, actuator health if present.
+- Non-public endpoints require authentication and return 401 without valid token.
+- RestAuthenticationEntryPoint returns standard 401 ErrorDTO for unauthorized access.
+- JWT claims are safe and must not include passwordHash, password_hash, raw password, refresh token, secrets, or private data.
+- JWT secret and access-token expiry come from config/environment.
+- Refresh token, logout, token revoke, token rotation, frontend auth, protected routes UI, and dashboard are not implemented yet.
 
 Rules:
 Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Prompts, Build Log, and AGENTS.md.
