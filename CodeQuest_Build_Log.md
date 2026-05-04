@@ -6,14 +6,13 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 ## Current Status
 Phase: MVP
 Current module: User
-Current feature: User profile completed; awaiting commit
+Current feature: User profile completed, committed, and pushed
 Last completed feature: User profile
-Next feature: Frontend auth pages / protected routes, but do not start until user profile changes are committed and git status is clean
+Next feature: Frontend auth pages / protected routes, but do not start until git status is clean and next feature scope is confirmed
 Current branch: main
-Latest commit: 2bc89e6 docs: update build log after auth logout
-Pending commit: feat: add user profile endpoint
+Latest commit: 9ba94ad feat: add user profile endpoint
 Test status: Backend Maven Wrapper test PASS for User profile (43 tests); frontend build not required for backend-only task
-Git status: clean except uncommitted User profile files before commit
+Git status: clean after user profile commit and push
 
 ## Completed Features
 - [x] Project setup
@@ -144,7 +143,7 @@ Git status: clean except uncommitted User profile files before commit
 | 10 | 2026-05-04 | JWT authentication | Auth/security | backend/pom.xml, application.yml, test application.yml, LoginResponse, AuthService, AuthController, AuthMapper, JwtService, CurrentUserPrincipal, JwtAuthenticationFilter, RestAuthenticationEntryPoint, SecurityConfig, AuthServiceTest, AuthControllerTest, HealthControllerTest, JwtServiceTest, SecurityConfigTest | Backend `cd backend && .\mvnw.cmd test` PASS; 33 tests total | `89564e7 feat: add jwt authentication` |
 | 11 | 2026-05-04 | Refresh token | Auth | V2 refresh_tokens Flyway migration, RefreshToken entity, RefreshTokenRepository, RefreshTokenService, RefreshTokenRequest, RefreshTokenResponse, LoginResponse refreshToken field, AuthService refresh flow, AuthController refresh endpoint, AuthMapper update, ErrorCode INVALID_REFRESH_TOKEN, GlobalExceptionHandler mapping, SecurityConfig public refresh endpoint, application.yml refresh-token config, AuthServiceTest, AuthControllerTest, JwtService jti fix | Backend `cd backend && .\mvnw.cmd test` PASS; 37 tests total | `26fc7c5 feat: add refresh token` |
 | 12 | 2026-05-04 | Logout / token revoke | Auth | AuthController logout endpoint, AuthService.logout(), RefreshTokenService.revokeRefreshToken(), AuthMapper.toLogoutResponse(), LogoutRequest, LogoutResponse, AuthServiceTest logout tests | Backend `cd backend && .\mvnw.cmd clean test` PASS; 39 tests total | `feat: add auth logout`. Stale `target/` build output initially caused `GlobalExceptionHandler$1` class error; fixed by clean test. Commit pushed; git status clean. |
-| 13 | 2026-05-04 | User profile | User | UserProfileResponse, UserMapper, UserService, UserController, UserServiceTest, UserControllerTest | Backend `cd backend && .\mvnw.cmd test` PASS; 43 tests total | Pending commit: `feat: add user profile endpoint`. Implemented authenticated GET `/api/users/me` with safe response fields. |
+| 13 | 2026-05-04 | User profile | User | UserProfileResponse, UserMapper, UserService, UserController, UserServiceTest, UserControllerTest | Backend `cd backend && .\mvnw.cmd test` PASS; 43 tests total | `9ba94ad feat: add user profile endpoint`. Implemented authenticated GET `/api/users/me` with safe response fields. Commit pushed; git status clean. |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -188,8 +187,8 @@ Git status: clean except uncommitted User profile files before commit
 | 2026-05-04 | Logout / token revoke | POST `/api/auth/logout` with valid refreshToken from login | 200 OK with safe success message; refresh token row has `revokedAt` set | Automated service tests passed; manual API smoke test recommended |
 | 2026-05-04 | Refresh after logout | POST `/api/auth/refresh` using same refreshToken after logout | 401 Unauthorized with standard ErrorDTO and INVALID_REFRESH_TOKEN | Automated service tests passed; manual API smoke test recommended |
 | 2026-05-04 | Logout safety | Inspect logout response | Response must not include tokenHash, raw token, passwordHash, password_hash, role, or internal user data | Automated service tests passed; manual API smoke test recommended |
-| 2026-05-04 | User profile with token | GET `/api/users/me` with valid JWT access token | 200 OK with userId, name, email, rank, xp, streak, goal, avatarUrl, createdAt | Automated integration test passed; manual API smoke test recommended before commit |
-| 2026-05-04 | User profile without token | GET `/api/users/me` without Authorization header | 401 Unauthorized | Automated integration test passed; manual API smoke test recommended before commit |
+| 2026-05-04 | User profile with token | GET `/api/users/me` with valid JWT access token | 200 OK with userId, name, email, rank, xp, streak, goal, avatarUrl, createdAt | Automated integration test passed; manual API smoke test recommended |
+| 2026-05-04 | User profile without token | GET `/api/users/me` without Authorization header | 401 Unauthorized | Automated integration test passed; manual API smoke test recommended |
 | 2026-05-04 | User profile safety | Inspect GET `/api/users/me` response | Response must not include passwordHash, password_hash, tokenHash, refreshToken, role, or raw password | Automated integration test passed |
 
 ## Verification Protocol After Every Codex Task
@@ -651,10 +650,9 @@ Do not implement Phase 2 features.
 
 Current module: User.
 Last completed feature: User profile.
-Current feature status: User profile implemented, backend tests passed, awaiting commit if not already committed.
-Latest committed feature before user profile: Logout / token revoke.
-Latest committed docs checkpoint before user profile: 2bc89e6 docs: update build log after auth logout.
-Pending/expected user profile commit message: feat: add user profile endpoint.
+Current feature status: User profile implemented, backend tests passed, committed and pushed.
+Latest completed commit: 9ba94ad feat: add user profile endpoint.
+Git status: clean after user profile commit and push.
 
 Current user profile implementation details:
 - GET /api/users/me implemented.
@@ -675,11 +673,11 @@ Testing:
   .\mvnw.cmd test
 - Result: 43 tests, 0 failures, 0 errors, 0 skipped, BUILD SUCCESS.
 
-Do not implement frontend auth, dashboard, protected routes UI, course, AI, leaderboard, Docker, CI/CD, deployment, or Phase 2 features until current user profile changes are committed and git status is clean.
+Do not implement frontend auth, dashboard, protected routes UI, course, AI, leaderboard, Docker, CI/CD, deployment, or Phase 2 features until git status is clean and the next feature scope is confirmed.
 
 Give me the next safest step only:
-1. If User profile is not committed, help me commit and push it safely.
-2. If User profile is already committed and git status is clean, propose one strict Codex prompt for the next MVP feature only.
+1. First confirm git status is clean.
+2. If git status is clean, propose one strict Codex prompt for the next MVP feature only.
 Include exact files to touch, files not to touch, commands to run, manual API checks, expected output, and Build Log update after completion.
 ```
 
@@ -725,11 +723,10 @@ Code execution: Piston API
 
 Current module: User
 Last completed feature: User profile
-Current feature status: User profile implemented and backend tests passed; commit may still be pending depending on latest git status
-Next task: Commit user profile safely if not committed; otherwise select next MVP feature only
-Latest committed feature before user profile: Logout / token revoke
-Pending/expected user profile commit message: feat: add user profile endpoint
-Git status expected after user profile commit: clean
+Current feature status: User profile implemented, backend tests passed, committed and pushed
+Next task: Select next MVP feature only after confirming git status is clean
+Latest completed commit: 9ba94ad feat: add user profile endpoint
+Git status: clean after user profile commit and push
 Tests passed: Backend Maven Wrapper test PASS for User profile (43 tests); frontend build not required for backend-only task
 Known bugs: None currently
 
