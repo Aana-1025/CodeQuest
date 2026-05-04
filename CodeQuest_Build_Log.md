@@ -5,14 +5,15 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Auth
-Current feature: Logout / token revoke completed, committed, and pushed
-Last completed feature: Logout / token revoke
-Next feature: User profile / next MVP auth-adjacent task, but do not start until git status is clean and next feature scope is confirmed
+Current module: User
+Current feature: User profile completed; awaiting commit
+Last completed feature: User profile
+Next feature: Frontend auth pages / protected routes, but do not start until user profile changes are committed and git status is clean
 Current branch: main
-Latest commit: feat: add auth logout
-Test status: Backend Maven Wrapper clean test PASS for Logout / token revoke (39 tests); frontend build not required for backend-only task
-Git status: clean after logout commit and push
+Latest commit: 2bc89e6 docs: update build log after auth logout
+Pending commit: feat: add user profile endpoint
+Test status: Backend Maven Wrapper test PASS for User profile (43 tests); frontend build not required for backend-only task
+Git status: clean except uncommitted User profile files before commit
 
 ## Completed Features
 - [x] Project setup
@@ -26,7 +27,7 @@ Git status: clean after logout commit and push
 - [x] JWT filter
 - [x] Refresh token
 - [x] Logout / token revoke
-- [ ] User profile
+- [x] User profile
 - [ ] Frontend auth pages
 - [ ] Protected routes
 - [ ] Dashboard shell
@@ -86,6 +87,9 @@ Git status: clean after logout commit and push
 - No refresh-token rotation was added for logout.
 - No new Flyway migration was added for logout because `revoked_at` already existed in the `refresh_tokens` table.
 - Logout response must stay safe and must not expose `tokenHash`, raw token, user role, password, passwordHash, or password_hash.
+- User profile uses the authenticated user from JWT/SecurityContext through `CurrentUserPrincipal`.
+- User profile endpoint must not accept user id from request params, request body, or path.
+- User profile response must stay safe and must not expose `passwordHash`, `password_hash`, `tokenHash`, `refreshToken`, `role`, or raw password.
 
 ## Current Source of Truth Files
 - CodeQuest_AI_Control_Master_Blueprint_v3.docx: full master blueprint in ChatGPT Project resources.
@@ -118,7 +122,12 @@ Git status: clean after logout commit and push
 - Logout/token revoke note: Logout does not require a new Flyway migration because `revoked_at` already exists.
 - Logout/token revoke note: Logout service tests passed.
 - Logout/token revoke testing note: During testing, `AuthControllerTest` initially failed with `NoClassDefFoundError: GlobalExceptionHandler$1` because stale compiled output in `target/` was missing an enum-switch helper class. This was a stale build artifact issue, not a logout business logic issue. Running `.\mvnw.cmd clean test` fixed it.
-- Logout/token revoke note: Frontend auth, protected routes UI, dashboard, user profile, token rotation, and Phase 2 features are still intentionally unimplemented.
+- Logout/token revoke note: Frontend auth, protected routes UI, dashboard, user profile, token rotation, and Phase 2 features were intentionally unimplemented at that stage.
+- User profile note: GET `/api/users/me` is implemented as an authenticated endpoint using the existing JWT authentication flow and `CurrentUserPrincipal`.
+- User profile note: User profile response exposes safe user fields only and does not expose `passwordHash`, `password_hash`, `tokenHash`, `refreshToken`, `role`, or raw password.
+- User profile note: Controller test uses real register -> login -> JWT -> `/api/users/me` flow instead of mocking `CurrentUserPrincipal`.
+- User profile note: No update profile endpoint was implemented in this task.
+- User profile note: No frontend work was implemented in this task.
 
 ## Feature History
 | # | Date | Feature | Module | Files changed | Tests | Commit/Notes |
@@ -135,6 +144,7 @@ Git status: clean after logout commit and push
 | 10 | 2026-05-04 | JWT authentication | Auth/security | backend/pom.xml, application.yml, test application.yml, LoginResponse, AuthService, AuthController, AuthMapper, JwtService, CurrentUserPrincipal, JwtAuthenticationFilter, RestAuthenticationEntryPoint, SecurityConfig, AuthServiceTest, AuthControllerTest, HealthControllerTest, JwtServiceTest, SecurityConfigTest | Backend `cd backend && .\mvnw.cmd test` PASS; 33 tests total | `89564e7 feat: add jwt authentication` |
 | 11 | 2026-05-04 | Refresh token | Auth | V2 refresh_tokens Flyway migration, RefreshToken entity, RefreshTokenRepository, RefreshTokenService, RefreshTokenRequest, RefreshTokenResponse, LoginResponse refreshToken field, AuthService refresh flow, AuthController refresh endpoint, AuthMapper update, ErrorCode INVALID_REFRESH_TOKEN, GlobalExceptionHandler mapping, SecurityConfig public refresh endpoint, application.yml refresh-token config, AuthServiceTest, AuthControllerTest, JwtService jti fix | Backend `cd backend && .\mvnw.cmd test` PASS; 37 tests total | `26fc7c5 feat: add refresh token` |
 | 12 | 2026-05-04 | Logout / token revoke | Auth | AuthController logout endpoint, AuthService.logout(), RefreshTokenService.revokeRefreshToken(), AuthMapper.toLogoutResponse(), LogoutRequest, LogoutResponse, AuthServiceTest logout tests | Backend `cd backend && .\mvnw.cmd clean test` PASS; 39 tests total | `feat: add auth logout`. Stale `target/` build output initially caused `GlobalExceptionHandler$1` class error; fixed by clean test. Commit pushed; git status clean. |
+| 13 | 2026-05-04 | User profile | User | UserProfileResponse, UserMapper, UserService, UserController, UserServiceTest, UserControllerTest | Backend `cd backend && .\mvnw.cmd test` PASS; 43 tests total | Pending commit: `feat: add user profile endpoint`. Implemented authenticated GET `/api/users/me` with safe response fields. |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -154,6 +164,9 @@ Git status: clean after logout commit and push
 | 2026-05-04 | `cd backend && .\mvnw.cmd -Dtest=AuthControllerTest#shouldRegisterUserSuccessfully test` | PASS | Controller success path verified: 1 test, 0 failures, 0 errors, 0 skipped. | Yes |
 | 2026-05-04 | `cd backend && .\mvnw.cmd -Dtest=AuthControllerTest#shouldReturnConflictForDuplicateEmail test` | FAIL | Exposed real cause: `NoClassDefFoundError: com/codequest/common/exception/GlobalExceptionHandler$1`, caused by stale compiled class output in `target/`. | Yes |
 | 2026-05-04 | `cd backend && .\mvnw.cmd clean test` | PASS | Full backend clean test passed after removing stale target output: 39 tests, 0 failures, 0 errors, 0 skipped. | Yes |
+| 2026-05-04 | `cd backend && .\mvnw.cmd -Dtest=UserServiceTest test` | PASS | User profile service tests passed: 2 tests, 0 failures, 0 errors, 0 skipped. | Yes |
+| 2026-05-04 | `cd backend && .\mvnw.cmd -Dtest=UserControllerTest test` | PASS | User profile controller tests passed: 2 tests, 0 failures, 0 errors, 0 skipped. Tests use real register -> login -> JWT -> `/api/users/me` flow. | Yes |
+| 2026-05-04 | `cd backend && .\mvnw.cmd test` | PASS | User profile full backend tests passed: 43 total, 0 failures, 0 errors, 0 skipped. Includes UserServiceTest and UserControllerTest for authenticated GET `/api/users/me`. | Yes |
 
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
@@ -175,6 +188,9 @@ Git status: clean after logout commit and push
 | 2026-05-04 | Logout / token revoke | POST `/api/auth/logout` with valid refreshToken from login | 200 OK with safe success message; refresh token row has `revokedAt` set | Automated service tests passed; manual API smoke test recommended |
 | 2026-05-04 | Refresh after logout | POST `/api/auth/refresh` using same refreshToken after logout | 401 Unauthorized with standard ErrorDTO and INVALID_REFRESH_TOKEN | Automated service tests passed; manual API smoke test recommended |
 | 2026-05-04 | Logout safety | Inspect logout response | Response must not include tokenHash, raw token, passwordHash, password_hash, role, or internal user data | Automated service tests passed; manual API smoke test recommended |
+| 2026-05-04 | User profile with token | GET `/api/users/me` with valid JWT access token | 200 OK with userId, name, email, rank, xp, streak, goal, avatarUrl, createdAt | Automated integration test passed; manual API smoke test recommended before commit |
+| 2026-05-04 | User profile without token | GET `/api/users/me` without Authorization header | 401 Unauthorized | Automated integration test passed; manual API smoke test recommended before commit |
+| 2026-05-04 | User profile safety | Inspect GET `/api/users/me` response | Response must not include passwordHash, password_hash, tokenHash, refreshToken, role, or raw password | Automated integration test passed |
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -285,7 +301,7 @@ Content-Type: application/json
 }
 ```
 
-Expected success after Logout / token revoke feature:
+Expected success after User profile feature:
 ```json
 {
   "userId": "uuid",
@@ -321,7 +337,8 @@ Important Auth login boundaries:
 - Response must not contain `role`.
 - Response must not contain `tokenHash`.
 - Login response now contains JWT accessToken, opaque refreshToken, tokenType, and expiresInSeconds.
-- Logout/token revoke is now implemented for refresh token revocation.
+- Logout/token revoke is implemented for refresh token revocation.
+- User profile is implemented as authenticated GET `/api/users/me`.
 - Token rotation, frontend auth, protected routes UI, and dashboard are still not implemented.
 
 ## JWT Authentication Manual Test Commands
@@ -380,6 +397,7 @@ Important JWT authentication boundaries:
 - JWT secret and expiry must come from config/environment.
 - Refresh token is implemented as an opaque token stored only as a hash.
 - Logout/token revoke is implemented by revoking refresh tokens only.
+- User profile uses authenticated JWT principal.
 - No access-token blacklist implemented.
 - No token rotation implemented yet.
 - No frontend auth implemented yet.
@@ -448,7 +466,8 @@ Important Refresh token boundaries:
 - tokenHash must never be returned in API response.
 - Refresh endpoint returns new accessToken only.
 - Refresh endpoint does not return new refreshToken.
-- Logout/token revoke is now implemented.
+- Logout/token revoke is implemented.
+- User profile is implemented.
 - Token rotation is not implemented yet.
 - Frontend auth is not implemented yet.
 
@@ -536,6 +555,91 @@ Important Logout / token revoke boundaries:
 - Logout response must not contain `role`.
 - Logout response must not expose internal user data.
 
+## User Profile Manual Test Commands
+Use these after starting the backend.
+
+Start backend:
+```powershell
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+Register a user:
+```http
+POST http://localhost:8080/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Antara",
+  "email": "antara@example.com",
+  "password": "StrongPass123"
+}
+```
+
+Login and copy access token:
+```http
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "antara@example.com",
+  "password": "StrongPass123"
+}
+```
+
+Expected login token fields:
+```json
+{
+  "accessToken": "jwt-token",
+  "refreshToken": "opaque-refresh-token",
+  "tokenType": "Bearer",
+  "expiresInSeconds": 900
+}
+```
+
+Get current user profile:
+```http
+GET http://localhost:8080/api/users/me
+Authorization: Bearer <accessToken>
+```
+
+Expected profile success:
+```json
+{
+  "userId": "uuid",
+  "name": "Antara",
+  "email": "antara@example.com",
+  "rank": "BEGINNER",
+  "xp": 0,
+  "streak": 0,
+  "goal": null,
+  "avatarUrl": null,
+  "createdAt": "timestamp"
+}
+```
+
+Without token:
+```http
+GET http://localhost:8080/api/users/me
+```
+
+Expected:
+```text
+HTTP 401 Unauthorized
+```
+
+Important User profile boundaries:
+- Endpoint must use authenticated user from JWT/SecurityContext.
+- Endpoint must not accept userId from request params, request body, or path.
+- Response must not expose `passwordHash`.
+- Response must not expose `password_hash`.
+- Response must not expose `tokenHash`.
+- Response must not expose `refreshToken`.
+- Response must not expose `role`.
+- Response must not expose raw password.
+- No update profile endpoint implemented yet.
+- Frontend auth is not implemented yet.
+
 ## Next Chat Prompt
 Paste this into a fresh ChatGPT Project chat whenever the current chat becomes slow or confusing:
 
@@ -545,36 +649,37 @@ Continue CodeQuest from the current status.
 Do not redesign anything.
 Do not implement Phase 2 features.
 
-Current module: Auth.
-Last completed feature: Logout / token revoke.
-Current feature status: Logout / token revoke implemented, backend clean tests passed, committed and pushed.
-Latest completed commit: feat: add auth logout.
-Git status: clean after logout commit and push.
+Current module: User.
+Last completed feature: User profile.
+Current feature status: User profile implemented, backend tests passed, awaiting commit if not already committed.
+Latest committed feature before user profile: Logout / token revoke.
+Latest committed docs checkpoint before user profile: 2bc89e6 docs: update build log after auth logout.
+Pending/expected user profile commit message: feat: add user profile endpoint.
 
-Current logout implementation details:
-- POST /api/auth/logout implemented.
-- Logout accepts refreshToken in LogoutRequest.
-- Logout returns LogoutResponse with safe message.
-- Logout revokes refresh token by setting revokedAt.
-- Refresh tokens are opaque and stored only as hashes.
-- Existing JWT access tokens remain stateless and are not blacklisted.
-- No refresh-token rotation implemented.
-- No Flyway migration added because revoked_at already exists.
+Current user profile implementation details:
+- GET /api/users/me implemented.
+- Endpoint requires JWT authentication.
+- Endpoint uses CurrentUserPrincipal from SecurityContext.
+- Endpoint does not accept userId from params, body, or path.
+- UserProfileResponse returns safe fields only: userId, name, email, rank, xp, streak, goal, avatarUrl, createdAt.
+- UserProfileResponse does not expose passwordHash, password_hash, tokenHash, refreshToken, role, or raw password.
+- UserControllerTest uses real register -> login -> JWT -> /api/users/me flow.
+- UserServiceTest and UserControllerTest pass.
+- No update profile endpoint implemented.
 - No frontend work added.
 
 Testing:
 - Use Maven Wrapper only.
-- Backend clean test passed:
+- Backend test passed:
   cd backend
-  .\mvnw.cmd clean test
-- Result: 39 tests, 0 failures, 0 errors, 0 skipped, BUILD SUCCESS.
-- During testing, stale target output caused GlobalExceptionHandler$1 NoClassDefFoundError. This was fixed by running clean test.
+  .\mvnw.cmd test
+- Result: 43 tests, 0 failures, 0 errors, 0 skipped, BUILD SUCCESS.
 
-Do not implement frontend auth, dashboard, user profile, protected routes UI, course, AI, leaderboard, Docker, CI/CD, deployment, or Phase 2 features unless that exact MVP feature is explicitly selected.
+Do not implement frontend auth, dashboard, protected routes UI, course, AI, leaderboard, Docker, CI/CD, deployment, or Phase 2 features until current user profile changes are committed and git status is clean.
 
 Give me the next safest step only:
-1. First confirm git status is clean.
-2. If git status is clean, propose one strict Codex prompt for the next MVP feature only.
+1. If User profile is not committed, help me commit and push it safely.
+2. If User profile is already committed and git status is clean, propose one strict Codex prompt for the next MVP feature only.
 Include exact files to touch, files not to touch, commands to run, manual API checks, expected output, and Build Log update after completion.
 ```
 
@@ -618,17 +723,21 @@ Database: PostgreSQL + Flyway
 AI: Gemini API
 Code execution: Piston API
 
-Current module: Auth
-Last completed feature: Logout / token revoke
-Current feature status: Logout / token revoke implemented, backend clean tests passed, committed and pushed
-Next task: Select next MVP feature only after confirming git status is clean
-Latest completed commit: feat: add auth logout
-Git status: clean after logout commit and push
-Tests passed: Backend Maven Wrapper clean test PASS for Logout / token revoke (39 tests); frontend build not required for backend-only task
+Current module: User
+Last completed feature: User profile
+Current feature status: User profile implemented and backend tests passed; commit may still be pending depending on latest git status
+Next task: Commit user profile safely if not committed; otherwise select next MVP feature only
+Latest committed feature before user profile: Logout / token revoke
+Pending/expected user profile commit message: feat: add user profile endpoint
+Git status expected after user profile commit: clean
+Tests passed: Backend Maven Wrapper test PASS for User profile (43 tests); frontend build not required for backend-only task
 Known bugs: None currently
 
-Important completed Refresh token details:
-- Login response now returns accessToken and refreshToken.
+Important completed Auth details:
+- Register implemented.
+- Login implemented.
+- JWT authentication implemented.
+- Login response returns accessToken and refreshToken.
 - Refresh token is opaque, not JWT.
 - Refresh token is stored only as a hash in the refresh_tokens table.
 - V2 Flyway migration creates refresh_tokens table.
@@ -636,9 +745,7 @@ Important completed Refresh token details:
 - Refresh endpoint accepts refreshToken and returns a new accessToken, tokenType Bearer, and expiresInSeconds.
 - Refresh endpoint does not return a new refreshToken because token rotation is not implemented yet.
 - INVALID_REFRESH_TOKEN maps to HTTP 401 with a safe generic message.
-- JwtService now includes unique jti claim so newly generated access tokens differ even when generated in the same second.
-
-Important completed Logout / token revoke details:
+- JwtService includes unique jti claim so newly generated access tokens differ even when generated in the same second.
 - POST /api/auth/logout implemented.
 - Logout accepts refreshToken through LogoutRequest.
 - Logout returns safe LogoutResponse message.
@@ -647,8 +754,18 @@ Important completed Logout / token revoke details:
 - Logout does not blacklist JWT access tokens.
 - Existing access tokens remain valid until expiry.
 - No refresh-token rotation implemented.
-- No Flyway migration added because revoked_at already exists.
-- Frontend auth, protected routes UI, user profile, dashboard, token rotation, and Phase 2 features are not implemented yet.
+
+Important completed User profile details:
+- GET /api/users/me implemented.
+- Endpoint requires JWT authentication.
+- Endpoint uses CurrentUserPrincipal from SecurityContext.
+- Endpoint does not accept userId from params, body, or path.
+- UserProfileResponse returns safe fields: userId, name, email, rank, xp, streak, goal, avatarUrl, createdAt.
+- UserProfileResponse does not expose passwordHash, password_hash, tokenHash, refreshToken, role, or raw password.
+- UserControllerTest uses real register -> login -> JWT -> /api/users/me flow.
+- UserServiceTest and UserControllerTest pass.
+- No update profile endpoint implemented.
+- Frontend auth, protected routes UI, dashboard, token rotation, and Phase 2 features are not implemented yet.
 
 Testing notes:
 - Always use Maven Wrapper only:
@@ -657,8 +774,8 @@ Testing notes:
 - If stale compiled class issues appear, run:
   cd backend
   .\mvnw.cmd clean test
-- Logout clean test result:
-  Tests run: 39, Failures: 0, Errors: 0, Skipped: 0
+- User profile test result:
+  Tests run: 43, Failures: 0, Errors: 0, Skipped: 0
   BUILD SUCCESS
 
 Rules:
