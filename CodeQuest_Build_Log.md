@@ -251,7 +251,7 @@ Content-Type: application/json
 }
 ```
 
-Expected success after JWT authentication feature:
+Expected success after Refresh token feature:
 ```json
 {
   "userId": "uuid",
@@ -261,6 +261,7 @@ Expected success after JWT authentication feature:
   "xp": 0,
   "streak": 0,
   "accessToken": "jwt-token",
+  "refreshToken": "opaque-refresh-token",
   "tokenType": "Bearer",
   "expiresInSeconds": 900
 }
@@ -284,8 +285,9 @@ Important Auth login boundaries:
 - Response must not contain `passwordHash`.
 - Response must not contain `password_hash`.
 - Response must not contain `role`.
-- Login response now contains JWT accessToken, tokenType, and expiresInSeconds.
-- Refresh token, logout, frontend auth, protected routes UI, and dashboard are still not implemented.
+- Response must not contain `tokenHash`.
+- Login response now contains JWT accessToken, opaque refreshToken, tokenType, and expiresInSeconds.
+- Logout, token revoke, frontend auth, protected routes UI, and dashboard are still not implemented.
 
 ## JWT Authentication Manual Test Commands
 Use these after starting the backend.
@@ -305,6 +307,7 @@ Expected token fields:
 ```json
 {
   "accessToken": "jwt-token",
+  "refreshToken": "opaque-refresh-token",
   "tokenType": "Bearer",
   "expiresInSeconds": 900
 }
@@ -339,10 +342,78 @@ Important JWT authentication boundaries:
 - JWT subject is user id.
 - JWT claims must not include passwordHash, password_hash, raw password, refresh token, secrets, or private data.
 - JWT secret and expiry must come from config/environment.
-- No refresh token implemented yet.
+- Refresh token is implemented as an opaque token stored only as a hash.
 - No logout/token revoke implemented yet.
 - No token rotation implemented yet.
 - No frontend auth implemented yet.
+
+## Refresh Token Manual Test Commands
+Use these after starting the backend.
+
+Login and copy refresh token:
+```http
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "antara@example.com",
+  "password": "StrongPass123"
+}
+```
+
+Expected login token fields:
+```json
+{
+  "accessToken": "jwt-token",
+  "refreshToken": "opaque-refresh-token",
+  "tokenType": "Bearer",
+  "expiresInSeconds": 900
+}
+```
+
+Refresh access token:
+```http
+POST http://localhost:8080/api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "<refreshToken from login>"
+}
+```
+
+Expected refresh success:
+```json
+{
+  "accessToken": "new-jwt-token",
+  "tokenType": "Bearer",
+  "expiresInSeconds": 900
+}
+```
+
+Invalid refresh token expected:
+```text
+HTTP 401 Unauthorized
+code: INVALID_REFRESH_TOKEN
+message: "Invalid refresh token."
+```
+
+Missing or blank refresh token expected:
+```text
+HTTP 400 Bad Request
+code: VALIDATION_ERROR
+```
+
+Important Refresh token boundaries:
+- Refresh token is opaque, not JWT.
+- Only refresh token hash is stored in database.
+- Raw refresh token must never be logged.
+- Raw refresh token must never be stored in database.
+- tokenHash must never be returned in API response.
+- Refresh endpoint returns new accessToken only.
+- Refresh endpoint does not return new refreshToken.
+- Logout/token revoke is not implemented yet.
+- Token rotation is not implemented yet.
+- Frontend auth is not implemented yet.
 
 ## Next Chat Prompt
 Paste this into a fresh ChatGPT Project chat whenever the current chat becomes slow or confusing:
@@ -353,11 +424,11 @@ Continue CodeQuest from the current status.
 Do not redesign anything.
 Do not implement Phase 2 features.
 Current module: Auth.
-Last completed feature: JWT filter.
-Current feature / next feature: Refresh token.
-Latest JWT authentication commit: 89564e7 feat: add jwt authentication.
-Give me one strict Codex prompt for Refresh token only.
-Do not implement logout, token rotation beyond what refresh-token safety requires, frontend auth, dashboard, or Phase 2 features.
+Last completed feature: Refresh token.
+Current feature / next feature: Logout / token revoke.
+Latest Refresh token commit: 26fc7c5 feat: add refresh token.
+Give me one strict Codex prompt for Logout / token revoke only.
+Do not implement frontend auth, dashboard, user profile, protected routes UI, or Phase 2 features.
 Include exact files to touch, files not to touch, commands to run, manual API checks, expected output, and Build Log update after completion.
 ```
 
@@ -402,25 +473,24 @@ AI: Gemini API
 Code execution: Piston API
 
 Current module: Auth
-Last completed feature: JWT filter
-Current feature / next task: Refresh token
-Latest commit: 89564e7 feat: add jwt authentication
+Last completed feature: Refresh token
+Current feature / next task: Logout / token revoke
+Latest commit: 26fc7c5 feat: add refresh token
 Git status expected after commit: clean
-Tests passed: Backend Maven Wrapper test PASS for JWT authentication (33 tests); frontend build not required for backend-only task
+Tests passed: Backend Maven Wrapper test PASS for Refresh token (37 tests); frontend build not required for backend-only task
 Known bugs: None currently
 
-Important completed JWT authentication details:
-- JWT access token support implemented.
-- Login response now returns accessToken, tokenType Bearer, and expiresInSeconds.
-- JwtService generates and validates access tokens.
-- JwtAuthenticationFilter parses Bearer tokens and populates Spring SecurityContext.
-- SecurityConfig uses stateless API security.
-- Public endpoints remain accessible without token: POST /api/auth/register, POST /api/auth/login, GET /api/health, Swagger/OpenAPI docs, actuator health if present.
-- Non-public endpoints require authentication and return 401 without valid token.
-- RestAuthenticationEntryPoint returns standard 401 ErrorDTO for unauthorized access.
-- JWT claims are safe and must not include passwordHash, password_hash, raw password, refresh token, secrets, or private data.
-- JWT secret and access-token expiry come from config/environment.
-- Refresh token, logout, token revoke, token rotation, frontend auth, protected routes UI, and dashboard are not implemented yet.
+Important completed Refresh token details:
+- Login response now returns accessToken and refreshToken.
+- Refresh token is opaque, not JWT.
+- Refresh token is stored only as a hash in the refresh_tokens table.
+- V2 Flyway migration creates refresh_tokens table.
+- POST /api/auth/refresh implemented.
+- Refresh endpoint accepts refreshToken and returns a new accessToken, tokenType Bearer, and expiresInSeconds.
+- Refresh endpoint does not return a new refreshToken because token rotation is not implemented yet.
+- INVALID_REFRESH_TOKEN maps to HTTP 401 with a safe generic message.
+- JwtService now includes unique jti claim so newly generated access tokens differ even when generated in the same second.
+- Logout, token revoke, token rotation, frontend auth, protected routes UI, user profile, and dashboard are not implemented yet.
 
 Rules:
 Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Prompts, Build Log, and AGENTS.md.
