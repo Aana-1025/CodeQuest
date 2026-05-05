@@ -5,15 +5,15 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: AI / Gemini Foundation
-Current feature: GeminiService + PromptBuilder foundation completed, tested, pending commit
-Last completed feature: GeminiService + PromptBuilder foundation
-Next feature: ResponseParser + AI validation foundation only, but do not start until git status is clean after this feature commit
+Current module: AI / Response Parser Foundation
+Current feature: ResponseParser + AI validation foundation completed, tested, pending commit
+Last completed feature: ResponseParser + AI validation foundation
+Next feature: Wire GeminiService + ResponseParser into course generation behind safe fallback, but do not start until git status is clean after this feature commit
 Current branch: main
-Latest commit before current pending feature: 9ee8748 docs: record frontend course generation UI completion
-Pending commit message for current feature: feat: add gemini service and prompt builder foundation
-Test status: Backend `cd backend && .\mvnw.cmd test` PASS; 57 tests, 0 failures, 0 errors; GeminiService + PromptBuilder foundation tests PASS; real Gemini network call not implemented; ResponseParser not implemented; existing placeholder course generation flow intentionally unchanged
-Git status: pending commit for GeminiService + PromptBuilder foundation files plus this Build Log update
+Latest commit before current pending feature: 7162e2d feat: add gemini service and prompt builder foundation
+Pending commit message for current feature: feat: add ai response parser validation foundation
+Test status: Backend `cd backend && .\mvnw.cmd test` PASS; 65 tests, 0 failures, 0 errors; ResponseParserTest PASS; no real Gemini network call; no CourseService/CourseController wiring; no frontend changes; no DB migration changes; existing placeholder course generation flow intentionally unchanged
+Git status: pending commit for ResponseParser + AI validation foundation files plus this Build Log update
 
 ## Completed Features
 - [x] Project setup
@@ -36,7 +36,7 @@ Git status: pending commit for GeminiService + PromptBuilder foundation files pl
 - [x] Course generation foundation
 - [x] Frontend course generation UI
 - [x] GeminiService + PromptBuilder
-- [ ] ResponseParser + AI validation
+- [x] ResponseParser + AI validation
 - [ ] Course map
 - [ ] Level unlock logic
 - [ ] Lesson page
@@ -177,13 +177,11 @@ Git status: pending commit for GeminiService + PromptBuilder foundation files pl
   - course id in muted text
   - ordered level cards
   - level order number, title, XP reward, and Boss/Standard badge
-- Frontend course generation UI does not implement real course map navigation, lesson page, quizzes, flashcards, notes, XP/rank/streak progress, leaderboard, code execution, Gemini live integration, ResponseParser, Docker, CI/CD, deployment, or Phase 2 features.
+- Frontend course generation UI does not implement real course map navigation, lesson page, quizzes, flashcards, notes, XP/rank/streak progress, leaderboard, code execution, Gemini live integration, ResponseParser wiring, Docker, CI/CD, deployment, or Phase 2 features.
 - GeminiService + PromptBuilder foundation is implemented in the isolated backend `ai` module.
 - GeminiService + PromptBuilder foundation does not call Gemini over network.
 - GeminiService + PromptBuilder foundation does not replace the existing placeholder course generation flow.
 - GeminiService + PromptBuilder foundation does not wire into `CourseService` or `CourseController`.
-- GeminiService + PromptBuilder foundation does not implement ResponseParser.
-- GeminiService + PromptBuilder foundation does not implement real AI-generated course persistence.
 - GeminiService + PromptBuilder foundation uses env-backed Gemini placeholders:
   - `GEMINI_API_KEY`
   - `GEMINI_MODEL`
@@ -200,8 +198,27 @@ Git status: pending commit for GeminiService + PromptBuilder foundation files pl
   - schema guidance
   - defensive wording against prompt-injection-style user input
 - PromptBuilder must not include secrets, JWTs, passwords, refresh tokens, or private user data.
-- Next feature should be ResponseParser + AI validation foundation only, after this feature is committed and git status is clean.
-- Do not combine ResponseParser with real Gemini network wiring, frontend course map, quizzes, lessons, leaderboard, Docker, CI/CD, deployment, code execution, or Phase 2 features unless explicitly scoped.
+- ResponseParser + AI validation foundation is implemented in the isolated backend `ai` module.
+- ResponseParser parses raw AI JSON into typed AI DTO/record models.
+- ResponseParser validates malformed JSON, required fields, enum-like values, array sizes, nested objects, duplicate order numbers, quiz answers, flashcards, coding problems, and XP ranges.
+- ResponseParser throws `AiResponseValidationException` for malformed JSON or invalid AI schema/data.
+- ResponseParser exception messages must stay safe and must not include secrets or the full raw AI payload.
+- ResponseParser does not persist anything.
+- ResponseParser does not call Gemini.
+- ResponseParser is not wired into CourseService or CourseController yet.
+- ResponseParser does not replace the existing placeholder course generation flow.
+- Current AI response model files include:
+  - `AiCourseResponse`
+  - `AiLevelResponse`
+  - `AiFlashcardResponse`
+  - `AiQuizQuestionResponse`
+  - `AiCodingProblemResponse`
+  - `AiResponseValidationException`
+  - `ResponseParser`
+- ResponseParser tests passed as part of backend 65-test suite.
+- Next feature should be wiring GeminiService + ResponseParser into course generation behind safe fallback, after this feature is committed and git status is clean.
+- Do not combine Gemini wiring with frontend course map, quizzes UI, lessons UI, leaderboard, Docker, CI/CD, deployment, code execution, or Phase 2 features unless explicitly scoped.
+- When wiring Gemini later, maintain safe fallback to existing placeholder generation so the app remains usable if AI config is missing, Gemini fails, or parsing fails.
 
 ## Current Source of Truth Files
 - CodeQuest_AI_Control_Master_Blueprint_v3.docx: full master blueprint in ChatGPT Project resources.
@@ -281,6 +298,7 @@ Git status: pending commit for GeminiService + PromptBuilder foundation files pl
 - Frontend course generation UI note: Browser cache-hit UI test passed for `Binary Search`, showing `Cache Hit` and existing course/levels.
 - Frontend course generation UI note: No backend files, package files, React Router, Gemini/AI, quizzes, flashcards, notes, XP/streak/progress, leaderboard, code execution, Docker, CI/CD, deployment, or Phase 2 features were implemented.
 - Frontend course generation UI note: Browser test first used a mistyped topic `Binary Searcj`; this created a correctly matching placeholder for that typo. This was input behavior, not a code bug.
+- GeminiService + PromptBuilder foundation note: Commit `7162e2d feat: add gemini service and prompt builder foundation` was pushed to `main`, and git status was clean afterward.
 - GeminiService + PromptBuilder foundation note: Backend `cd backend && .\mvnw.cmd test` passed with 57 tests, 0 failures, 0 errors.
 - GeminiService + PromptBuilder foundation note: This task added only isolated AI foundation classes and tests.
 - GeminiService + PromptBuilder foundation note: It did not call Gemini over the network.
@@ -289,6 +307,12 @@ Git status: pending commit for GeminiService + PromptBuilder foundation files pl
 - GeminiService + PromptBuilder foundation note: It did not replace the existing placeholder course generation flow.
 - GeminiService + PromptBuilder foundation note: It did not add DB migrations, frontend changes, package changes, lessons, quizzes, flashcards, notes, progress, leaderboard, Piston/code execution, Docker, CI/CD, deployment, or Phase 2 features.
 - GeminiService + PromptBuilder foundation note: `application.yml` and test `application.yml` now contain safe Gemini env placeholders/config values only. No real API key or secret was committed.
+- ResponseParser + AI validation foundation note: This task added only isolated AI parser/validation records and tests.
+- ResponseParser + AI validation foundation note: It did not call Gemini, did not wire into CourseService/CourseController, did not persist anything, did not touch frontend, did not add migrations, and did not replace placeholder course generation.
+- ResponseParser + AI validation foundation note: Backend `cd backend && .\mvnw.cmd test` passed with 65 tests, 0 failures, 0 errors.
+- ResponseParser + AI validation foundation note: `ResponseParserTest` covers malformed JSON, missing title, invalid difficulty, empty levels, duplicate order numbers, invalid correctAnswer, successful parsing, and other schema/data validation paths.
+- ResponseParser + AI validation foundation note: Unrelated diff checks showed no frontend, CourseService, CourseController, or DB migration changes.
+- ResponseParser + AI validation foundation note: This is not real Gemini integration yet. It is only parser and validation foundation for future Gemini JSON output.
 
 ## Feature History
 | # | Date | Feature | Module | Files changed | Tests | Commit/Notes |
@@ -317,7 +341,8 @@ Git status: pending commit for GeminiService + PromptBuilder foundation files pl
 | 22 | 2026-05-05 | Build Log update after Course generation foundation | Docs | CodeQuest_Build_Log.md | Git status clean after docs commit | `8d66948 docs: record course generation foundation completion` |
 | 23 | 2026-05-05 | Frontend course generation UI | Course Generation / Frontend | DashboardShell.jsx, courseApi.js | Frontend `cd frontend && npm run build` PASS. Browser manual generate-course test PASS. Browser cache-hit UI test PASS. | `3ba0ef8 feat: add frontend course generation UI`. Added DashboardShell form for topic/difficulty/goal, wired POST `/api/courses/generate` with Bearer token, displayed generated course and level cards. No backend, package files, React Router, Gemini/AI, quizzes, flashcards, notes, XP/streak/progress, leaderboard, code execution, Docker, CI/CD, deployment, or Phase 2 features. Commit pushed; git status clean. |
 | 24 | 2026-05-05 | Build Log update after Frontend course generation UI | Docs | CodeQuest_Build_Log.md | Git status clean after docs commit | `9ee8748 docs: record frontend course generation UI completion`. Recorded frontend course generation UI completion and next task as GeminiService + PromptBuilder foundation. Commit pushed; git status clean. |
-| 25 | 2026-05-05 | GeminiService + PromptBuilder foundation | AI / Gemini Foundation | GeminiProperties, PromptBuilder, GeminiService, main application.yml Gemini env placeholders, PromptBuilderTest, GeminiServiceTest, test application.yml Gemini test-safe config | Backend `cd backend && .\mvnw.cmd test` PASS; 57 tests total, 0 failures, 0 errors | Pending commit: `feat: add gemini service and prompt builder foundation`. Added isolated GeminiService + PromptBuilder foundation only. No real Gemini network calls, no CourseService/CourseController wiring, no frontend, no DB migration, no ResponseParser, no real course-generation replacement, and no Phase 2 features. |
+| 25 | 2026-05-05 | GeminiService + PromptBuilder foundation | AI / Gemini Foundation | GeminiProperties, PromptBuilder, GeminiService, main application.yml Gemini env placeholders, PromptBuilderTest, GeminiServiceTest, test application.yml Gemini test-safe config | Backend `cd backend && .\mvnw.cmd test` PASS; 57 tests total, 0 failures, 0 errors | `7162e2d feat: add gemini service and prompt builder foundation`. Added isolated GeminiService + PromptBuilder foundation only. No real Gemini network calls, no CourseService/CourseController wiring, no frontend, no DB migration, no ResponseParser, no real course-generation replacement, and no Phase 2 features. Commit pushed; git status clean. |
+| 26 | 2026-05-05 | ResponseParser + AI validation foundation | AI / Response Parser Foundation | ResponseParser, AiCourseResponse, AiLevelResponse, AiFlashcardResponse, AiQuizQuestionResponse, AiCodingProblemResponse, AiResponseValidationException, ResponseParserTest | Backend `cd backend && .\mvnw.cmd test` PASS; 65 tests total, 0 failures, 0 errors | Pending commit: `feat: add ai response parser validation foundation`. Added isolated parser and validation for future Gemini JSON output. No real Gemini call, no CourseService/CourseController wiring, no frontend, no DB migration, no placeholder course-generation replacement, and no Phase 2 features. |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -363,6 +388,7 @@ Git status: pending commit for GeminiService + PromptBuilder foundation files pl
 | 2026-05-05 | Browser UI: DashboardShell generate course | PASS | Browser generated and displayed a course from DashboardShell with title, description, course id, 3 level cards, XP rewards, and Boss/Standard badges. | Yes |
 | 2026-05-05 | Browser UI: DashboardShell cache-hit course generation | PASS | Browser generated existing `Binary Search` course and displayed `Cache Hit` with levels visible. | Yes |
 | 2026-05-05 | `cd backend && .\mvnw.cmd test` after GeminiService + PromptBuilder foundation | PASS | Backend tests passed: 57 tests, 0 failures, 0 errors. Added PromptBuilderTest and GeminiServiceTest. No real Gemini network calls were made. Existing placeholder course generation flow was intentionally unchanged. | Yes |
+| 2026-05-05 | `cd backend && .\mvnw.cmd test` after ResponseParser + AI validation foundation | PASS | Backend tests passed: 65 tests, 0 failures, 0 errors. Added ResponseParserTest with malformed JSON, missing title, invalid difficulty, empty levels, duplicate order numbers, invalid correctAnswer, and successful parse coverage. No real Gemini calls were made. Existing placeholder course generation flow was intentionally unchanged. | Yes |
 
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
@@ -405,8 +431,11 @@ Git status: pending commit for GeminiService + PromptBuilder foundation files pl
 | 2026-05-05 | Frontend course generation UI cache | In browser, generate existing `Binary Search` course again | UI shows `Cache Hit`, course title and levels remain visible | Passed |
 | 2026-05-05 | Frontend course generation UI safety | Inspect DashboardShell result UI | UI does not show accessToken, refreshToken, password, passwordHash, tokenHash, role, or sensitive backend data | Passed |
 | 2026-05-05 | GeminiService + PromptBuilder foundation tests | `cd backend && .\mvnw.cmd test` | 57 tests pass; PromptBuilderTest and GeminiServiceTest pass; no real Gemini call happens | Passed |
-| 2026-05-05 | GeminiService + PromptBuilder scope check | Inspect changed files and `git diff --stat` | Only AI module files and Gemini config placeholders changed; no frontend, no DB migrations, no CourseService/CourseController changes | Passed based on current inspection |
-| 2026-05-05 | GeminiService + PromptBuilder runtime boundary | Existing POST `/api/courses/generate` flow | Existing placeholder course generation should remain unchanged because Gemini is not wired into CourseService yet | Recommended for optional manual smoke test before commit if backend runtime is already running |
+| 2026-05-05 | GeminiService + PromptBuilder scope check | Inspect changed files and `git diff --stat` | Only AI module files and Gemini config placeholders changed; no frontend, no DB migrations, no CourseService/CourseController changes | Passed |
+| 2026-05-05 | GeminiService + PromptBuilder runtime boundary | Existing POST `/api/courses/generate` flow | Existing placeholder course generation should remain unchanged because Gemini is not wired into CourseService yet | Optional manual smoke test not required because task was isolated and automated tests passed |
+| 2026-05-05 | ResponseParser + AI validation foundation tests | `cd backend && .\mvnw.cmd test` | 65 tests pass; ResponseParserTest passes; malformed/invalid AI JSON is rejected safely; successful AI JSON parses into typed DTO records | Passed |
+| 2026-05-05 | ResponseParser + AI validation scope check | `git diff -- frontend`, `git diff -- CourseService`, `git diff -- CourseController`, `git diff -- db/migration` | No unrelated frontend, course service/controller, or DB migration changes | Passed |
+| 2026-05-05 | ResponseParser + AI validation runtime boundary | Existing POST `/api/courses/generate` flow | Existing placeholder course generation should remain unchanged because ResponseParser is not wired into CourseService yet | Optional manual smoke test not required because task was isolated and automated tests passed |
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -574,6 +603,7 @@ Important Auth register boundaries:
 - Course generation foundation is implemented.
 - Frontend course generation UI is implemented.
 - GeminiService + PromptBuilder foundation is implemented.
+- ResponseParser + AI validation foundation is implemented.
 
 ## Auth Login Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
@@ -634,6 +664,7 @@ Important Auth login boundaries:
 - Course generation foundation is implemented.
 - Frontend course generation UI is implemented.
 - GeminiService + PromptBuilder foundation is implemented.
+- ResponseParser + AI validation foundation is implemented.
 - Token rotation is still not implemented.
 
 ## JWT Authentication Manual Test Commands
@@ -702,6 +733,7 @@ Important JWT authentication boundaries:
 - Local frontend-backend CORS is implemented.
 - Frontend course generation UI is implemented.
 - GeminiService + PromptBuilder foundation is implemented.
+- ResponseParser + AI validation foundation is implemented.
 - No access-token blacklist implemented.
 - No token rotation implemented yet.
 
@@ -778,6 +810,7 @@ Important Refresh token boundaries:
 - Local frontend-backend CORS is implemented.
 - Frontend course generation UI is implemented.
 - GeminiService + PromptBuilder foundation is implemented.
+- ResponseParser + AI validation foundation is implemented.
 - Token rotation is not implemented yet.
 
 ## Logout / Token Revoke Manual Test Commands
@@ -957,6 +990,7 @@ Important User profile boundaries:
 - Course generation foundation is implemented.
 - Frontend course generation UI is implemented.
 - GeminiService + PromptBuilder foundation is implemented.
+- ResponseParser + AI validation foundation is implemented.
 - Profile edit UI is not implemented yet.
 
 ## Course Generation Foundation Manual Test Commands
@@ -1084,8 +1118,8 @@ Important Course generation foundation boundaries:
 - Service handles normalization, cache lookup, deterministic placeholder creation, and response mapping.
 - Current source type is PLACEHOLDER.
 - GeminiService + PromptBuilder foundation is implemented but not wired into this flow yet.
+- ResponseParser + AI validation foundation is implemented but not wired into this flow yet.
 - No external Gemini API call is implemented.
-- No ResponseParser is implemented.
 - No real AI-generated lessons are implemented.
 - No quiz, flashcard, note, progress, XP/rank/streak, leaderboard, Piston/code execution, Docker, CI/CD, deployment, or Phase 2 features are implemented.
 
@@ -1145,8 +1179,7 @@ Important GeminiService + PromptBuilder boundaries:
   - `backend/src/main/resources/application.yml`
   - `backend/src/test/resources/application.yml`
 - No real Gemini network integration.
-- No ResponseParser.
-- No CourseService or CourseController wiring.
+- CourseService or CourseController are not wired to Gemini yet.
 - No DB migration.
 - No frontend changes.
 - No package changes.
@@ -1154,6 +1187,65 @@ Important GeminiService + PromptBuilder boundaries:
 - PromptBuilder must create JSON-only prompts with schema guidance.
 - PromptBuilder must treat user topic/goal as untrusted input.
 - GeminiService must remain isolated behind the AI module.
+
+## ResponseParser + AI Validation Foundation Manual Test Commands
+Use these after the ResponseParser + AI validation foundation task.
+
+Automated verification:
+```powershell
+cd backend
+.\mvnw.cmd test
+cd ..
+```
+
+Expected:
+```text
+Tests run: 65
+Failures: 0
+Errors: 0
+BUILD SUCCESS
+```
+
+Focused tests included:
+```text
+com.codequest.ai.ResponseParserTest
+```
+
+Unrelated diff checks:
+```powershell
+git diff -- frontend
+git diff -- backend/src/main/java/com/codequest/course/CourseService.java
+git diff -- backend/src/main/java/com/codequest/course/CourseController.java
+git diff -- backend/src/main/resources/db/migration
+```
+
+Expected:
+```text
+No output for all unrelated diff checks.
+```
+
+Important ResponseParser + AI validation boundaries:
+- Implemented files:
+  - `backend/src/main/java/com/codequest/ai/ResponseParser.java`
+  - `backend/src/main/java/com/codequest/ai/AiCourseResponse.java`
+  - `backend/src/main/java/com/codequest/ai/AiLevelResponse.java`
+  - `backend/src/main/java/com/codequest/ai/AiFlashcardResponse.java`
+  - `backend/src/main/java/com/codequest/ai/AiQuizQuestionResponse.java`
+  - `backend/src/main/java/com/codequest/ai/AiCodingProblemResponse.java`
+  - `backend/src/main/java/com/codequest/ai/AiResponseValidationException.java`
+  - `backend/src/test/java/com/codequest/ai/ResponseParserTest.java`
+- No real Gemini network integration.
+- No CourseService or CourseController wiring.
+- No DB migration.
+- No frontend changes.
+- No package changes.
+- No persistence.
+- No live placeholder course-generation replacement.
+- No lessons UI, quizzes UI, flashcards UI, notes UI, progress, leaderboard, Piston/code execution, Docker, CI/CD, deployment, or Phase 2 features.
+- Parser validates AI JSON but does not repair bad AI data silently.
+- Parser throws safe `AiResponseValidationException` for malformed/invalid AI output.
+- Parser must not include raw full AI payload or secrets in exception messages.
+- Parser is ready for future Gemini wiring but is not used by live endpoint yet.
 
 ## Frontend Course Generation UI Manual Test Commands
 Use these after starting backend and frontend.
@@ -1238,7 +1330,8 @@ Important Frontend course generation UI boundaries:
 - Does not add dependencies.
 - Does not touch package files.
 - GeminiService + PromptBuilder foundation is implemented separately in backend but not used by this UI yet.
-- Does not implement ResponseParser, real lessons, quizzes, flashcards, notes, XP/streak/progress, leaderboard, code execution, Docker, CI/CD, deployment, or Phase 2 features.
+- ResponseParser + AI validation foundation is implemented separately in backend but not used by this UI yet.
+- Does not implement real lessons, quizzes, flashcards, notes, XP/streak/progress, leaderboard, code execution, Docker, CI/CD, deployment, or Phase 2 features.
 
 ## Frontend Auth Pages Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
@@ -1288,6 +1381,7 @@ Important Frontend auth boundaries:
 - Course generation foundation is implemented later in row 21.
 - Frontend course generation UI is implemented later in row 23.
 - GeminiService + PromptBuilder foundation is implemented later in row 25.
+- ResponseParser + AI validation foundation is implemented later in row 26.
 - No logout UI was implemented.
 - No profile page was implemented.
 - Manual browser register/login smoke test now passes after local runtime setup and CORS fix.
@@ -1342,6 +1436,7 @@ Important Protected routes boundaries:
 - Course generation foundation is implemented.
 - Frontend course generation UI is implemented in DashboardShell.
 - GeminiService + PromptBuilder foundation is implemented in backend AI module.
+- ResponseParser + AI validation foundation is implemented in backend AI module.
 - Logout UI is not implemented.
 - Refresh-token retry and token rotation are not implemented.
 - Browser profile smoke test now passes after local runtime setup and CORS fix.
@@ -1396,6 +1491,7 @@ Important Dashboard shell boundaries:
 - Dashboard shell now calls POST `/api/courses/generate` only when user clicks Generate Course.
 - Dashboard shell does not implement real course map routing, AI/Gemini live generation, XP/streak logic, leaderboard, logout UI, code execution, Docker, CI/CD, deployment, or Phase 2 features.
 - GeminiService + PromptBuilder foundation exists in backend but is not wired into DashboardShell/course generation yet.
+- ResponseParser + AI validation foundation exists in backend but is not wired into DashboardShell/course generation yet.
 
 ## Local Frontend-Backend CORS Manual Test Commands
 Use these after starting backend and frontend.
@@ -1463,12 +1559,12 @@ Continue CodeQuest from the current status.
 Do not redesign anything.
 Do not implement Phase 2 features.
 
-Current module: AI / Gemini Foundation.
-Last completed feature: GeminiService + PromptBuilder foundation.
-Current feature status: GeminiService + PromptBuilder foundation completed and backend tests passed; commit may still be pending if this Build Log update has not been committed.
-Latest completed commit before Gemini foundation: 9ee8748 docs: record frontend course generation UI completion.
-Pending commit for Gemini foundation: feat: add gemini service and prompt builder foundation.
-Git status: should be clean only after committing GeminiService + PromptBuilder foundation files and this Build Log update.
+Current module: AI / Response Parser Foundation.
+Last completed feature: ResponseParser + AI validation foundation.
+Current feature status: ResponseParser + AI validation foundation completed and backend tests passed; commit may still be pending if this Build Log update has not been committed.
+Latest completed commit before ResponseParser foundation: 7162e2d feat: add gemini service and prompt builder foundation.
+Pending commit for ResponseParser foundation: feat: add ai response parser validation foundation.
+Git status: should be clean only after committing ResponseParser + AI validation foundation files and this Build Log update.
 
 Important completed local runtime details:
 - PostgreSQL 17 installed locally.
@@ -1550,21 +1646,55 @@ Important completed GeminiService + PromptBuilder foundation details:
   .\mvnw.cmd test
   Result: 57 tests, 0 failures, 0 errors.
 - Real Gemini wiring is not implemented.
-- ResponseParser is not implemented.
 - CourseService and CourseController were not touched.
 - Existing POST /api/courses/generate placeholder/cache behavior remains unchanged.
 - No frontend, DB migration, package files, lessons, quizzes, flashcards, notes, XP/streak/progress, leaderboard, Piston/code execution, Docker, CI/CD, deployment, or Phase 2 features were implemented.
+- Commit `7162e2d feat: add gemini service and prompt builder foundation` was pushed to main.
+
+Important completed ResponseParser + AI validation foundation details:
+- New backend AI module files:
+  - backend/src/main/java/com/codequest/ai/ResponseParser.java
+  - backend/src/main/java/com/codequest/ai/AiCourseResponse.java
+  - backend/src/main/java/com/codequest/ai/AiLevelResponse.java
+  - backend/src/main/java/com/codequest/ai/AiFlashcardResponse.java
+  - backend/src/main/java/com/codequest/ai/AiQuizQuestionResponse.java
+  - backend/src/main/java/com/codequest/ai/AiCodingProblemResponse.java
+  - backend/src/main/java/com/codequest/ai/AiResponseValidationException.java
+  - backend/src/test/java/com/codequest/ai/ResponseParserTest.java
+- ResponseParser parses raw AI JSON into typed AI DTO records.
+- ResponseParser validates:
+  - blank/null raw JSON
+  - malformed JSON
+  - top-level required fields
+  - allowed course difficulty values BEGINNER/INTERMEDIATE/ADVANCED
+  - level count limits
+  - unique positive orderNumber
+  - required isBoss
+  - bounded positive xpReward
+  - flashcard front/back presence
+  - quiz options/correctAnswer/explanation/conceptTag/xpReward
+  - coding problem title/description/difficulty/xpReward
+- ResponseParser throws safe AiResponseValidationException for malformed or invalid AI response.
+- Exception messages should not include secrets or full raw AI payload.
+- No real Gemini call happens.
+- No CourseService/CourseController wiring.
+- No DB persistence.
+- No replacement of placeholder course generation.
+- Backend tests passed:
+  cd backend
+  .\mvnw.cmd test
+  Result: 65 tests, 0 failures, 0 errors.
+- Unrelated diff checks showed no frontend, CourseService, CourseController, or DB migration changes.
 
 Not implemented yet:
-- ResponseParser
-- AI validation
 - Real Gemini network call
-- Real AI-generated course content
+- GeminiService + ResponseParser wiring into CourseService
+- Real AI-generated course persistence
 - Real Course map navigation
 - Lesson page
-- Flashcards
+- Flashcards UI
 - Notes
-- Quizzes
+- Quizzes UI
 - XP/rank/streak/progress
 - Leaderboard
 - Piston/code execution
@@ -1575,14 +1705,15 @@ Not implemented yet:
 - Phase 2 features
 
 Next safest step:
-First confirm git status is clean after committing GeminiService + PromptBuilder foundation.
-Then implement ResponseParser + AI validation foundation only.
-Do not wire Gemini into CourseService yet unless explicitly scoped.
-Do not replace the stable placeholder course generation flow yet.
-Do not call real Gemini from tests.
-Do not touch frontend.
-Do not implement real AI course persistence yet.
-Do not combine with lessons/quizzes/code execution/leaderboard/deployment.
+First confirm git status is clean after committing ResponseParser + AI validation foundation.
+Then implement GeminiService + ResponseParser wiring into course generation behind safe fallback.
+Do not remove the stable placeholder fallback.
+Do not touch frontend unless explicitly scoped.
+Do not implement course map, lesson UI, quiz UI, flashcard UI, code execution, leaderboard, deployment, or Phase 2 features.
+Do not persist unsafe/unvalidated AI output.
+Do not call Gemini in tests.
+Keep tests deterministic.
+If Gemini config is missing, invalid, response fails, or parser rejects data, existing placeholder generation should still work.
 
 Give me the next strict Codex prompt with:
 - exact scope
@@ -1635,14 +1766,14 @@ Database: PostgreSQL + Flyway
 AI: Gemini API
 Code execution: Piston API
 
-Current module: AI / Gemini Foundation
-Last completed feature: GeminiService + PromptBuilder foundation
-Current feature status: GeminiService + PromptBuilder foundation completed and backend tests passed; commit may still be pending if Build Log update has not been committed yet
-Next task: ResponseParser + AI validation foundation only
-Latest completed commit before Gemini foundation: 9ee8748 docs: record frontend course generation UI completion
-Pending commit: feat: add gemini service and prompt builder foundation
-Git status: should be clean only after committing GeminiService + PromptBuilder foundation files and this Build Log update
-Tests passed: Backend .\mvnw.cmd test PASS with 57 tests, 0 failures, 0 errors
+Current module: AI / Response Parser Foundation
+Last completed feature: ResponseParser + AI validation foundation
+Current feature status: ResponseParser + AI validation foundation completed and backend tests passed; commit may still be pending if Build Log update has not been committed yet
+Next task: Wire GeminiService + ResponseParser into course generation behind safe fallback
+Latest completed commit before ResponseParser foundation: 7162e2d feat: add gemini service and prompt builder foundation
+Pending commit: feat: add ai response parser validation foundation
+Git status: should be clean only after committing ResponseParser + AI validation foundation files and this Build Log update
+Tests passed: Backend .\mvnw.cmd test PASS with 65 tests, 0 failures, 0 errors
 Known bugs/blockers: None currently.
 
 Important completed Auth details:
@@ -1768,7 +1899,6 @@ Important completed Course generation foundation details:
 - Manual cache-hit test passed.
 - Commit `e4734e2 feat: add course generation foundation` was pushed to main.
 - No Gemini network integration implemented.
-- No ResponseParser implemented.
 - No real AI-generated lesson content implemented.
 
 Important completed Frontend course generation UI details:
@@ -1809,6 +1939,30 @@ Important completed GeminiService + PromptBuilder foundation details:
 - No CourseService/CourseController wiring.
 - No replacement of placeholder course generation.
 - Backend tests passed with 57 tests, 0 failures, 0 errors.
+- Commit `7162e2d feat: add gemini service and prompt builder foundation` was pushed to main.
+
+Important completed ResponseParser + AI validation foundation details:
+- ResponseParser created.
+- AiCourseResponse created.
+- AiLevelResponse created.
+- AiFlashcardResponse created.
+- AiQuizQuestionResponse created.
+- AiCodingProblemResponse created.
+- AiResponseValidationException created.
+- ResponseParserTest created.
+- ResponseParser parses defensive structured AI JSON into typed DTO records.
+- ResponseParser validates title, description, difficulty, levels, order numbers, isBoss, xpReward, flashcards, quiz questions, coding problems, and nested data.
+- ResponseParser rejects malformed JSON.
+- ResponseParser rejects missing or invalid required fields.
+- ResponseParser rejects duplicate order numbers.
+- ResponseParser rejects invalid quiz correctAnswer values.
+- ResponseParser throws safe AiResponseValidationException.
+- No real Gemini HTTP call is implemented.
+- No real Gemini call happens during tests.
+- No CourseService/CourseController wiring.
+- No DB persistence.
+- No replacement of placeholder course generation.
+- Backend tests passed with 65 tests, 0 failures, 0 errors.
 
 Testing notes:
 - Always use Maven Wrapper only for backend:
