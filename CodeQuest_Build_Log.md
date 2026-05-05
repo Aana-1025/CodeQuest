@@ -5,14 +5,14 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Dashboard
-Current feature: Dashboard shell completed, committed, and pushed
-Last completed feature: Dashboard shell
-Next feature: Local backend runtime config / dev database setup, before Course generation
+Current module: Local Runtime / Security
+Current feature: Local backend runtime config and frontend CORS completed, committed, and pushed
+Last completed feature: Local backend runtime config / frontend CORS
+Next feature: Course generation only, but do not start until git status is clean after this docs update commit
 Current branch: main
-Latest commit: 3abf231 feat: add dashboard shell
-Test status: Frontend `cd frontend && npm run build` PASS; backend tests not required for frontend-only task
-Git status: clean after dashboard shell commit and push
+Latest commit: 8da4448 fix: allow local frontend cors
+Test status: Backend `cd backend && .\mvnw.cmd test` PASS with 44 tests; local backend runtime PASS with PostgreSQL env vars; browser register/login/profile smoke test PASS after CORS fix; frontend build last PASS during dashboard shell task
+Git status: clean after CORS fix commit and push; pending docs-only Build Log update until this file is committed
 
 ## Completed Features
 - [x] Project setup
@@ -30,6 +30,8 @@ Git status: clean after dashboard shell commit and push
 - [x] Frontend auth pages
 - [x] Protected routes
 - [x] Dashboard shell
+- [x] Local backend runtime config / dev database setup
+- [x] Local frontend-backend CORS
 - [ ] Course generation
 - [ ] GeminiService + PromptBuilder
 - [ ] ResponseParser + AI validation
@@ -113,11 +115,30 @@ Git status: clean after dashboard shell commit and push
 - Dashboard shell does not read accessToken or refreshToken.
 - Dashboard shell shows safe profile fields only: name, email, rank, xp, streak.
 - Dashboard shell does not implement course generation, AI/Gemini, XP/rank logic, streak logic, leaderboard, logout UI, code execution, or backend calls.
-- Running `.\mvnw.cmd spring-boot:run` without a configured local database fails because the default profile has no datasource URL. This is not caused by the user profile API alignment, frontend auth pages, protected routes, or dashboard shell. Do not fix database runtime configuration inside unrelated feature tasks.
-- Local manual API smoke testing with `spring-boot:run` requires a configured PostgreSQL datasource/profile or environment variables. Backend tests can still pass using the test configuration.
-- Next feature should be Local backend runtime config / dev database setup before Course generation, because frontend auth/profile browser testing is currently blocked by backend runtime datasource configuration.
-- Do not start Course generation until git status is clean and local backend runtime config/dev database setup scope is confirmed.
-- Do not combine local backend runtime config with course generation, AI, leaderboard, Docker, CI/CD, deployment, or Phase 2 features.
+- Local PostgreSQL 17 is installed for development.
+- Local database `codequest` was created with PostgreSQL user `postgres`.
+- Local backend runtime works when these environment variables are set:
+  - `DATABASE_URL=jdbc:postgresql://localhost:5432/codequest`
+  - `DATABASE_USERNAME=postgres`
+  - `DATABASE_PASSWORD=<local postgres password>`
+  - `JWT_SECRET=dev-only-change-this-secret-dev-only-change-this-secret`
+- Flyway successfully applies V1 and V2 migrations against local PostgreSQL.
+- Running `.\mvnw.cmd spring-boot:run` without configured datasource environment variables still fails because the default profile has no datasource URL. This is expected and not a feature bug.
+- Local frontend-backend CORS is configured in Spring Security.
+- CORS allows only local Vite development origins:
+  - `http://localhost:5173`
+  - `http://localhost:5174`
+  - `http://127.0.0.1:5173`
+  - `http://127.0.0.1:5174`
+- CORS does not use wildcard `"*"`.
+- CORS does not enable credentials because the MVP frontend uses Bearer tokens/localStorage, not cookies.
+- Spring Security remains enabled.
+- Public auth endpoints remain public.
+- Protected endpoints remain protected.
+- Preflight `OPTIONS` requests are permitted.
+- Browser register/login/profile manual smoke test passed after CORS fix.
+- Next feature can be Course generation only after this docs update is committed and git status is clean.
+- Do not combine Course generation with AI/Gemini, lessons, quizzes, leaderboard, Docker, CI/CD, deployment, code execution, or Phase 2 features unless explicitly scoped.
 
 ## Current Source of Truth Files
 - CodeQuest_AI_Control_Master_Blueprint_v3.docx: full master blueprint in ChatGPT Project resources.
@@ -165,15 +186,22 @@ Git status: clean after dashboard shell commit and push
 - Frontend auth pages note: Backend files were not changed.
 - Frontend auth pages note: Frontend build passed with `cd frontend && npm run build`.
 - Frontend auth pages note: Commit `891476c feat: add frontend auth pages` was pushed to `main`, and git status was clean afterward.
-- Frontend auth pages note: Manual backend-connected smoke test was not completed because local backend runtime datasource is not configured.
+- Frontend auth pages note: Manual backend-connected smoke test was initially blocked by local backend/CORS setup, then passed after local PostgreSQL runtime setup and CORS fix.
 - Protected routes note: Protected Area implemented as a simple MVP protected view, not the final dashboard.
 - Protected routes note: Commit `c607568 feat: add protected routes` was pushed to `main`, and git status was clean afterward.
-- Protected routes note: Manual backend-connected profile load smoke test was not completed because local backend datasource/profile is not configured.
+- Protected routes note: Manual backend-connected profile load smoke test was initially blocked by local backend/CORS setup, then passed after local PostgreSQL runtime setup and CORS fix.
 - Dashboard shell note: DashboardShell is a static UI shell only, not the final dashboard logic.
 - Dashboard shell note: Commit `3abf231 feat: add dashboard shell` was pushed to `main`, and git status was clean afterward.
-- Dashboard shell note: No backend-connected manual smoke test required because no new backend/API behavior was added.
-- Frontend manual testing note: Register page showed `Failed to fetch` in browser because backend was not reachable/running with local datasource config. This is not a dashboard shell bug.
-- Runtime database config note: A manual `.\mvnw.cmd spring-boot:run` attempt failed because no active profile was set and no datasource URL was configured. This is a local runtime configuration issue, not a failed API alignment, frontend auth, protected routes, or dashboard shell issue. Do not mix this with unrelated feature tasks.
+- Dashboard shell note: No backend-connected manual smoke test was required because no new backend/API behavior was added.
+- Runtime database config note: A manual `.\mvnw.cmd spring-boot:run` initially failed because no active profile was set and no datasource URL was configured.
+- Runtime database config note: PostgreSQL 17 was installed, `psql` was added to PATH for the active terminal, and database `codequest` was created.
+- Runtime database config note: Backend runtime then started successfully with PostgreSQL env vars and Flyway applied V1/V2 migrations.
+- Frontend manual testing note: Browser register initially showed `Failed to fetch` because CORS was not configured for Vite origin `http://localhost:5174`.
+- CORS note: Commit `8da4448 fix: allow local frontend cors` was pushed to `main`.
+- CORS note: CORS allows local Vite origins only and does not use wildcard `"*"`.
+- CORS note: Backend tests passed after CORS fix: 44 tests, 0 failures, 0 errors, 0 skipped.
+- CORS note: Browser register/login/protected profile smoke test passed after CORS fix.
+- Dashboard shell note: Opening Dashboard Shell passed, but DashboardShell may show `Profile not loaded yet` depending on current in-memory profile state. This is acceptable for static dashboard shell and can be polished later during dashboard/profile state work.
 
 ## Feature History
 | # | Date | Feature | Module | Files changed | Tests | Commit/Notes |
@@ -196,6 +224,7 @@ Git status: clean after dashboard shell commit and push
 | 16 | 2026-05-05 | Frontend auth pages | Frontend Auth | App.jsx, Login.jsx, Register.jsx, authApi.js, tokenStorage.js, CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS | `891476c feat: add frontend auth pages`. Implemented login/register pages using React state navigation, auth API service, and localStorage token storage. No protected routes, dashboard, logout UI, profile page, package changes, or backend changes. Commit pushed; git status clean. |
 | 17 | 2026-05-05 | Protected routes | Frontend Auth | App.jsx, authApi.js, authState.js, CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS | `c607568 feat: add protected routes`. Implemented React state based Protected Area, local auth snapshot check, and profile loading via GET `/api/user/profile`. No React Router, dashboard, logout UI, token refresh retry, package changes, or backend changes. Commit pushed; git status clean. |
 | 18 | 2026-05-05 | Dashboard shell | Dashboard | App.jsx, DashboardShell.jsx, CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS | `3abf231 feat: add dashboard shell`. Implemented static dashboard shell page and wired it from Protected Area using React state navigation. No React Router, backend/API calls, course generation, AI/Gemini, XP/streak logic, leaderboard, logout UI, code execution, package changes, or backend changes. Commit pushed; git status clean. |
+| 19 | 2026-05-05 | Local backend runtime config + frontend CORS | Local Runtime / Security | SecurityConfig, application.yml, SecurityConfigTest, test application.yml | Backend `cd backend && .\mvnw.cmd test` PASS; 44 tests total. Local backend runtime PASS with PostgreSQL env vars. Browser register/login/profile smoke test PASS after CORS fix. | `8da4448 fix: allow local frontend cors`. Installed local PostgreSQL 17, created `codequest` database, ran backend with env vars, Flyway applied V1/V2 migrations, fixed CORS for local Vite origins 5173/5174. No frontend, package, DB migration, course, AI, dashboard, or business logic changes. Commit pushed; git status clean. |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -220,41 +249,52 @@ Git status: clean after dashboard shell commit and push
 | 2026-05-04 | `cd backend && .\mvnw.cmd test` | PASS | User profile full backend tests passed: 43 total, 0 failures, 0 errors, 0 skipped. Included UserServiceTest and UserControllerTest for authenticated GET `/api/users/me` before API contract alignment. | Yes |
 | 2026-05-04 | `cd backend && .\mvnw.cmd -Dtest=UserControllerTest test` | PASS | User profile API contract alignment controller tests passed. Tests now use real register -> login -> JWT -> `/api/user/profile` flow. | Yes |
 | 2026-05-04 | `cd backend && .\mvnw.cmd test` | PASS | User profile API contract alignment full backend tests passed: 43 total, 0 failures, 0 errors, 0 skipped. | Yes |
-| 2026-05-04 | `cd backend && .\mvnw.cmd spring-boot:run` | FAIL | Runtime startup failed because no active profile was set and no datasource URL was configured. Error: `Failed to determine suitable jdbc url`. This is a local runtime DB configuration issue, not a user profile API alignment failure. | No action in this task; handle local runtime DB config separately later if needed. |
+| 2026-05-04 | `cd backend && .\mvnw.cmd spring-boot:run` | FAIL | Runtime startup failed because no active profile was set and no datasource URL was configured. Error: `Failed to determine suitable jdbc url`. This was a local runtime DB configuration issue, not a user profile API alignment failure. | Yes; fixed by installing PostgreSQL, creating `codequest` DB, and running with env vars. |
 | 2026-05-05 | `cd frontend && npm run build` | PASS | Frontend build succeeded with authApi.js, tokenStorage.js, Register.jsx, Login.jsx, and App.jsx wiring. No errors, no warnings. | Yes |
 | 2026-05-05 | `cd frontend && npm run build` | PASS | Frontend build succeeded with protected view, authState.js, and getCurrentUserProfile helper. | Yes |
 | 2026-05-05 | `cd frontend && npm run build` | PASS | Frontend build succeeded with DashboardShell.jsx and App.jsx dashboard wiring. | Yes |
+| 2026-05-05 | `psql -U postgres -W -c "CREATE DATABASE codequest;"` | PASS | Local PostgreSQL database `codequest` created successfully. | Yes |
+| 2026-05-05 | `cd backend && .\mvnw.cmd spring-boot:run` with DATABASE_URL/DATABASE_USERNAME/DATABASE_PASSWORD/JWT_SECRET env vars | PASS | Backend started on port 8080. Hikari connected to PostgreSQL 17.9. Flyway validated and applied 2 migrations, schema now at v2. | Yes |
+| 2026-05-05 | `curl http://localhost:8080/api/health` | PASS | Backend returned 200 with `{"status":"UP","service":"CodeQuest Backend"}`. | Yes |
+| 2026-05-05 | Browser register before CORS fix | FAIL | Browser blocked request from Vite origin `http://localhost:5174` to backend `http://localhost:8080` due missing `Access-Control-Allow-Origin`. | Yes; fixed by CORS config. |
+| 2026-05-05 | `cd backend && .\mvnw.cmd test` after CORS fix | PASS | Backend tests passed: 44 tests, 0 failures, 0 errors, 0 skipped. Added CORS preflight test for local Vite origin. | Yes |
+| 2026-05-05 | Browser register/login/profile after CORS fix | PASS | Browser register/login worked, Protected Area opened, `Load my profile` returned safe fields. | Yes |
 
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
 |---|---|---|---|---|
 | 2026-05-03 | Backend health endpoint | GET `/api/health` | 200 OK with backend health response | Passed during feature task |
-| 2026-05-03 | Auth register | POST `/api/auth/register` with valid name, email, password | 201 Created with userId, name, email, rank BEGINNER, xp 0; no passwordHash | Recommended before commit |
-| 2026-05-03 | Auth register duplicate email | POST `/api/auth/register` again with same email | 409 Conflict with standard ErrorDTO and EMAIL_ALREADY_EXISTS | Recommended before commit |
-| 2026-05-03 | Auth register invalid password | POST `/api/auth/register` with weak password | 400 Bad Request with standard ErrorDTO and VALIDATION_ERROR | Recommended before commit |
-| 2026-05-03 | Auth login | POST `/api/auth/login` with valid registered email and correct password | 200 OK with userId, name, email, rank BEGINNER, xp 0, streak 0; no passwordHash | Recommended before commit |
-| 2026-05-03 | Auth login wrong password | POST `/api/auth/login` with registered email and wrong password | 401 Unauthorized with standard ErrorDTO and INVALID_CREDENTIALS | Recommended before commit |
-| 2026-05-03 | Auth login unknown email | POST `/api/auth/login` with unregistered email | 401 Unauthorized with standard ErrorDTO and INVALID_CREDENTIALS | Recommended before commit |
-| 2026-05-04 | JWT authentication | POST `/api/auth/login` with valid credentials | 200 OK with userId, name, email, rank, xp, streak, accessToken, tokenType Bearer, expiresInSeconds | Recommended before commit |
-| 2026-05-04 | JWT protected endpoint without token | Request any protected endpoint without Authorization header | 401 Unauthorized with standard ErrorDTO | Recommended before commit |
-| 2026-05-04 | JWT public health endpoint | GET `/api/health` without token | 200 OK | Covered by automated tests |
-| 2026-05-04 | Refresh token login response | POST `/api/auth/login` with valid credentials | 200 OK with accessToken and refreshToken; no passwordHash, password_hash, role, or tokenHash | Automated tests passed; manual API smoke test recommended |
-| 2026-05-04 | Refresh token endpoint | POST `/api/auth/refresh` with valid refreshToken | 200 OK with new accessToken, tokenType Bearer, expiresInSeconds | Automated tests passed; manual API smoke test recommended |
-| 2026-05-04 | Invalid refresh token | POST `/api/auth/refresh` with invalid refreshToken | 401 Unauthorized with standard ErrorDTO and INVALID_REFRESH_TOKEN | Automated tests passed; manual API smoke test recommended |
-| 2026-05-04 | Missing refresh token | POST `/api/auth/refresh` with blank/missing refreshToken | 400 Bad Request with standard ErrorDTO and VALIDATION_ERROR | Automated tests passed; manual API smoke test recommended |
-| 2026-05-04 | Logout / token revoke | POST `/api/auth/logout` with valid refreshToken from login | 200 OK with safe success message; refresh token row has `revokedAt` set | Automated service tests passed; manual API smoke test recommended |
-| 2026-05-04 | Refresh after logout | POST `/api/auth/refresh` using same refreshToken after logout | 401 Unauthorized with standard ErrorDTO and INVALID_REFRESH_TOKEN | Automated service tests passed; manual API smoke test recommended |
-| 2026-05-04 | Logout safety | Inspect logout response | Response must not include tokenHash, raw token, passwordHash, password_hash, role, or internal user data | Automated service tests passed; manual API smoke test recommended |
-| 2026-05-04 | User profile with token before API alignment | GET `/api/users/me` with valid JWT access token | 200 OK with userId, name, email, rank, xp, streak, goal, avatarUrl, createdAt | Automated integration test passed |
-| 2026-05-04 | User profile without token before API alignment | GET `/api/users/me` without Authorization header | 401 Unauthorized | Automated integration test passed |
-| 2026-05-04 | User profile safety before API alignment | Inspect GET `/api/users/me` response | Response must not include passwordHash, password_hash, tokenHash, refreshToken, role, or raw password | Automated integration test passed |
-| 2026-05-04 | User profile API alignment with token | GET `/api/user/profile` with valid JWT access token | 200 OK with userId, name, email, rank, xp, streak, goal, avatarUrl, createdAt | Automated integration test passed; manual API smoke test blocked until local runtime DB config is set |
-| 2026-05-04 | User profile API alignment without token | GET `/api/user/profile` without Authorization header | 401 Unauthorized | Automated integration test passed; manual API smoke test blocked until local runtime DB config is set |
-| 2026-05-04 | User profile API alignment safety | Inspect GET `/api/user/profile` response | Response must not include passwordHash, password_hash, tokenHash, refreshToken, role, or raw password | Automated integration test passed |
-| 2026-05-04 | Backend runtime startup | `cd backend && .\mvnw.cmd spring-boot:run` | Backend starts only if datasource URL/profile is configured | Failed due missing local datasource URL; not related to API alignment |
-| 2026-05-05 | Frontend auth pages | Register/login UI backend-connected smoke test | Register and login forms call backend, login saves accessToken and refreshToken | Not completed because local backend datasource is not configured |
-| 2026-05-05 | Protected routes | Protected Area backend-connected profile load smoke test | Logged-in user can open Protected Area and load safe profile fields from GET `/api/user/profile` | Not completed because local backend datasource is not configured |
-| 2026-05-05 | Dashboard shell | Dashboard shell UI smoke check | User can open Dashboard Shell from Protected Area and see static cards/placeholders without backend calls | Not completed because browser flow was blocked by backend register/login `Failed to fetch`; dashboard shell itself has no backend/API behavior |
+| 2026-05-03 | Auth register | POST `/api/auth/register` with valid name, email, password | 201 Created with userId, name, email, rank BEGINNER, xp 0; no passwordHash | Automated tests passed; browser smoke test passed after local runtime + CORS fix |
+| 2026-05-03 | Auth register duplicate email | POST `/api/auth/register` again with same email | 409 Conflict with standard ErrorDTO and EMAIL_ALREADY_EXISTS | Recommended for future manual API pass |
+| 2026-05-03 | Auth register invalid password | POST `/api/auth/register` with weak password | 400 Bad Request with standard ErrorDTO and VALIDATION_ERROR | Browser showed 400 Invalid request for weak/invalid password; strong password worked |
+| 2026-05-03 | Auth login | POST `/api/auth/login` with valid registered email and correct password | 200 OK with userId, name, email, rank BEGINNER, xp 0, streak 0, accessToken, refreshToken, tokenType, expiresInSeconds | Browser smoke test passed after local runtime + CORS fix |
+| 2026-05-03 | Auth login wrong password | POST `/api/auth/login` with registered email and wrong password | 401 Unauthorized with standard ErrorDTO and INVALID_CREDENTIALS | Recommended for future manual API pass |
+| 2026-05-03 | Auth login unknown email | POST `/api/auth/login` with unregistered email | 401 Unauthorized with standard ErrorDTO and INVALID_CREDENTIALS | Recommended for future manual API pass |
+| 2026-05-04 | JWT authentication | POST `/api/auth/login` with valid credentials | 200 OK with userId, name, email, rank, xp, streak, accessToken, tokenType Bearer, expiresInSeconds | Browser login smoke test passed after local runtime + CORS fix |
+| 2026-05-04 | JWT protected endpoint without token | Request any protected endpoint without Authorization header | 401 Unauthorized with standard ErrorDTO | Automated tests passed; manual API check recommended later |
+| 2026-05-04 | JWT public health endpoint | GET `/api/health` without token | 200 OK | Passed with local backend runtime |
+| 2026-05-04 | Refresh token login response | POST `/api/auth/login` with valid credentials | 200 OK with accessToken and refreshToken; no passwordHash, password_hash, role, or tokenHash | Browser login smoke test passed; detailed token response manual API check recommended later |
+| 2026-05-04 | Refresh token endpoint | POST `/api/auth/refresh` with valid refreshToken | 200 OK with new accessToken, tokenType Bearer, expiresInSeconds | Automated tests passed; manual API smoke test recommended later |
+| 2026-05-04 | Invalid refresh token | POST `/api/auth/refresh` with invalid refreshToken | 401 Unauthorized with standard ErrorDTO and INVALID_REFRESH_TOKEN | Automated tests passed; manual API smoke test recommended later |
+| 2026-05-04 | Missing refresh token | POST `/api/auth/refresh` with blank/missing refreshToken | 400 Bad Request with standard ErrorDTO and VALIDATION_ERROR | Automated tests passed; manual API smoke test recommended later |
+| 2026-05-04 | Logout / token revoke | POST `/api/auth/logout` with valid refreshToken from login | 200 OK with safe success message; refresh token row has `revokedAt` set | Automated service tests passed; manual API smoke test recommended later |
+| 2026-05-04 | Refresh after logout | POST `/api/auth/refresh` using same refreshToken after logout | 401 Unauthorized with standard ErrorDTO and INVALID_REFRESH_TOKEN | Automated service tests passed; manual API smoke test recommended later |
+| 2026-05-04 | Logout safety | Inspect logout response | Response must not include tokenHash, raw token, passwordHash, password_hash, role, or internal user data | Automated service tests passed; manual API smoke test recommended later |
+| 2026-05-04 | User profile with token before API alignment | GET `/api/users/me` with valid JWT access token | 200 OK with userId, name, email, rank, xp, streak, goal, avatarUrl, createdAt | Automated integration test passed before API alignment |
+| 2026-05-04 | User profile without token before API alignment | GET `/api/users/me` without Authorization header | 401 Unauthorized | Automated integration test passed before API alignment |
+| 2026-05-04 | User profile safety before API alignment | Inspect GET `/api/users/me` response | Response must not include passwordHash, password_hash, tokenHash, refreshToken, role, or raw password | Automated integration test passed before API alignment |
+| 2026-05-04 | User profile API alignment with token | GET `/api/user/profile` with valid JWT access token | 200 OK with userId, name, email, rank, xp, streak, goal, avatarUrl, createdAt | Browser Protected Area `Load my profile` passed after local runtime + CORS fix |
+| 2026-05-04 | User profile API alignment without token | GET `/api/user/profile` without Authorization header | 401 Unauthorized | Automated integration test passed; manual API check recommended later |
+| 2026-05-04 | User profile API alignment safety | Inspect GET `/api/user/profile` response | Response must not include passwordHash, password_hash, tokenHash, refreshToken, role, or raw password | Browser profile showed safe fields only: name, email, rank, XP, streak |
+| 2026-05-04 | Backend runtime startup before local DB setup | `cd backend && .\mvnw.cmd spring-boot:run` | Backend starts only if datasource URL/profile is configured | Initially failed due missing local datasource URL |
+| 2026-05-05 | Local PostgreSQL setup | Install PostgreSQL 17, add psql to current PATH, create `codequest` database | PostgreSQL accepts connection and `CREATE DATABASE codequest` succeeds | Passed |
+| 2026-05-05 | Backend runtime startup after local DB setup | `cd backend && .\mvnw.cmd spring-boot:run` with env vars | Backend starts on port 8080 and Flyway applies migrations | Passed |
+| 2026-05-05 | Backend health after runtime setup | GET `/api/health` | 200 OK with `{"status":"UP","service":"CodeQuest Backend"}` | Passed |
+| 2026-05-05 | Frontend auth pages before CORS fix | Register/login UI backend-connected smoke test | Register and login forms call backend, login saves tokens | Initially failed due CORS from `http://localhost:5174` |
+| 2026-05-05 | Frontend auth pages after CORS fix | Register and login in browser | Register works with strong password; login works and frontend proceeds to Protected Area | Passed |
+| 2026-05-05 | Protected routes after CORS fix | Protected Area backend-connected profile load smoke test | Logged-in user can open Protected Area and load safe profile fields from GET `/api/user/profile` | Passed |
+| 2026-05-05 | Dashboard shell | Dashboard shell UI smoke check | User can open Dashboard Shell from Protected Area and see static cards/placeholders without backend calls | Passed; DashboardShell may show profile fallback depending on profile state |
+| 2026-05-05 | Local frontend-backend CORS | Browser preflight from Vite origin `http://localhost:5174` to backend `http://localhost:8080` | No CORS block; register/login/profile browser requests reach backend | Passed after `8da4448 fix: allow local frontend cors` |
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -301,6 +341,53 @@ Before committing any Codex-generated change, always do this:
 
 7. Do not start the next feature while current feature changes are uncommitted.
 
+## Local Backend Runtime Setup Commands
+Use these commands to run the backend locally on Windows after PostgreSQL installation.
+
+Temporarily add PostgreSQL 17 psql to current PowerShell PATH if needed:
+```powershell
+$env:Path += ";C:\Program Files\PostgreSQL\17\bin"
+psql --version
+```
+
+Create local database if it does not exist:
+```powershell
+psql -U postgres -W -c "CREATE DATABASE codequest;"
+```
+
+From repo root, start backend with local PostgreSQL env vars:
+```powershell
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
+$env:DATABASE_USERNAME="postgres"
+$env:DATABASE_PASSWORD="<your-local-postgres-password>"
+$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
+
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+Expected backend runtime success:
+```text
+Tomcat started on port 8080
+Started CodeQuestApplication
+```
+
+Expected Flyway behavior on fresh local database:
+```text
+Successfully validated 2 migrations
+Successfully applied 2 migrations to schema "public", now at version v2
+```
+
+Health check from another PowerShell:
+```powershell
+curl http://localhost:8080/api/health
+```
+
+Expected health response:
+```json
+{"status":"UP","service":"CodeQuest Backend"}
+```
+
 ## Auth Register Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
 
@@ -320,6 +407,21 @@ Content-Type: application/json
   "email": "antara@example.com",
   "password": "StrongPass123"
 }
+```
+
+PowerShell register request:
+```powershell
+$body = @{
+  name = "Antara"
+  email = "antara@example.com"
+  password = "StrongPass123"
+} | ConvertTo-Json
+
+Invoke-WebRequest -UseBasicParsing `
+  -Uri "http://localhost:8080/api/auth/register" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body $body
 ```
 
 Expected success:
@@ -350,10 +452,11 @@ Important Auth register boundaries:
 - Response must not contain `password_hash`.
 - Response must not contain `role`.
 - Register response still does not return JWT/access token.
-- Login, JwtService, JWT filter, refresh token, logout, frontend auth, and dashboard were separate tasks.
+- Login, JwtService, JWT filter, refresh token, logout, frontend auth, dashboard, and CORS were separate tasks.
 - Frontend auth pages are implemented.
 - Protected routes are implemented.
 - Dashboard shell is implemented.
+- Local frontend-backend CORS is implemented.
 - Course generation is still not implemented.
 
 ## Auth Login Manual Test Commands
@@ -411,6 +514,7 @@ Important Auth login boundaries:
 - Frontend auth pages are implemented.
 - Protected routes are implemented.
 - Dashboard shell is implemented.
+- Local frontend-backend CORS is implemented.
 - Token rotation and course generation are still not implemented.
 
 ## JWT Authentication Manual Test Commands
@@ -474,6 +578,7 @@ Important JWT authentication boundaries:
 - Frontend auth pages are implemented.
 - Protected routes are implemented.
 - Dashboard shell is implemented.
+- Local frontend-backend CORS is implemented.
 - No access-token blacklist implemented.
 - No token rotation implemented yet.
 - Course generation is not implemented yet.
@@ -547,6 +652,7 @@ Important Refresh token boundaries:
 - Frontend auth pages are implemented.
 - Protected routes are implemented.
 - Dashboard shell is implemented.
+- Local frontend-backend CORS is implemented.
 - Token rotation is not implemented yet.
 - Course generation is not implemented yet.
 
@@ -723,6 +829,7 @@ Important User profile boundaries:
 - Frontend auth pages are implemented.
 - Protected routes are implemented.
 - Dashboard shell is implemented.
+- Local frontend-backend CORS is implemented.
 - Profile edit UI is not implemented yet.
 
 ## Frontend Auth Pages Manual Test Commands
@@ -739,6 +846,8 @@ Open:
 http://localhost:5173
 ```
 
+If Vite starts on a different port such as 5174, use that URL. CORS currently allows local Vite ports 5173 and 5174.
+
 Register UI check:
 ```text
 Open Register page.
@@ -752,7 +861,7 @@ Login UI check:
 Open Login page.
 Enter email and password.
 Submit the form.
-Expected: frontend calls POST /api/auth/login, saves accessToken and refreshToken to localStorage, and returns to home with a safe logged-in message.
+Expected: frontend calls POST /api/auth/login, saves accessToken and refreshToken to localStorage, and returns to Protected Area or home according to current App.jsx flow.
 ```
 
 Expected localStorage keys:
@@ -768,10 +877,10 @@ Important Frontend auth boundaries:
 - No protected routes were implemented during the frontend auth pages task.
 - Protected routes are implemented later in row 17.
 - Dashboard shell is implemented later in row 18.
+- Local frontend-backend CORS is implemented later in row 19.
 - No logout UI was implemented.
 - No profile page was implemented.
-- No backend files were touched.
-- Manual backend-connected smoke test is blocked until backend local datasource/profile is configured.
+- Manual browser register/login smoke test now passes after local runtime setup and CORS fix.
 
 ## Protected Routes Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
@@ -786,6 +895,8 @@ Open:
 ```text
 http://localhost:5173
 ```
+
+If Vite starts on `http://localhost:5174`, use that URL.
 
 Protected Area without login:
 ```text
@@ -817,9 +928,10 @@ Important Protected routes boundaries:
 - Protected Area must not show passwordHash, password_hash, tokenHash, role, or raw password.
 - Protected Area is not the final dashboard.
 - Dashboard shell is implemented.
+- Local frontend-backend CORS is implemented.
 - Logout UI is not implemented.
 - Refresh-token retry and token rotation are not implemented.
-- Manual backend-connected smoke test is blocked until backend local datasource/profile is configured.
+- Browser profile smoke test now passes after local runtime setup and CORS fix.
 
 ## Dashboard Shell Manual Test Commands
 Use these after starting the frontend. Backend is not required for the static DashboardShell component itself, but opening it through the normal login flow requires backend auth to work.
@@ -835,6 +947,8 @@ Open:
 http://localhost:5173
 ```
 
+If Vite starts on `http://localhost:5174`, use that URL.
+
 Dashboard shell route through UI:
 ```text
 Open Protected Area.
@@ -842,7 +956,7 @@ Click Open Dashboard Shell.
 Expected: Dashboard shell opens with title "Dashboard", subtitle "Your Java learning command center.", profile summary/fallback, course progress placeholder, next actions placeholder, and safety/status note.
 ```
 
-If profile is not loaded:
+If profile is not loaded or profile state is not passed:
 ```text
 Expected: Dashboard shell shows "Profile not loaded yet."
 ```
@@ -858,6 +972,62 @@ Important Dashboard shell boundaries:
 - Dashboard shell must not show passwordHash, password_hash, tokenHash, role, raw password, accessToken, or refreshToken.
 - Dashboard shell does not implement course generation, AI/Gemini, XP/streak logic, leaderboard, logout UI, code execution, Docker, CI/CD, deployment, or Phase 2 features.
 
+## Local Frontend-Backend CORS Manual Test Commands
+Use these after starting backend and frontend.
+
+Start backend with env vars:
+```powershell
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
+$env:DATABASE_USERNAME="postgres"
+$env:DATABASE_PASSWORD="<your-local-postgres-password>"
+$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
+
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+Start frontend separately:
+```powershell
+cd frontend
+npm run dev
+```
+
+Open the Vite URL:
+```text
+http://localhost:5173
+```
+
+or:
+```text
+http://localhost:5174
+```
+
+Browser checks:
+```text
+1. Register a user with a strong password such as StrongPass123.
+2. Login with the same user.
+3. Open Protected Area.
+4. Click Load my profile.
+5. Confirm safe fields appear: name, email, rank, XP, streak.
+6. Click Open Dashboard Shell.
+7. Confirm static Dashboard shell appears.
+```
+
+Expected:
+```text
+No CORS error in browser console.
+No Failed to fetch for register/login/profile.
+```
+
+Important CORS boundaries:
+- Allowed origins are limited to local Vite origins 5173 and 5174 on localhost/127.0.0.1.
+- Wildcard `"*"` is not used.
+- Credentials are not enabled.
+- Spring Security remains enabled.
+- JWT filter remains active.
+- Auth endpoints remain public.
+- Protected endpoints remain protected.
+
 ## Next Chat Prompt
 Paste this into a fresh ChatGPT Project chat whenever the current chat becomes slow or confusing:
 
@@ -867,23 +1037,42 @@ Continue CodeQuest from the current status.
 Do not redesign anything.
 Do not implement Phase 2 features.
 
-Current module: Dashboard.
-Last completed feature: Dashboard shell.
-Current feature status: Dashboard shell implemented, frontend build passed, committed and pushed.
-Latest completed commit: 3abf231 feat: add dashboard shell.
-Git status: clean after dashboard shell commit and push.
+Current module: Local Runtime / Security.
+Last completed feature: Local backend runtime config / frontend CORS.
+Current feature status: Local backend runtime works with PostgreSQL env vars; CORS fixed; backend tests passed; browser register/login/profile smoke test passed; CORS fix committed and pushed.
+Latest completed commit: 8da4448 fix: allow local frontend cors.
+Git status: clean after CORS fix commit and push, except this Build Log may need a docs-only commit if not already committed.
 
-Important current blocker:
-- Frontend register/login browser testing currently shows `Failed to fetch` because backend is not reachable/running with local datasource configuration.
-- Local backend runtime previously failed with `Failed to determine suitable jdbc url`.
-- Before Course generation, do Local backend runtime config / dev database setup so register/login/profile can be manually tested from the browser.
+Important completed local runtime details:
+- PostgreSQL 17 installed locally.
+- Local database `codequest` created.
+- Backend starts with:
+  DATABASE_URL=jdbc:postgresql://localhost:5432/codequest
+  DATABASE_USERNAME=postgres
+  DATABASE_PASSWORD=<local postgres password>
+  JWT_SECRET=dev-only-change-this-secret-dev-only-change-this-secret
+- Flyway applied V1 and V2 migrations to local PostgreSQL.
+- Backend health endpoint works on http://localhost:8080/api/health.
 
-Next feature must be Local backend runtime config / dev database setup.
-Do not implement Course generation, AI/Gemini, lessons, quizzes, code execution, leaderboard, Docker, CI/CD, deployment, or Phase 2 features in this task.
+Important completed CORS details:
+- CORS enabled in Spring Security.
+- Allowed origins:
+  http://localhost:5173
+  http://localhost:5174
+  http://127.0.0.1:5173
+  http://127.0.0.1:5174
+- No wildcard CORS.
+- No credentials enabled.
+- Preflight OPTIONS permitted.
+- Backend tests passed: 44 tests.
+- Browser register/login/protected profile smoke test passed after CORS fix.
+
+Next feature must be Course generation only, but keep it small and do not implement AI/Gemini yet unless explicitly scoped.
+Do not implement lessons, quizzes, code execution, leaderboard, Docker, CI/CD, deployment, or Phase 2 features in the first Course generation task.
 
 Give me the next safest step only:
 1. First confirm git status is clean.
-2. Propose one strict Codex prompt for Local backend runtime config / dev database setup only.
+2. Propose one strict Codex prompt for Course generation foundation only.
 Include exact files to touch, files not to touch, commands to run, manual checks, expected output, and Build Log update after completion.
 ```
 
@@ -928,14 +1117,14 @@ Database: PostgreSQL + Flyway
 AI: Gemini API
 Code execution: Piston API
 
-Current module: Dashboard
-Last completed feature: Dashboard shell
-Current feature status: Dashboard shell implemented, frontend build passed, committed and pushed
-Next task: Local backend runtime config / dev database setup before Course generation
-Latest completed commit: 3abf231 feat: add dashboard shell
-Git status: clean after dashboard shell commit and push
-Tests passed: Frontend npm run build PASS; backend tests not required for frontend-only dashboard shell task
-Known bugs/blockers: Frontend browser register/login shows `Failed to fetch` because backend is not reachable/running with local datasource config. Backend runtime previously failed with `Failed to determine suitable jdbc url`.
+Current module: Local Runtime / Security
+Last completed feature: Local backend runtime config / frontend CORS
+Current feature status: Local backend runtime works, CORS fixed, backend tests passed, browser register/login/profile smoke test passed, CORS fix committed and pushed
+Next task: Course generation foundation only
+Latest completed commit: 8da4448 fix: allow local frontend cors
+Git status: clean after CORS fix commit and push, except docs-only Build Log update may be pending if not committed yet
+Tests passed: Backend .\mvnw.cmd test PASS with 44 tests; frontend build last PASS during dashboard shell; browser register/login/profile smoke test PASS
+Known bugs/blockers: None currently. Course generation not implemented yet.
 
 Important completed Auth details:
 - Register implemented.
@@ -976,15 +1165,14 @@ Important completed Frontend auth details:
 - App.jsx uses React state navigation only.
 - No React Router added.
 - No package.json or package-lock.json changes.
-- No backend files touched.
+- No backend files touched during frontend auth.
 - authApi.js uses VITE_API_BASE_URL or fallback http://localhost:8080.
 - tokenStorage.js stores accessToken and refreshToken in localStorage for MVP.
 - Login saves accessToken and refreshToken.
 - Register does not save tokens.
 - Frontend build passed with npm run build.
 - Commit `891476c feat: add frontend auth pages` was pushed to main.
-- Manual backend-connected smoke test not completed because local backend datasource is not configured.
-- Dashboard shell is implemented.
+- Browser register/login smoke test now passes after local runtime setup and CORS fix.
 - Profile UI, logout UI, token rotation, and Phase 2 features are not implemented yet.
 
 Important completed Protected routes details:
@@ -1004,7 +1192,7 @@ Important completed Protected routes details:
 - No token refresh retry or rotation implemented.
 - Frontend build passed with npm run build.
 - Commit `c607568 feat: add protected routes` was pushed to main.
-- Manual backend-connected profile load smoke test not completed because local backend datasource is not configured.
+- Browser protected profile smoke test now passes after local runtime setup and CORS fix.
 - Course, AI, leaderboard, Docker, CI/CD, deployment, and Phase 2 features are not implemented yet.
 
 Important completed Dashboard shell details:
@@ -1014,7 +1202,7 @@ Important completed Dashboard shell details:
 - Dashboard shell receives profile from App.jsx props only.
 - Dashboard shell does not fetch data.
 - Dashboard shell does not read accessToken or refreshToken.
-- Dashboard shell shows safe profile fields only: name, email, rank, xp, streak.
+- Dashboard shell shows safe profile fields only: name, email, rank, xp, streak when profile prop is available.
 - No React Router added.
 - No backend files touched.
 - No package.json or package-lock.json changes.
@@ -1022,7 +1210,29 @@ Important completed Dashboard shell details:
 - No course generation, AI/Gemini, XP/streak logic, leaderboard, or code execution implemented.
 - Frontend build passed with npm run build.
 - Commit `3abf231 feat: add dashboard shell` was pushed to main.
-- Browser-only dashboard shell smoke check was blocked by backend register/login `Failed to fetch`, but dashboard shell itself has no backend/API behavior.
+- Browser dashboard shell smoke check passed; DashboardShell may show `Profile not loaded yet` fallback depending on profile state.
+
+Important completed Local runtime / CORS details:
+- PostgreSQL 17 installed locally.
+- `psql` works after adding `C:\Program Files\PostgreSQL\17\bin` to current PowerShell PATH.
+- Local database `codequest` created.
+- Backend starts with PostgreSQL env vars:
+  DATABASE_URL=jdbc:postgresql://localhost:5432/codequest
+  DATABASE_USERNAME=postgres
+  DATABASE_PASSWORD=<local postgres password>
+  JWT_SECRET=dev-only-change-this-secret-dev-only-change-this-secret
+- Flyway applied V1 and V2 migrations to local PostgreSQL.
+- Backend health endpoint returns 200.
+- Browser initially failed with CORS from Vite origin 5174.
+- CORS fixed in SecurityConfig and application.yml.
+- Allowed origins: localhost/127.0.0.1 on ports 5173 and 5174.
+- No wildcard CORS.
+- No credentials enabled.
+- Spring Security remains enabled.
+- Preflight OPTIONS permitted.
+- Backend tests passed: 44 tests, 0 failures, 0 errors, 0 skipped.
+- Commit `8da4448 fix: allow local frontend cors` was pushed to main.
+- Browser register/login/profile smoke test passed after CORS fix.
 
 Testing notes:
 - Always use Maven Wrapper only for backend:
@@ -1034,14 +1244,18 @@ Testing notes:
 - For frontend tasks:
   cd frontend
   npm run build
-- Frontend dashboard shell build result:
-  npm run build PASS
+- For local backend runtime:
+  set DATABASE_URL, DATABASE_USERNAME, DATABASE_PASSWORD, JWT_SECRET, then run:
+  cd backend
+  .\mvnw.cmd spring-boot:run
+- For browser integration:
+  start backend on 8080 and frontend on Vite 5173 or 5174.
 
 Runtime note:
-- `cd backend && .\mvnw.cmd spring-boot:run` currently requires local datasource configuration.
+- `cd backend && .\mvnw.cmd spring-boot:run` requires datasource env vars.
 - Without datasource URL/profile it fails with `Failed to determine suitable jdbc url`.
-- This is not an API alignment, frontend auth, protected routes, or dashboard shell bug.
-- Next safe task is Local backend runtime config / dev database setup before Course generation.
+- This is expected unless env vars or a profile are configured.
+- Local PostgreSQL + env var path is confirmed working.
 
 Rules:
 Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Prompts, Build Log, and AGENTS.md.
