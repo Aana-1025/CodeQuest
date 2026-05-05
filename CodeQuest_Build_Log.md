@@ -5,14 +5,14 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Local Runtime / Security
-Current feature: Local backend runtime config and frontend CORS completed, committed, and pushed
-Last completed feature: Local backend runtime config / frontend CORS
-Next feature: Course generation only, but do not start until git status is clean after this docs update commit
+Current module: Course Generation
+Current feature: Course generation foundation completed, committed, and pushed
+Last completed feature: Course generation foundation
+Next feature: Decide next smallest step after clean docs commit. Recommended next: Course map / frontend dashboard integration for generated course OR GeminiService + PromptBuilder foundation only, but do not mix both.
 Current branch: main
-Latest commit: 8da4448 fix: allow local frontend cors
-Test status: Backend `cd backend && .\mvnw.cmd test` PASS with 44 tests; local backend runtime PASS with PostgreSQL env vars; browser register/login/profile smoke test PASS after CORS fix; frontend build last PASS during dashboard shell task
-Git status: clean after CORS fix commit and push; pending docs-only Build Log update until this file is committed
+Latest commit: e4734e2 feat: add course generation foundation
+Test status: Backend `cd backend && .\mvnw.cmd test` PASS with 53 tests; local backend runtime PASS with PostgreSQL env vars; Flyway V3 applied successfully; manual API smoke test for POST `/api/courses/generate` PASS; cache-hit test PASS; frontend build last PASS during dashboard shell task
+Git status: clean after course generation foundation commit and push; pending docs-only Build Log update until this file is committed
 
 ## Completed Features
 - [x] Project setup
@@ -32,7 +32,7 @@ Git status: clean after CORS fix commit and push; pending docs-only Build Log up
 - [x] Dashboard shell
 - [x] Local backend runtime config / dev database setup
 - [x] Local frontend-backend CORS
-- [ ] Course generation
+- [x] Course generation foundation
 - [ ] GeminiService + PromptBuilder
 - [ ] ResponseParser + AI validation
 - [ ] Course map
@@ -122,7 +122,7 @@ Git status: clean after CORS fix commit and push; pending docs-only Build Log up
   - `DATABASE_USERNAME=postgres`
   - `DATABASE_PASSWORD=<local postgres password>`
   - `JWT_SECRET=dev-only-change-this-secret-dev-only-change-this-secret`
-- Flyway successfully applies V1 and V2 migrations against local PostgreSQL.
+- Flyway successfully applies V1, V2, and V3 migrations against local PostgreSQL.
 - Running `.\mvnw.cmd spring-boot:run` without configured datasource environment variables still fails because the default profile has no datasource URL. This is expected and not a feature bug.
 - Local frontend-backend CORS is configured in Spring Security.
 - CORS allows only local Vite development origins:
@@ -137,8 +137,31 @@ Git status: clean after CORS fix commit and push; pending docs-only Build Log up
 - Protected endpoints remain protected.
 - Preflight `OPTIONS` requests are permitted.
 - Browser register/login/profile manual smoke test passed after CORS fix.
-- Next feature can be Course generation only after this docs update is committed and git status is clean.
-- Do not combine Course generation with AI/Gemini, lessons, quizzes, leaderboard, Docker, CI/CD, deployment, code execution, or Phase 2 features unless explicitly scoped.
+- Course generation foundation is implemented as a deterministic placeholder/cache backend foundation only.
+- Course generation foundation endpoint is POST `/api/courses/generate`.
+- POST `/api/courses/generate` is authenticated and protected.
+- POST `/api/courses/generate` uses `@AuthenticationPrincipal CurrentUserPrincipal`; it does not accept user id from request path, params, or body.
+- Course generation foundation creates/returns courses by `normalizedTopic + difficulty`.
+- Course generation foundation normalizes topic by trim, lowercase, and whitespace collapse.
+- Course generation foundation cache behavior:
+  - first request creates placeholder course and returns `cacheHit=false`
+  - later same topic/difficulty with different casing/spaces returns same course and `cacheHit=true`
+- Course generation foundation creates exactly 3 placeholder levels:
+  1. Introduction to `<Title>` with 50 XP
+  2. Practice `<Title>` with 75 XP
+  3. `<Title>` Boss Challenge with 100 XP and `isBoss=true`
+- Course generation foundation persists `totalXp=225`.
+- Course generation foundation uses `sourceType=PLACEHOLDER`.
+- Course generation foundation does not call Gemini.
+- Course generation foundation does not call any external API.
+- Course generation foundation does not implement PromptBuilder, ResponseParser, lessons, quizzes, flashcards, notes, XP/rank/streak progress, leaderboard, Piston/code execution, Docker, CI/CD, deployment, or Phase 2 features.
+- V3 Flyway migration creates `courses` and `levels` tables.
+- `courses(normalized_topic, difficulty)` is unique for cache behavior.
+- `levels(course_id, order_number)` is unique for ordered levels.
+- Next feature should be chosen carefully after clean docs commit. Recommended options:
+  - Course map / frontend dashboard integration for generated course, using existing placeholder endpoint only
+  - GeminiService + PromptBuilder foundation only, without replacing stable placeholder flow yet
+- Do not combine Gemini/AI with frontend course map, quizzes, lessons, leaderboard, Docker, CI/CD, deployment, code execution, or Phase 2 features unless explicitly scoped.
 
 ## Current Source of Truth Files
 - CodeQuest_AI_Control_Master_Blueprint_v3.docx: full master blueprint in ChatGPT Project resources.
@@ -202,6 +225,14 @@ Git status: clean after CORS fix commit and push; pending docs-only Build Log up
 - CORS note: Backend tests passed after CORS fix: 44 tests, 0 failures, 0 errors, 0 skipped.
 - CORS note: Browser register/login/protected profile smoke test passed after CORS fix.
 - Dashboard shell note: Opening Dashboard Shell passed, but DashboardShell may show `Profile not loaded yet` depending on current in-memory profile state. This is acceptable for static dashboard shell and can be polished later during dashboard/profile state work.
+- Course generation foundation note: Commit `e4734e2 feat: add course generation foundation` was pushed to `main`, and git status was clean afterward.
+- Course generation foundation note: V3 migration creates `courses` and `levels` tables. V1 and V2 were not edited.
+- Course generation foundation note: Backend tests passed with 53 tests, 0 failures, 0 errors, 0 skipped.
+- Course generation foundation note: Local backend runtime applied V3 successfully against PostgreSQL 17.9.
+- Course generation foundation note: Manual API smoke test passed for authenticated POST `/api/courses/generate`.
+- Course generation foundation note: Manual cache test passed: repeated normalized topic/difficulty returned same `courseId` with `cacheHit=true`.
+- Course generation foundation note: No Gemini/AI, external API, PromptBuilder, ResponseParser, real lesson generation, quizzes, flashcards, notes, XP/streak/progress, leaderboard, Piston/code execution, frontend, Docker, CI/CD, or deployment was implemented.
+- Course generation foundation note: A real local PostgreSQL password was typed in terminal during manual testing. Do not commit real passwords or include them in docs; use `<your-local-postgres-password>` placeholder only.
 
 ## Feature History
 | # | Date | Feature | Module | Files changed | Tests | Commit/Notes |
@@ -225,6 +256,8 @@ Git status: clean after CORS fix commit and push; pending docs-only Build Log up
 | 17 | 2026-05-05 | Protected routes | Frontend Auth | App.jsx, authApi.js, authState.js, CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS | `c607568 feat: add protected routes`. Implemented React state based Protected Area, local auth snapshot check, and profile loading via GET `/api/user/profile`. No React Router, dashboard, logout UI, token refresh retry, package changes, or backend changes. Commit pushed; git status clean. |
 | 18 | 2026-05-05 | Dashboard shell | Dashboard | App.jsx, DashboardShell.jsx, CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS | `3abf231 feat: add dashboard shell`. Implemented static dashboard shell page and wired it from Protected Area using React state navigation. No React Router, backend/API calls, course generation, AI/Gemini, XP/streak logic, leaderboard, logout UI, code execution, package changes, or backend changes. Commit pushed; git status clean. |
 | 19 | 2026-05-05 | Local backend runtime config + frontend CORS | Local Runtime / Security | SecurityConfig, application.yml, SecurityConfigTest, test application.yml | Backend `cd backend && .\mvnw.cmd test` PASS; 44 tests total. Local backend runtime PASS with PostgreSQL env vars. Browser register/login/profile smoke test PASS after CORS fix. | `8da4448 fix: allow local frontend cors`. Installed local PostgreSQL 17, created `codequest` database, ran backend with env vars, Flyway applied V1/V2 migrations, fixed CORS for local Vite origins 5173/5174. No frontend, package, DB migration, course, AI, dashboard, or business logic changes. Commit pushed; git status clean. |
+| 20 | 2026-05-05 | Build Log update after local runtime + CORS | Docs | CodeQuest_Build_Log.md | Git status clean after docs commit | `75fa636 docs: record local runtime and cors completion` |
+| 21 | 2026-05-05 | Course generation foundation | Course Generation | V3 migration, Course entity, CourseRepository, CourseDifficulty, CourseSourceType, Level entity, LevelRepository, GenerateCourseRequest, GenerateCourseResponse, CourseLevelSummaryResponse, CourseService, CourseController, CourseRepositoryTest, CourseServiceTest, CourseControllerTest | Backend `cd backend && .\mvnw.cmd test` PASS; 53 tests total. Local runtime PASS with Flyway V3 applied. Manual API smoke test PASS. Manual cache-hit test PASS. | `e4734e2 feat: add course generation foundation`. Added authenticated POST `/api/courses/generate`, deterministic placeholder course generation, normalized topic/difficulty cache, 3 placeholder levels, V3 courses/levels schema. No frontend, Gemini/AI, external API, PromptBuilder, ResponseParser, quizzes, flashcards, notes, progress, leaderboard, code execution, Docker, CI/CD, deployment, or Phase 2 features. Commit pushed; git status clean. |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -259,6 +292,13 @@ Git status: clean after CORS fix commit and push; pending docs-only Build Log up
 | 2026-05-05 | Browser register before CORS fix | FAIL | Browser blocked request from Vite origin `http://localhost:5174` to backend `http://localhost:8080` due missing `Access-Control-Allow-Origin`. | Yes; fixed by CORS config. |
 | 2026-05-05 | `cd backend && .\mvnw.cmd test` after CORS fix | PASS | Backend tests passed: 44 tests, 0 failures, 0 errors, 0 skipped. Added CORS preflight test for local Vite origin. | Yes |
 | 2026-05-05 | Browser register/login/profile after CORS fix | PASS | Browser register/login worked, Protected Area opened, `Load my profile` returned safe fields. | Yes |
+| 2026-05-05 | `cd backend && .\mvnw.cmd test` after Course DB/entity/repository foundation | PASS | Backend tests passed: 45 tests, 0 failures, 0 errors. Added CourseRepositoryTest. | Yes |
+| 2026-05-05 | `cd backend && .\mvnw.cmd test` after CourseService + DTOs | PASS | Backend tests passed: 48 tests, 0 failures, 0 errors. Added CourseServiceTest. | Yes |
+| 2026-05-05 | `cd backend && .\mvnw.cmd test` after CourseController/API endpoint | PASS | Backend tests passed: 53 tests, 0 failures, 0 errors. Added CourseControllerTest with authenticated success, 401 missing token, 400 invalid topic, 400 missing difficulty, and cache-hit flow. | Yes |
+| 2026-05-05 | `cd backend && .\mvnw.cmd spring-boot:run` after Course foundation with placeholder password literal | FAIL | Runtime failed with `FATAL: password authentication failed for user "postgres"` because placeholder `<your-local-postgres-password>` was used literally instead of the real local PostgreSQL password. | Yes; fixed by setting real local password in env var. Do not commit real password. |
+| 2026-05-05 | `cd backend && .\mvnw.cmd spring-boot:run` after setting real local DB password | PASS | Backend started on port 8080. Flyway validated 3 migrations and applied V3 to local PostgreSQL, schema now at v3. | Yes |
+| 2026-05-05 | Manual API: register/login then POST `/api/courses/generate` | PASS | Authenticated request returned 200 with courseId, title `Binary Search`, description, `cacheHit=false`, and 3 levels with XP 50/75/100. | Yes |
+| 2026-05-05 | Manual API cache test: POST `/api/courses/generate` with `"  BINARY   SEARCH  "` | PASS | Returned same courseId and `cacheHit=true`. | Yes |
 
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
@@ -295,6 +335,12 @@ Git status: clean after CORS fix commit and push; pending docs-only Build Log up
 | 2026-05-05 | Protected routes after CORS fix | Protected Area backend-connected profile load smoke test | Logged-in user can open Protected Area and load safe profile fields from GET `/api/user/profile` | Passed |
 | 2026-05-05 | Dashboard shell | Dashboard shell UI smoke check | User can open Dashboard Shell from Protected Area and see static cards/placeholders without backend calls | Passed; DashboardShell may show profile fallback depending on profile state |
 | 2026-05-05 | Local frontend-backend CORS | Browser preflight from Vite origin `http://localhost:5174` to backend `http://localhost:8080` | No CORS block; register/login/profile browser requests reach backend | Passed after `8da4448 fix: allow local frontend cors` |
+| 2026-05-05 | Course generation foundation runtime migration | Start backend with local PostgreSQL env vars after V3 migration added | Flyway validates 3 migrations and applies V3; backend starts on port 8080 | Passed |
+| 2026-05-05 | Course generation foundation success | Register/login user, then POST `/api/courses/generate` with Bearer token and topic `Binary Search`, difficulty `BEGINNER` | 200 OK with courseId, title, description, `cacheHit=false`, and 3 ordered levels | Passed |
+| 2026-05-05 | Course generation foundation cache | Repeat POST `/api/courses/generate` with topic `"  BINARY   SEARCH  "` and same difficulty | Same courseId as first request and `cacheHit=true` | Passed |
+| 2026-05-05 | Course generation foundation protected endpoint | POST `/api/courses/generate` without token | 401 Unauthorized | Automated controller test passed |
+| 2026-05-05 | Course generation foundation validation | POST `/api/courses/generate` with invalid topic or missing difficulty | 400 Bad Request | Automated controller test passed |
+| 2026-05-05 | Course generation foundation safety | Inspect response | Response contains course/level fields only; no user password, token, tokenHash, role, or sensitive fields | Passed by response shape/manual inspection |
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -372,10 +418,11 @@ Tomcat started on port 8080
 Started CodeQuestApplication
 ```
 
-Expected Flyway behavior on fresh local database:
+Expected Flyway behavior after Course generation foundation:
 ```text
-Successfully validated 2 migrations
-Successfully applied 2 migrations to schema "public", now at version v2
+Successfully validated 3 migrations
+Successfully applied V3 if not already applied
+Schema "public" now at version v3
 ```
 
 Health check from another PowerShell:
@@ -452,12 +499,12 @@ Important Auth register boundaries:
 - Response must not contain `password_hash`.
 - Response must not contain `role`.
 - Register response still does not return JWT/access token.
-- Login, JwtService, JWT filter, refresh token, logout, frontend auth, dashboard, and CORS were separate tasks.
+- Login, JwtService, JWT filter, refresh token, logout, frontend auth, dashboard, CORS, and course generation were separate tasks.
 - Frontend auth pages are implemented.
 - Protected routes are implemented.
 - Dashboard shell is implemented.
 - Local frontend-backend CORS is implemented.
-- Course generation is still not implemented.
+- Course generation foundation is implemented.
 
 ## Auth Login Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
@@ -515,7 +562,8 @@ Important Auth login boundaries:
 - Protected routes are implemented.
 - Dashboard shell is implemented.
 - Local frontend-backend CORS is implemented.
-- Token rotation and course generation are still not implemented.
+- Course generation foundation is implemented.
+- Token rotation is still not implemented.
 
 ## JWT Authentication Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
@@ -575,13 +623,14 @@ Important JWT authentication boundaries:
 - Logout/token revoke is implemented by revoking refresh tokens only.
 - User profile uses authenticated JWT principal.
 - User profile endpoint is GET `/api/user/profile`.
+- Course generation uses authenticated JWT principal via `CurrentUserPrincipal`.
+- Course generation endpoint is POST `/api/courses/generate`.
 - Frontend auth pages are implemented.
 - Protected routes are implemented.
 - Dashboard shell is implemented.
 - Local frontend-backend CORS is implemented.
 - No access-token blacklist implemented.
 - No token rotation implemented yet.
-- Course generation is not implemented yet.
 
 ## Refresh Token Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
@@ -649,12 +698,12 @@ Important Refresh token boundaries:
 - Refresh endpoint does not return new refreshToken.
 - Logout/token revoke is implemented.
 - User profile is implemented as GET `/api/user/profile`.
+- Course generation foundation is implemented as POST `/api/courses/generate`.
 - Frontend auth pages are implemented.
 - Protected routes are implemented.
 - Dashboard shell is implemented.
 - Local frontend-backend CORS is implemented.
 - Token rotation is not implemented yet.
-- Course generation is not implemented yet.
 
 ## Logout / Token Revoke Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
@@ -830,7 +879,139 @@ Important User profile boundaries:
 - Protected routes are implemented.
 - Dashboard shell is implemented.
 - Local frontend-backend CORS is implemented.
+- Course generation foundation is implemented.
 - Profile edit UI is not implemented yet.
+
+## Course Generation Foundation Manual Test Commands
+Use these after starting the backend with a configured local datasource/profile.
+
+Start backend:
+```powershell
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
+$env:DATABASE_USERNAME="postgres"
+$env:DATABASE_PASSWORD="<your-local-postgres-password>"
+$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
+
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+Register, login, and generate course:
+```powershell
+$baseUrl = "http://localhost:8080"
+$email = "coursemanual$(Get-Random)@example.com"
+$password = "CoursePass123"
+
+$registerBody = @{
+  name = "Course Manual"
+  email = $email
+  password = $password
+} | ConvertTo-Json
+
+Invoke-WebRequest -UseBasicParsing `
+  -Uri "$baseUrl/api/auth/register" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body $registerBody
+
+$loginBody = @{
+  email = $email
+  password = $password
+} | ConvertTo-Json
+
+$loginResponse = Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/login" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body $loginBody
+
+$token = $loginResponse.accessToken
+
+$courseBody = @{
+  topic = "Binary Search"
+  difficulty = "BEGINNER"
+  goal = "DSA interview preparation"
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Uri "$baseUrl/api/courses/generate" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Headers @{ Authorization = "Bearer $token" } `
+  -Body $courseBody
+```
+
+Expected first response:
+```text
+courseId: exists
+title: Binary Search
+description: A CodeQuest course foundation for Binary Search.
+cacheHit: False
+levels: 3 items
+level 1: Introduction to Binary Search, orderNumber 1, isBoss false, xpReward 50
+level 2: Practice Binary Search, orderNumber 2, isBoss false, xpReward 75
+level 3: Binary Search Boss Challenge, orderNumber 3, isBoss true, xpReward 100
+```
+
+Cache check:
+```powershell
+$courseBody2 = @{
+  topic = "  BINARY   SEARCH  "
+  difficulty = "BEGINNER"
+  goal = "same"
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Uri "$baseUrl/api/courses/generate" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Headers @{ Authorization = "Bearer $token" } `
+  -Body $courseBody2
+```
+
+Expected second response:
+```text
+same courseId as first response
+cacheHit: True
+levels remain ordered by orderNumber
+```
+
+Missing token check:
+```http
+POST http://localhost:8080/api/courses/generate
+Content-Type: application/json
+
+{
+  "topic": "Binary Search",
+  "difficulty": "BEGINNER",
+  "goal": "DSA"
+}
+```
+
+Expected:
+```text
+HTTP 401 Unauthorized
+```
+
+Invalid request checks:
+```text
+blank topic -> HTTP 400 Bad Request
+missing difficulty -> HTTP 400 Bad Request
+```
+
+Important Course generation foundation boundaries:
+- Endpoint is POST `/api/courses/generate`.
+- Endpoint requires JWT Bearer token.
+- Endpoint must not accept user id from path, query params, or request body.
+- Controller must stay thin and delegate to CourseService.
+- Service handles normalization, cache lookup, deterministic placeholder creation, and response mapping.
+- Current source type is PLACEHOLDER.
+- No Gemini/AI is implemented.
+- No external API call is implemented.
+- No PromptBuilder is implemented.
+- No ResponseParser is implemented.
+- No real AI-generated lessons are implemented.
+- No quiz, flashcard, note, progress, XP/rank/streak, leaderboard, Piston/code execution, frontend course UI, Docker, CI/CD, deployment, or Phase 2 features are implemented.
 
 ## Frontend Auth Pages Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
@@ -874,10 +1055,10 @@ Important Frontend auth boundaries:
 - Frontend auth pages use React state navigation only.
 - React Router was not added.
 - No package.json or package-lock.json change was made.
-- No protected routes were implemented during the frontend auth pages task.
 - Protected routes are implemented later in row 17.
 - Dashboard shell is implemented later in row 18.
 - Local frontend-backend CORS is implemented later in row 19.
+- Course generation foundation is implemented later in row 21.
 - No logout UI was implemented.
 - No profile page was implemented.
 - Manual browser register/login smoke test now passes after local runtime setup and CORS fix.
@@ -929,6 +1110,7 @@ Important Protected routes boundaries:
 - Protected Area is not the final dashboard.
 - Dashboard shell is implemented.
 - Local frontend-backend CORS is implemented.
+- Course generation foundation is implemented, but frontend course UI is not wired yet.
 - Logout UI is not implemented.
 - Refresh-token retry and token rotation are not implemented.
 - Browser profile smoke test now passes after local runtime setup and CORS fix.
@@ -970,7 +1152,8 @@ Important Dashboard shell boundaries:
 - Dashboard shell does not call backend.
 - Dashboard shell does not read accessToken or refreshToken.
 - Dashboard shell must not show passwordHash, password_hash, tokenHash, role, raw password, accessToken, or refreshToken.
-- Dashboard shell does not implement course generation, AI/Gemini, XP/streak logic, leaderboard, logout UI, code execution, Docker, CI/CD, deployment, or Phase 2 features.
+- Dashboard shell does not yet call POST `/api/courses/generate`.
+- Dashboard shell does not implement course map, AI/Gemini, XP/streak logic, leaderboard, logout UI, code execution, Docker, CI/CD, deployment, or Phase 2 features.
 
 ## Local Frontend-Backend CORS Manual Test Commands
 Use these after starting backend and frontend.
@@ -1027,6 +1210,7 @@ Important CORS boundaries:
 - JWT filter remains active.
 - Auth endpoints remain public.
 - Protected endpoints remain protected.
+- POST `/api/courses/generate` is protected and should work from frontend only after frontend course UI is wired.
 
 ## Next Chat Prompt
 Paste this into a fresh ChatGPT Project chat whenever the current chat becomes slow or confusing:
@@ -1037,11 +1221,11 @@ Continue CodeQuest from the current status.
 Do not redesign anything.
 Do not implement Phase 2 features.
 
-Current module: Local Runtime / Security.
-Last completed feature: Local backend runtime config / frontend CORS.
-Current feature status: Local backend runtime works with PostgreSQL env vars; CORS fixed; backend tests passed; browser register/login/profile smoke test passed; CORS fix committed and pushed.
-Latest completed commit: 8da4448 fix: allow local frontend cors.
-Git status: clean after CORS fix commit and push, except this Build Log may need a docs-only commit if not already committed.
+Current module: Course Generation.
+Last completed feature: Course generation foundation.
+Current feature status: Course generation foundation completed, committed, and pushed.
+Latest completed commit: e4734e2 feat: add course generation foundation.
+Git status: clean after Course generation foundation commit and push, except this Build Log may need a docs-only commit if not already committed.
 
 Important completed local runtime details:
 - PostgreSQL 17 installed locally.
@@ -1051,7 +1235,7 @@ Important completed local runtime details:
   DATABASE_USERNAME=postgres
   DATABASE_PASSWORD=<local postgres password>
   JWT_SECRET=dev-only-change-this-secret-dev-only-change-this-secret
-- Flyway applied V1 and V2 migrations to local PostgreSQL.
+- Flyway applied V1, V2, and V3 migrations to local PostgreSQL.
 - Backend health endpoint works on http://localhost:8080/api/health.
 
 Important completed CORS details:
@@ -1064,16 +1248,64 @@ Important completed CORS details:
 - No wildcard CORS.
 - No credentials enabled.
 - Preflight OPTIONS permitted.
-- Backend tests passed: 44 tests.
 - Browser register/login/protected profile smoke test passed after CORS fix.
 
-Next feature must be Course generation only, but keep it small and do not implement AI/Gemini yet unless explicitly scoped.
-Do not implement lessons, quizzes, code execution, leaderboard, Docker, CI/CD, deployment, or Phase 2 features in the first Course generation task.
+Important completed Course generation foundation details:
+- V3 migration creates courses and levels tables.
+- Course entity, CourseRepository, CourseDifficulty, CourseSourceType are implemented.
+- Level entity and LevelRepository are implemented.
+- GenerateCourseRequest, GenerateCourseResponse, and CourseLevelSummaryResponse are implemented.
+- CourseService implements deterministic placeholder generation and cache behavior.
+- CourseController exposes authenticated POST /api/courses/generate.
+- Endpoint uses JWT principal and does not accept userId from path, params, or body.
+- Cache key is normalizedTopic + difficulty.
+- Topic normalization trims, lowercases, and collapses whitespace.
+- Cache miss creates PLACEHOLDER course with exactly 3 levels and totalXp 225.
+- Cache hit returns same courseId with cacheHit=true.
+- Backend tests pass: 53 tests, 0 failures, 0 errors, 0 skipped.
+- Manual API smoke test passed.
+- Manual cache-hit test passed.
+- Commit e4734e2 was pushed to main.
+- Git status was clean after commit.
 
-Give me the next safest step only:
-1. First confirm git status is clean.
-2. Propose one strict Codex prompt for Course generation foundation only.
-Include exact files to touch, files not to touch, commands to run, manual checks, expected output, and Build Log update after completion.
+Not implemented yet:
+- GeminiService
+- PromptBuilder
+- ResponseParser
+- AI validation
+- Real AI-generated course content
+- Course map frontend
+- Lesson page
+- Flashcards
+- Notes
+- Quizzes
+- XP/rank/streak/progress
+- Leaderboard
+- Piston/code execution
+- Frontend course generation UI
+- Logout UI
+- Docker
+- CI/CD
+- Deployment
+- Phase 2 features
+
+Next safest step:
+First confirm git status is clean.
+Then choose ONE small task only.
+Recommended options:
+1. Frontend course generation UI integration in DashboardShell using existing POST /api/courses/generate endpoint, with no AI changes.
+OR
+2. GeminiService + PromptBuilder foundation only, with no frontend changes and no replacement of stable placeholder flow yet.
+Do not combine both.
+
+Give me the next strict Codex prompt with:
+- exact scope
+- files to touch
+- files not to touch
+- commands to run
+- manual checks
+- expected output
+- Build Log update plan
 ```
 
 ## Update Protocol After Every Feature
@@ -1117,14 +1349,14 @@ Database: PostgreSQL + Flyway
 AI: Gemini API
 Code execution: Piston API
 
-Current module: Local Runtime / Security
-Last completed feature: Local backend runtime config / frontend CORS
-Current feature status: Local backend runtime works, CORS fixed, backend tests passed, browser register/login/profile smoke test passed, CORS fix committed and pushed
-Next task: Course generation foundation only
-Latest completed commit: 8da4448 fix: allow local frontend cors
-Git status: clean after CORS fix commit and push, except docs-only Build Log update may be pending if not committed yet
-Tests passed: Backend .\mvnw.cmd test PASS with 44 tests; frontend build last PASS during dashboard shell; browser register/login/profile smoke test PASS
-Known bugs/blockers: None currently. Course generation not implemented yet.
+Current module: Course Generation
+Last completed feature: Course generation foundation
+Current feature status: Course generation foundation completed, committed, and pushed
+Next task: Choose one small task only after clean git status. Recommended: frontend course generation UI integration OR GeminiService + PromptBuilder foundation, but do not combine.
+Latest completed commit: e4734e2 feat: add course generation foundation
+Git status: clean after Course generation foundation commit and push, except docs-only Build Log update may be pending if not committed yet
+Tests passed: Backend .\mvnw.cmd test PASS with 53 tests; frontend build last PASS during dashboard shell; local runtime PASS; Flyway V3 applied; manual Course generation API smoke test PASS; manual cache-hit test PASS
+Known bugs/blockers: None currently.
 
 Important completed Auth details:
 - Register implemented.
@@ -1193,7 +1425,7 @@ Important completed Protected routes details:
 - Frontend build passed with npm run build.
 - Commit `c607568 feat: add protected routes` was pushed to main.
 - Browser protected profile smoke test now passes after local runtime setup and CORS fix.
-- Course, AI, leaderboard, Docker, CI/CD, deployment, and Phase 2 features are not implemented yet.
+- AI, leaderboard, Docker, CI/CD, deployment, and Phase 2 features are not implemented yet.
 
 Important completed Dashboard shell details:
 - DashboardShell.jsx is implemented as a static MVP dashboard shell only.
@@ -1207,7 +1439,7 @@ Important completed Dashboard shell details:
 - No backend files touched.
 - No package.json or package-lock.json changes.
 - No logout UI implemented.
-- No course generation, AI/Gemini, XP/streak logic, leaderboard, or code execution implemented.
+- No AI/Gemini, XP/streak logic, leaderboard, or code execution implemented.
 - Frontend build passed with npm run build.
 - Commit `3abf231 feat: add dashboard shell` was pushed to main.
 - Browser dashboard shell smoke check passed; DashboardShell may show `Profile not loaded yet` fallback depending on profile state.
@@ -1221,7 +1453,7 @@ Important completed Local runtime / CORS details:
   DATABASE_USERNAME=postgres
   DATABASE_PASSWORD=<local postgres password>
   JWT_SECRET=dev-only-change-this-secret-dev-only-change-this-secret
-- Flyway applied V1 and V2 migrations to local PostgreSQL.
+- Flyway applied V1, V2, and V3 migrations to local PostgreSQL.
 - Backend health endpoint returns 200.
 - Browser initially failed with CORS from Vite origin 5174.
 - CORS fixed in SecurityConfig and application.yml.
@@ -1230,9 +1462,39 @@ Important completed Local runtime / CORS details:
 - No credentials enabled.
 - Spring Security remains enabled.
 - Preflight OPTIONS permitted.
-- Backend tests passed: 44 tests, 0 failures, 0 errors, 0 skipped.
+- Backend tests passed after CORS fix.
 - Commit `8da4448 fix: allow local frontend cors` was pushed to main.
 - Browser register/login/profile smoke test passed after CORS fix.
+
+Important completed Course generation foundation details:
+- V3 migration creates courses and levels tables.
+- Course table includes normalized_topic, title, description, created_by, difficulty, is_public, total_xp, source_type, created_at, updated_at.
+- Levels table includes course_id, title, content_markdown, order_number, is_boss, xp_reward, created_at, updated_at.
+- courses(normalized_topic, difficulty) is unique.
+- levels(course_id, order_number) is unique.
+- Course entity, CourseRepository, CourseDifficulty, CourseSourceType implemented.
+- Level entity and LevelRepository implemented.
+- GenerateCourseRequest, GenerateCourseResponse, CourseLevelSummaryResponse implemented.
+- CourseService implements deterministic placeholder generation and cache behavior.
+- CourseController exposes authenticated POST /api/courses/generate.
+- Endpoint uses JWT principal and does not accept userId from path, params, or body.
+- Request fields: topic, difficulty, goal.
+- topic validation: not blank, size 2 to 80.
+- difficulty validation: not null.
+- goal validation: optional max 200.
+- Topic normalization trims, lowercases, and collapses whitespace.
+- Cache key is normalizedTopic + difficulty.
+- Cache miss creates PLACEHOLDER course with exactly 3 levels and totalXp 225.
+- Cache hit returns same courseId with cacheHit=true.
+- Backend tests passed: 53 tests, 0 failures, 0 errors, 0 skipped.
+- Local runtime applied V3 successfully.
+- Manual API smoke test passed.
+- Manual cache-hit test passed.
+- Commit `e4734e2 feat: add course generation foundation` was pushed to main.
+- No Gemini/AI/external API implemented.
+- No PromptBuilder/ResponseParser implemented.
+- No real AI-generated lesson content implemented.
+- No frontend course UI wired yet.
 
 Testing notes:
 - Always use Maven Wrapper only for backend:
@@ -1256,6 +1518,7 @@ Runtime note:
 - Without datasource URL/profile it fails with `Failed to determine suitable jdbc url`.
 - This is expected unless env vars or a profile are configured.
 - Local PostgreSQL + env var path is confirmed working.
+- Do not commit or document real local DB passwords.
 
 Rules:
 Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Prompts, Build Log, and AGENTS.md.
