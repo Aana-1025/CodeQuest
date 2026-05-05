@@ -1,6 +1,7 @@
 package com.codequest.course;
 
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -9,6 +10,10 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.codequest.ai.AiCourseResponse;
+import com.codequest.ai.AiLevelResponse;
+import com.codequest.ai.GeminiService;
+import com.codequest.ai.ResponseParser;
 import com.codequest.common.exception.ApiException;
 import com.codequest.common.exception.ErrorCode;
 import com.codequest.course.dto.CourseLevelSummaryResponse;
@@ -25,11 +30,16 @@ public class CourseService {
     private final CourseRepository courseRepository;
     private final LevelRepository levelRepository;
     private final UserRepository userRepository;
+    private final GeminiService geminiService;
+    private final ResponseParser responseParser;
 
-    public CourseService(CourseRepository courseRepository, LevelRepository levelRepository, UserRepository userRepository) {
+    public CourseService(CourseRepository courseRepository, LevelRepository levelRepository, UserRepository userRepository,
+                         GeminiService geminiService, ResponseParser responseParser) {
         this.courseRepository = courseRepository;
         this.levelRepository = levelRepository;
         this.userRepository = userRepository;
+        this.geminiService = geminiService;
+        this.responseParser = responseParser;
     }
 
     @Transactional
@@ -46,7 +56,22 @@ public class CourseService {
 
         return courseRepository.findByNormalizedTopicAndDifficulty(normalizedTopic, request.difficulty())
                 .map(course -> toGenerateCourseResponse(course, true))
-                .orElseGet(() -> createPlaceholderCourse(creator, normalizedTopic, request.difficulty()));
+                .orElseGet(() -> createCourseWithSafeFallback(creator, normalizedTopic, request));
+    }
+
+    private GenerateCourseResponse createCourseWithSafeFallback(User creator, String normalizedTopic, GenerateCourseRequest request) {
+        if (geminiService.isConfigured()) {
+            try {
+                String rawAiResponse = geminiService.generateCourseJson(request);
+                AiCourseResponse aiCourseResponse = responseParser.parseCourseResponse(rawAiResponse);
+                validateRequestedDifficulty(request.difficulty(), aiCourseResponse.difficulty());
+                return createAiCourse(creator, normalizedTopic, request.difficulty(), aiCourseResponse);
+            } catch (RuntimeException ignored) {
+                // Safe fallback keeps course generation stable if AI is unavailable or invalid.
+            }
+        }
+
+        return createPlaceholderCourse(creator, normalizedTopic, request.difficulty());
     }
 
     private GenerateCourseResponse createPlaceholderCourse(User creator, String normalizedTopic, CourseDifficulty difficulty) {
@@ -105,11 +130,54 @@ public class CourseService {
         return toGenerateCourseResponse(savedCourse, false);
     }
 
+    private GenerateCourseResponse createAiCourse(User creator, String normalizedTopic, CourseDifficulty difficulty,
+                                                  AiCourseResponse aiCourseResponse) {
+        Instant now = Instant.now();
+        List<AiLevelResponse> orderedAiLevels = aiCourseResponse.levels().stream()
+                .sorted(Comparator.comparing(AiLevelResponse::orderNumber))
+                .toList();
+
+        int totalXp = orderedAiLevels.stream()
+                .mapToInt(AiLevelResponse::xpReward)
+                .sum();
+
+        Course course = new Course(
+                UUID.randomUUID(),
+                normalizedTopic,
+                aiCourseResponse.title().trim(),
+                aiCourseResponse.description().trim(),
+                creator,
+                difficulty,
+                false,
+                totalXp,
+                CourseSourceType.AI,
+                now,
+                now
+        );
+
+        for (AiLevelResponse aiLevel : orderedAiLevels) {
+            course.addLevel(new Level(
+                    UUID.randomUUID(),
+                    null,
+                    aiLevel.title().trim(),
+                    aiLevel.contentMarkdown().trim(),
+                    aiLevel.orderNumber(),
+                    aiLevel.isBoss(),
+                    aiLevel.xpReward(),
+                    now,
+                    now
+            ));
+        }
+
+        Course savedCourse = courseRepository.save(course);
+        return toGenerateCourseResponse(savedCourse, false);
+    }
+
     private GenerateCourseResponse toGenerateCourseResponse(Course course, boolean cacheHit) {
         List<Level> orderedLevels = levelRepository.findByCourseIdOrderByOrderNumberAsc(course.getId());
         if (orderedLevels.isEmpty()) {
             orderedLevels = course.getLevels().stream()
-                    .sorted(java.util.Comparator.comparing(Level::getOrderNumber))
+                    .sorted(Comparator.comparing(Level::getOrderNumber))
                     .collect(Collectors.toList());
         }
 
@@ -140,6 +208,12 @@ public class CourseService {
         return topic == null
                 ? ""
                 : topic.trim().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
+    }
+
+    private void validateRequestedDifficulty(CourseDifficulty requestedDifficulty, String aiDifficulty) {
+        if (!requestedDifficulty.name().equals(aiDifficulty)) {
+            throw new IllegalArgumentException("AI difficulty did not match the requested difficulty.");
+        }
     }
 
     private String toDisplayTitle(String normalizedTopic) {

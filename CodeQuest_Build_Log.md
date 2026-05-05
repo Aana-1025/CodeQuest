@@ -5,15 +5,15 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: AI / Response Parser Foundation
-Current feature: ResponseParser + AI validation foundation completed, tested, pending commit
-Last completed feature: ResponseParser + AI validation foundation
-Next feature: Wire GeminiService + ResponseParser into course generation behind safe fallback, but do not start until git status is clean after this feature commit
+Current module: AI / Gemini Course Generation Integration
+Current feature: GeminiService + ResponseParser wired into course generation behind safe fallback, tested, pending commit
+Last completed feature: GeminiService + ResponseParser course generation wiring with safe placeholder fallback
+Next feature: Investigate real Gemini AI-success/manual AI persistence path, then polish AI prompt/response compatibility if needed; do not start until git status is clean after this feature commit
 Current branch: main
-Latest commit before current pending feature: 7162e2d feat: add gemini service and prompt builder foundation
-Pending commit message for current feature: feat: add ai response parser validation foundation
-Test status: Backend `cd backend && .\mvnw.cmd test` PASS; 65 tests, 0 failures, 0 errors; ResponseParserTest PASS; no real Gemini network call; no CourseService/CourseController wiring; no frontend changes; no DB migration changes; existing placeholder course generation flow intentionally unchanged
-Git status: pending commit for ResponseParser + AI validation foundation files plus this Build Log update
+Latest commit before current pending feature: dd3bd86 feat: add ai response parser validation foundation
+Pending commit message for current feature: feat: wire gemini course generation fallback
+Test status: Backend `cd backend && .\mvnw.cmd test` PASS; 71 tests, 0 failures, 0 errors; no frontend changes; no DB migration changes; CourseController unchanged; Gemini client/service/course integration tests PASS; manual runtime with Gemini env vars started backend successfully; browser course generation completed; DB persisted `source_type=PLACEHOLDER`, confirming safe fallback works; real AI-success persistence was not manually confirmed yet but is covered by mocked automated tests
+Git status: pending commit for Gemini course generation wiring files plus this Build Log update
 
 ## Completed Features
 - [x] Project setup
@@ -37,6 +37,8 @@ Git status: pending commit for ResponseParser + AI validation foundation files p
 - [x] Frontend course generation UI
 - [x] GeminiService + PromptBuilder
 - [x] ResponseParser + AI validation
+- [x] GeminiService + ResponseParser course generation wiring with safe fallback
+- [ ] Real Gemini AI-success manual verification / prompt compatibility polish
 - [ ] Course map
 - [ ] Level unlock logic
 - [ ] Lesson page
@@ -156,10 +158,6 @@ Git status: pending commit for ResponseParser + AI validation foundation files p
   2. Practice `<Title>` with 75 XP
   3. `<Title>` Boss Challenge with 100 XP and `isBoss=true`
 - Course generation foundation persists `totalXp=225`.
-- Course generation foundation uses `sourceType=PLACEHOLDER`.
-- Course generation foundation does not call Gemini.
-- Course generation foundation does not call any external API.
-- Course generation foundation does not implement real AI lessons, quizzes, flashcards, notes, XP/rank/streak progress, leaderboard, Piston/code execution, Docker, CI/CD, deployment, or Phase 2 features.
 - V3 Flyway migration creates `courses` and `levels` tables.
 - `courses(normalized_topic, difficulty)` is unique for cache behavior.
 - `levels(course_id, order_number)` is unique for ordered levels.
@@ -177,19 +175,13 @@ Git status: pending commit for ResponseParser + AI validation foundation files p
   - course id in muted text
   - ordered level cards
   - level order number, title, XP reward, and Boss/Standard badge
-- Frontend course generation UI does not implement real course map navigation, lesson page, quizzes, flashcards, notes, XP/rank/streak progress, leaderboard, code execution, Gemini live integration, ResponseParser wiring, Docker, CI/CD, deployment, or Phase 2 features.
+- Frontend course generation UI does not implement real course map navigation, lesson page, quizzes, flashcards, notes, XP/rank/streak progress, leaderboard, code execution, Docker, CI/CD, deployment, or Phase 2 features.
 - GeminiService + PromptBuilder foundation is implemented in the isolated backend `ai` module.
-- GeminiService + PromptBuilder foundation does not call Gemini over network.
-- GeminiService + PromptBuilder foundation does not replace the existing placeholder course generation flow.
-- GeminiService + PromptBuilder foundation does not wire into `CourseService` or `CourseController`.
+- GeminiService + PromptBuilder foundation originally did not call Gemini over network and did not wire into `CourseService` or `CourseController`.
 - GeminiService + PromptBuilder foundation uses env-backed Gemini placeholders:
   - `GEMINI_API_KEY`
   - `GEMINI_MODEL`
   - `GEMINI_BASE_URL`
-- GeminiService is intentionally a safe abstraction for now:
-  - builds prompts through PromptBuilder
-  - reports config state
-  - does not make real external API calls
 - PromptBuilder creates structured course-generation prompts with:
   - topic
   - difficulty
@@ -203,10 +195,7 @@ Git status: pending commit for ResponseParser + AI validation foundation files p
 - ResponseParser validates malformed JSON, required fields, enum-like values, array sizes, nested objects, duplicate order numbers, quiz answers, flashcards, coding problems, and XP ranges.
 - ResponseParser throws `AiResponseValidationException` for malformed JSON or invalid AI schema/data.
 - ResponseParser exception messages must stay safe and must not include secrets or the full raw AI payload.
-- ResponseParser does not persist anything.
-- ResponseParser does not call Gemini.
-- ResponseParser is not wired into CourseService or CourseController yet.
-- ResponseParser does not replace the existing placeholder course generation flow.
+- ResponseParser does not persist anything directly.
 - Current AI response model files include:
   - `AiCourseResponse`
   - `AiLevelResponse`
@@ -215,10 +204,43 @@ Git status: pending commit for ResponseParser + AI validation foundation files p
   - `AiCodingProblemResponse`
   - `AiResponseValidationException`
   - `ResponseParser`
-- ResponseParser tests passed as part of backend 65-test suite.
-- Next feature should be wiring GeminiService + ResponseParser into course generation behind safe fallback, after this feature is committed and git status is clean.
-- Do not combine Gemini wiring with frontend course map, quizzes UI, lessons UI, leaderboard, Docker, CI/CD, deployment, code execution, or Phase 2 features unless explicitly scoped.
-- When wiring Gemini later, maintain safe fallback to existing placeholder generation so the app remains usable if AI config is missing, Gemini fails, or parsing fails.
+- Gemini course generation wiring is now implemented behind safe fallback.
+- New Gemini integration support files:
+  - `GeminiClient`
+  - `GeminiHttpClient`
+  - `GeminiException`
+- `GeminiClient` is a mockable abstraction for Gemini content generation.
+- `GeminiHttpClient` performs the real Gemini generate-content request using Spring `RestClient`.
+- `GeminiException` is a safe runtime exception for Gemini request/response failures.
+- `GeminiService` now builds the prompt and delegates to `GeminiClient` only when Gemini config is present.
+- `CourseService` now attempts Gemini + ResponseParser only on cache miss and only when Gemini config is present.
+- Cache hit behavior remains unchanged and must not call Gemini.
+- If Gemini config is missing, `CourseService` uses existing placeholder generation.
+- If Gemini call fails, `CourseService` uses existing placeholder generation.
+- If Gemini output is malformed or rejected by ResponseParser, `CourseService` uses existing placeholder generation.
+- If Gemini output parses successfully and matches requested difficulty, `CourseService` persists supported course/level fields with `sourceType=AI`.
+- Current persistence boundary for AI-generated output is only:
+  - course title
+  - course description
+  - difficulty
+  - level title
+  - level contentMarkdown
+  - level orderNumber
+  - level isBoss
+  - level xpReward
+- Flashcards, quizzes, and coding problems from parsed AI output are not persisted yet because their DB tables/features are not implemented.
+- Placeholder fallback courses keep `sourceType=PLACEHOLDER`.
+- Existing deterministic placeholder levels must remain compatible with frontend.
+- `CourseController` remains unchanged.
+- Frontend remains unchanged.
+- DB migrations remain unchanged.
+- Manual real-runtime test with Gemini env vars started backend successfully and browser course generation worked.
+- Manual DB result for topic `graph traversal bfs real ai test` showed `source_type=PLACEHOLDER`, confirming safe fallback works.
+- Manual real AI-success persistence was not confirmed yet; automated tests cover valid AI response path with mocked Gemini/client output.
+- API keys and local DB passwords must never be pasted into chat, Build Log, screenshots, or committed files.
+- If any Gemini API key was accidentally pasted into chat/logs/screenshots, revoke/delete it and create a new key.
+- Next feature should investigate why real Gemini manual run fell back to PLACEHOLDER, improve prompt/response compatibility if needed, and confirm real `sourceType=AI` manually, after this feature is committed and git status is clean.
+- Do not combine next AI compatibility work with frontend course map, quizzes UI, lessons UI, leaderboard, Docker, CI/CD, deployment, code execution, or Phase 2 features unless explicitly scoped.
 
 ## Current Source of Truth Files
 - CodeQuest_AI_Control_Master_Blueprint_v3.docx: full master blueprint in ChatGPT Project resources.
@@ -230,7 +252,7 @@ Git status: pending commit for ResponseParser + AI validation foundation files p
 - AGENTS.md: repo-root AI instructions for Codex.
 
 ## Bugs / Issues
-- None currently.
+- None blocking currently.
 - Note from Global ErrorDTO task: Codex initially looped and produced a broken test. The test was manually corrected to a stable standalone MockMvcBuilders test. Final backend test passed before commit.
 - Auth register note: Codex changed `backend/src/test/resources/application.yml` to use `ddl-auto: create` for test schema generation only. Production `ddl-auto` remains `none`, and production schema remains Flyway-controlled.
 - Auth register note: Codex added `spring-security-crypto` only for BCrypt password hashing. Full Spring Security filter chain, JWT filter, login, refresh token, and logout were intentionally unimplemented at that stage.
@@ -249,46 +271,35 @@ Git status: pending commit for ResponseParser + AI validation foundation files p
 - Logout/token revoke note: Logout does not blacklist JWT access tokens.
 - Logout/token revoke note: Logout does not implement refresh-token rotation.
 - Logout/token revoke note: Logout does not require a Flyway migration because `revoked_at` already exists.
-- Logout/token revoke note: Logout service tests passed.
 - Logout/token revoke testing note: During testing, `AuthControllerTest` initially failed with `NoClassDefFoundError: GlobalExceptionHandler$1` because stale compiled output in `target/` was missing an enum-switch helper class. This was a stale build artifact issue, not a logout business logic issue. Running `.\mvnw.cmd clean test` fixed it.
-- Logout/token revoke note: Protected routes UI, dashboard, user profile update, token rotation, and Phase 2 features were intentionally unimplemented at that stage.
 - User profile note: GET `/api/user/profile` is implemented as an authenticated endpoint using the existing JWT authentication flow and `CurrentUserPrincipal`.
 - User profile note: User profile response exposes safe user fields only and does not expose `passwordHash`, `password_hash`, `tokenHash`, `refreshToken`, `role`, or raw password.
-- User profile note: Controller test uses real register -> login -> JWT -> `/api/user/profile` flow instead of mocking `CurrentUserPrincipal`.
 - User profile note: No update profile endpoint was implemented in this task.
 - User profile API alignment note: The original user profile implementation used GET `/api/users/me`; it was later aligned to the API contract endpoint GET `/api/user/profile`.
-- User profile API alignment note: The alignment changed endpoint path and tests only. No business logic, DTO, security, database, Flyway, auth, refresh token, logout, or frontend changes were made.
 - User profile API alignment note: Commit `b9039ad fix: align user profile endpoint contract` was pushed to `main`, and git status was clean afterward.
 - Frontend auth pages note: Login and Register pages are implemented using React state navigation only.
 - Frontend auth pages note: No React Router was added.
 - Frontend auth pages note: No new npm dependencies were added.
 - Frontend auth pages note: `frontend/package.json` and `frontend/package-lock.json` were not changed.
-- Frontend auth pages note: Backend files were not changed.
-- Frontend auth pages note: Frontend build passed with `cd frontend && npm run build`.
 - Frontend auth pages note: Commit `891476c feat: add frontend auth pages` was pushed to `main`, and git status was clean afterward.
 - Frontend auth pages note: Manual backend-connected smoke test was initially blocked by local backend/CORS setup, then passed after local PostgreSQL runtime setup and CORS fix.
 - Protected routes note: Protected Area implemented as a simple MVP protected view, not the final dashboard.
 - Protected routes note: Commit `c607568 feat: add protected routes` was pushed to `main`, and git status was clean afterward.
-- Protected routes note: Manual backend-connected profile load smoke test was initially blocked by local backend/CORS setup, then passed after local PostgreSQL runtime setup and CORS fix.
 - Dashboard shell note: DashboardShell was first implemented as a static UI shell only.
 - Dashboard shell note: Commit `3abf231 feat: add dashboard shell` was pushed to `main`, and git status was clean afterward.
-- Dashboard shell note: Static shell had no backend/API behavior at first.
-- Dashboard shell note: Opening Dashboard Shell may show `Profile not loaded yet` depending on current in-memory profile state. This is acceptable for shell/profile state work and can be polished later.
 - Runtime database config note: A manual `.\mvnw.cmd spring-boot:run` initially failed because no active profile was set and no datasource URL was configured.
 - Runtime database config note: PostgreSQL 17 was installed, `psql` was added to PATH for the active terminal, and database `codequest` was created.
-- Runtime database config note: Backend runtime then started successfully with PostgreSQL env vars and Flyway applied V1/V2 migrations.
+- Runtime database config note: Backend runtime then started successfully with PostgreSQL env vars and Flyway applied migrations.
 - Frontend manual testing note: Browser register initially showed `Failed to fetch` because CORS was not configured for Vite origin `http://localhost:5174`.
 - CORS note: Commit `8da4448 fix: allow local frontend cors` was pushed to `main`.
 - CORS note: CORS allows local Vite origins only and does not use wildcard `"*"`.
 - CORS note: Backend tests passed after CORS fix: 44 tests, 0 failures, 0 errors, 0 skipped.
-- CORS note: Browser register/login/protected profile smoke test passed after CORS fix.
 - Course generation foundation note: Commit `e4734e2 feat: add course generation foundation` was pushed to `main`, and git status was clean afterward.
 - Course generation foundation note: V3 migration creates `courses` and `levels` tables. V1 and V2 were not edited.
 - Course generation foundation note: Backend tests passed with 53 tests, 0 failures, 0 errors, 0 skipped.
 - Course generation foundation note: Local backend runtime applied V3 successfully against PostgreSQL 17.9.
 - Course generation foundation note: Manual API smoke test passed for authenticated POST `/api/courses/generate`.
 - Course generation foundation note: Manual cache test passed: repeated normalized topic/difficulty returned same `courseId` with `cacheHit=true`.
-- Course generation foundation note: No Gemini/AI, external API, PromptBuilder, ResponseParser, real lesson generation, quizzes, flashcards, notes, XP/streak/progress, leaderboard, Piston/code execution, frontend, Docker, CI/CD, or deployment was implemented.
 - Course generation foundation note: A real local PostgreSQL password was typed in terminal during manual testing. Do not commit real passwords or include them in docs; use `<your-local-postgres-password>` placeholder only.
 - Frontend course generation UI note: Commit `3ba0ef8 feat: add frontend course generation UI` was pushed to `main`, and git status was clean afterward.
 - Frontend course generation UI note: Docs commit `9ee8748 docs: record frontend course generation UI completion` was pushed to `main`, and git status was clean afterward.
@@ -296,23 +307,33 @@ Git status: pending commit for ResponseParser + AI validation foundation files p
 - Frontend course generation UI note: Browser manual test passed on Vite port 5174.
 - Frontend course generation UI note: Dashboard Shell generated/displayed a course from browser and showed 3 levels with XP and Boss/Standard badges.
 - Frontend course generation UI note: Browser cache-hit UI test passed for `Binary Search`, showing `Cache Hit` and existing course/levels.
-- Frontend course generation UI note: No backend files, package files, React Router, Gemini/AI, quizzes, flashcards, notes, XP/streak/progress, leaderboard, code execution, Docker, CI/CD, deployment, or Phase 2 features were implemented.
 - Frontend course generation UI note: Browser test first used a mistyped topic `Binary Searcj`; this created a correctly matching placeholder for that typo. This was input behavior, not a code bug.
 - GeminiService + PromptBuilder foundation note: Commit `7162e2d feat: add gemini service and prompt builder foundation` was pushed to `main`, and git status was clean afterward.
 - GeminiService + PromptBuilder foundation note: Backend `cd backend && .\mvnw.cmd test` passed with 57 tests, 0 failures, 0 errors.
 - GeminiService + PromptBuilder foundation note: This task added only isolated AI foundation classes and tests.
 - GeminiService + PromptBuilder foundation note: It did not call Gemini over the network.
 - GeminiService + PromptBuilder foundation note: It did not wire Gemini into `CourseService`, `CourseController`, or the live `/api/courses/generate` flow.
-- GeminiService + PromptBuilder foundation note: It did not add ResponseParser.
-- GeminiService + PromptBuilder foundation note: It did not replace the existing placeholder course generation flow.
-- GeminiService + PromptBuilder foundation note: It did not add DB migrations, frontend changes, package changes, lessons, quizzes, flashcards, notes, progress, leaderboard, Piston/code execution, Docker, CI/CD, deployment, or Phase 2 features.
-- GeminiService + PromptBuilder foundation note: `application.yml` and test `application.yml` now contain safe Gemini env placeholders/config values only. No real API key or secret was committed.
+- GeminiService + PromptBuilder foundation note: `application.yml` and test `application.yml` contain safe Gemini env placeholders/config values only. No real API key or secret was committed.
+- ResponseParser + AI validation foundation note: Commit `dd3bd86 feat: add ai response parser validation foundation` was pushed to `main`, and git status was clean afterward.
 - ResponseParser + AI validation foundation note: This task added only isolated AI parser/validation records and tests.
 - ResponseParser + AI validation foundation note: It did not call Gemini, did not wire into CourseService/CourseController, did not persist anything, did not touch frontend, did not add migrations, and did not replace placeholder course generation.
 - ResponseParser + AI validation foundation note: Backend `cd backend && .\mvnw.cmd test` passed with 65 tests, 0 failures, 0 errors.
 - ResponseParser + AI validation foundation note: `ResponseParserTest` covers malformed JSON, missing title, invalid difficulty, empty levels, duplicate order numbers, invalid correctAnswer, successful parsing, and other schema/data validation paths.
-- ResponseParser + AI validation foundation note: Unrelated diff checks showed no frontend, CourseService, CourseController, or DB migration changes.
-- ResponseParser + AI validation foundation note: This is not real Gemini integration yet. It is only parser and validation foundation for future Gemini JSON output.
+- Gemini course generation wiring note: Backend `cd backend && .\mvnw.cmd test` passed with 71 tests, 0 failures, 0 errors.
+- Gemini course generation wiring note: This task added `GeminiClient`, `GeminiHttpClient`, and `GeminiException`, and updated `GeminiService`, `CourseService`, `GeminiServiceTest`, and `CourseServiceTest`.
+- Gemini course generation wiring note: `CourseController` was not changed.
+- Gemini course generation wiring note: Frontend files were not changed.
+- Gemini course generation wiring note: DB migrations were not changed.
+- Gemini course generation wiring note: Cache-hit behavior remains unchanged and should not call Gemini.
+- Gemini course generation wiring note: Missing Gemini config falls back to deterministic placeholder generation.
+- Gemini course generation wiring note: Gemini client failure falls back to deterministic placeholder generation.
+- Gemini course generation wiring note: ResponseParser validation failure falls back to deterministic placeholder generation.
+- Gemini course generation wiring note: Mocked automated tests confirm valid AI response can persist an `AI` sourceType course with parsed course/level fields.
+- Gemini course generation wiring note: Manual runtime with Gemini env vars started backend successfully and browser course generation worked.
+- Gemini course generation wiring note: Manual DB check for topic `graph traversal bfs real ai test` returned `source_type=PLACEHOLDER` and `total_xp=225`, confirming fallback safety but not manual AI-success persistence.
+- Gemini course generation wiring note: Real Gemini API key was accidentally pasted in chat/log context during manual testing. It must be revoked/deleted and replaced with a new key. Do not commit or store the exposed key anywhere.
+- Gemini course generation wiring note: Local PostgreSQL password was also pasted in chat/log context. Consider rotating the local password later. Do not commit or document the real password.
+- Gemini course generation wiring note: Next AI-related work should investigate why the real Gemini manual run fell back to placeholder and confirm real `source_type=AI` manually without exposing secrets.
 
 ## Feature History
 | # | Date | Feature | Module | Files changed | Tests | Commit/Notes |
@@ -325,24 +346,25 @@ Git status: pending commit for ResponseParser + AI validation foundation files p
 | 6 | 2026-05-03 | Global ErrorDTO + GlobalExceptionHandler | Foundation/common | ErrorDTO + ErrorCode + ApiException + GlobalExceptionHandler + GlobalExceptionHandlerTest + validation dependency | Backend `cd backend && .\mvnw.cmd test` PASS | `78df72c feat: add global error handling` |
 | 7 | 2026-05-03 | Build Log update after Global ErrorDTO | Docs | CodeQuest_Build_Log.md | Git status clean after docs commit | `0161bdf docs: record global error handling completion` |
 | 8 | 2026-05-03 | Auth register | Auth | backend/pom.xml, AuthController, AuthService, RegisterRequest, RegisterResponse, AuthMapper, User entity, UserRepository, UserRank, UserRole, PasswordEncoderConfig, ErrorCode, GlobalExceptionHandler, AuthServiceTest, AuthControllerTest, test application.yml | Backend `cd backend && .\mvnw.cmd test` PASS according to Codex output; 15 tests total | `cb01ae3 feat: add auth register` |
-| 9 | 2026-05-03 | Auth login | Auth | LoginRequest, LoginResponse, AuthService.login() method, AuthController.login() endpoint, AuthMapper.toLoginResponse(), GlobalExceptionHandler INVALID_CREDENTIALS mapping, AuthServiceTest login tests, AuthControllerTest login tests | Backend `cd backend && .\mvnw.cmd test` PASS; 27 tests total | `a1b500d feat: add auth login` |
+| 9 | 2026-05-03 | Auth login | Auth | LoginRequest, LoginResponse, AuthService.login(), AuthController.login(), AuthMapper.toLoginResponse(), GlobalExceptionHandler INVALID_CREDENTIALS mapping, AuthServiceTest, AuthControllerTest | Backend `cd backend && .\mvnw.cmd test` PASS; 27 tests total | `a1b500d feat: add auth login` |
 | 10 | 2026-05-04 | JWT authentication | Auth/security | backend/pom.xml, application.yml, test application.yml, LoginResponse, AuthService, AuthController, AuthMapper, JwtService, CurrentUserPrincipal, JwtAuthenticationFilter, RestAuthenticationEntryPoint, SecurityConfig, AuthServiceTest, AuthControllerTest, HealthControllerTest, JwtServiceTest, SecurityConfigTest | Backend `cd backend && .\mvnw.cmd test` PASS; 33 tests total | `89564e7 feat: add jwt authentication` |
-| 11 | 2026-05-04 | Refresh token | Auth | V2 refresh_tokens Flyway migration, RefreshToken entity, RefreshTokenRepository, RefreshTokenService, RefreshTokenRequest, RefreshTokenResponse, LoginResponse refreshToken field, AuthService refresh flow, AuthController refresh endpoint, AuthMapper update, ErrorCode INVALID_REFRESH_TOKEN, GlobalExceptionHandler mapping, SecurityConfig public refresh endpoint, application.yml refresh-token config, AuthServiceTest, AuthControllerTest, JwtService jti fix | Backend `cd backend && .\mvnw.cmd test` PASS; 37 tests total | `26fc7c5 feat: add refresh token` |
+| 11 | 2026-05-04 | Refresh token | Auth | V2 refresh_tokens migration, RefreshToken entity/repository/service, refresh DTOs, LoginResponse refreshToken, AuthService/AuthController refresh flow, mapper/error/security config updates, tests, JwtService jti fix | Backend `cd backend && .\mvnw.cmd test` PASS; 37 tests total | `26fc7c5 feat: add refresh token` |
 | 12 | 2026-05-04 | Logout / token revoke | Auth | AuthController logout endpoint, AuthService.logout(), RefreshTokenService.revokeRefreshToken(), AuthMapper.toLogoutResponse(), LogoutRequest, LogoutResponse, AuthServiceTest logout tests | Backend `cd backend && .\mvnw.cmd clean test` PASS; 39 tests total | `feat: add auth logout`. Stale `target/` build output initially caused `GlobalExceptionHandler$1` class error; fixed by clean test. Commit pushed; git status clean. |
 | 13 | 2026-05-04 | User profile | User | UserProfileResponse, UserMapper, UserService, UserController, UserServiceTest, UserControllerTest | Backend `cd backend && .\mvnw.cmd test` PASS; 43 tests total | `9ba94ad feat: add user profile endpoint`. Initially implemented authenticated GET `/api/users/me` with safe response fields. Commit pushed; git status clean. |
 | 14 | 2026-05-04 | Build Log update after User profile | Docs | CodeQuest_Build_Log.md | Git status clean after docs commit | `051f278 docs: record user profile completion` |
-| 15 | 2026-05-04 | User profile API contract alignment | User | UserController, UserControllerTest, CodeQuest_Build_Log.md | Backend `cd backend && .\mvnw.cmd -Dtest=UserControllerTest test` PASS; Backend `cd backend && .\mvnw.cmd test` PASS; 43 tests total | `b9039ad fix: align user profile endpoint contract`. Changed authenticated profile endpoint from GET `/api/users/me` to GET `/api/user/profile`. No business logic, DTO, security, DB, Flyway, auth, refresh token, logout, or frontend changes. No PATCH profile endpoint implemented. Commit pushed; git status clean. |
-| 16 | 2026-05-05 | Frontend auth pages | Frontend Auth | App.jsx, Login.jsx, Register.jsx, authApi.js, tokenStorage.js, CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS | `891476c feat: add frontend auth pages`. Implemented login/register pages using React state navigation, auth API service, and localStorage token storage. No protected routes, dashboard, logout UI, profile page, package changes, or backend changes. Commit pushed; git status clean. |
-| 17 | 2026-05-05 | Protected routes | Frontend Auth | App.jsx, authApi.js, authState.js, CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS | `c607568 feat: add protected routes`. Implemented React state based Protected Area, local auth snapshot check, and profile loading via GET `/api/user/profile`. No React Router, dashboard, logout UI, token refresh retry, package changes, or backend changes. Commit pushed; git status clean. |
-| 18 | 2026-05-05 | Dashboard shell | Dashboard | App.jsx, DashboardShell.jsx, CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS | `3abf231 feat: add dashboard shell`. Implemented static dashboard shell page and wired it from Protected Area using React state navigation. No React Router, backend/API calls, course generation, AI/Gemini, XP/streak logic, leaderboard, logout UI, code execution, package changes, or backend changes. Commit pushed; git status clean. |
-| 19 | 2026-05-05 | Local backend runtime config + frontend CORS | Local Runtime / Security | SecurityConfig, application.yml, SecurityConfigTest, test application.yml | Backend `cd backend && .\mvnw.cmd test` PASS; 44 tests total. Local backend runtime PASS with PostgreSQL env vars. Browser register/login/profile smoke test PASS after CORS fix. | `8da4448 fix: allow local frontend cors`. Installed local PostgreSQL 17, created `codequest` database, ran backend with env vars, Flyway applied V1/V2 migrations, fixed CORS for local Vite origins 5173/5174. No frontend, package, DB migration, course, AI, dashboard, or business logic changes. Commit pushed; git status clean. |
+| 15 | 2026-05-04 | User profile API contract alignment | User | UserController, UserControllerTest, CodeQuest_Build_Log.md | Backend `cd backend && .\mvnw.cmd -Dtest=UserControllerTest test` PASS; Backend `cd backend && .\mvnw.cmd test` PASS; 43 tests total | `b9039ad fix: align user profile endpoint contract`. Changed GET `/api/users/me` to GET `/api/user/profile`. Commit pushed; git status clean. |
+| 16 | 2026-05-05 | Frontend auth pages | Frontend Auth | App.jsx, Login.jsx, Register.jsx, authApi.js, tokenStorage.js, CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS | `891476c feat: add frontend auth pages`. Commit pushed; git status clean. |
+| 17 | 2026-05-05 | Protected routes | Frontend Auth | App.jsx, authApi.js, authState.js, CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS | `c607568 feat: add protected routes`. Commit pushed; git status clean. |
+| 18 | 2026-05-05 | Dashboard shell | Dashboard | App.jsx, DashboardShell.jsx, CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS | `3abf231 feat: add dashboard shell`. Commit pushed; git status clean. |
+| 19 | 2026-05-05 | Local backend runtime config + frontend CORS | Local Runtime / Security | SecurityConfig, application.yml, SecurityConfigTest, test application.yml | Backend `cd backend && .\mvnw.cmd test` PASS; 44 tests total. Local backend runtime PASS. Browser smoke test PASS. | `8da4448 fix: allow local frontend cors`. Commit pushed; git status clean. |
 | 20 | 2026-05-05 | Build Log update after local runtime + CORS | Docs | CodeQuest_Build_Log.md | Git status clean after docs commit | `75fa636 docs: record local runtime and cors completion` |
-| 21 | 2026-05-05 | Course generation foundation | Course Generation | V3 migration, Course entity, CourseRepository, CourseDifficulty, CourseSourceType, Level entity, LevelRepository, GenerateCourseRequest, GenerateCourseResponse, CourseLevelSummaryResponse, CourseService, CourseController, CourseRepositoryTest, CourseServiceTest, CourseControllerTest | Backend `cd backend && .\mvnw.cmd test` PASS; 53 tests total. Local runtime PASS with Flyway V3 applied. Manual API smoke test PASS. Manual cache-hit test PASS. | `e4734e2 feat: add course generation foundation`. Added authenticated POST `/api/courses/generate`, deterministic placeholder course generation, normalized topic/difficulty cache, 3 placeholder levels, V3 courses/levels schema. No frontend, Gemini/AI, external API, PromptBuilder, ResponseParser, quizzes, flashcards, notes, progress, leaderboard, code execution, Docker, CI/CD, deployment, or Phase 2 features. Commit pushed; git status clean. |
+| 21 | 2026-05-05 | Course generation foundation | Course Generation | V3 migration, Course entity/repository/enums, Level entity/repository, course DTOs, CourseService, CourseController, repository/service/controller tests | Backend `cd backend && .\mvnw.cmd test` PASS; 53 tests total. Local runtime PASS. Manual API/cache tests PASS. | `e4734e2 feat: add course generation foundation`. Commit pushed; git status clean. |
 | 22 | 2026-05-05 | Build Log update after Course generation foundation | Docs | CodeQuest_Build_Log.md | Git status clean after docs commit | `8d66948 docs: record course generation foundation completion` |
-| 23 | 2026-05-05 | Frontend course generation UI | Course Generation / Frontend | DashboardShell.jsx, courseApi.js | Frontend `cd frontend && npm run build` PASS. Browser manual generate-course test PASS. Browser cache-hit UI test PASS. | `3ba0ef8 feat: add frontend course generation UI`. Added DashboardShell form for topic/difficulty/goal, wired POST `/api/courses/generate` with Bearer token, displayed generated course and level cards. No backend, package files, React Router, Gemini/AI, quizzes, flashcards, notes, XP/streak/progress, leaderboard, code execution, Docker, CI/CD, deployment, or Phase 2 features. Commit pushed; git status clean. |
-| 24 | 2026-05-05 | Build Log update after Frontend course generation UI | Docs | CodeQuest_Build_Log.md | Git status clean after docs commit | `9ee8748 docs: record frontend course generation UI completion`. Recorded frontend course generation UI completion and next task as GeminiService + PromptBuilder foundation. Commit pushed; git status clean. |
-| 25 | 2026-05-05 | GeminiService + PromptBuilder foundation | AI / Gemini Foundation | GeminiProperties, PromptBuilder, GeminiService, main application.yml Gemini env placeholders, PromptBuilderTest, GeminiServiceTest, test application.yml Gemini test-safe config | Backend `cd backend && .\mvnw.cmd test` PASS; 57 tests total, 0 failures, 0 errors | `7162e2d feat: add gemini service and prompt builder foundation`. Added isolated GeminiService + PromptBuilder foundation only. No real Gemini network calls, no CourseService/CourseController wiring, no frontend, no DB migration, no ResponseParser, no real course-generation replacement, and no Phase 2 features. Commit pushed; git status clean. |
-| 26 | 2026-05-05 | ResponseParser + AI validation foundation | AI / Response Parser Foundation | ResponseParser, AiCourseResponse, AiLevelResponse, AiFlashcardResponse, AiQuizQuestionResponse, AiCodingProblemResponse, AiResponseValidationException, ResponseParserTest | Backend `cd backend && .\mvnw.cmd test` PASS; 65 tests total, 0 failures, 0 errors | Pending commit: `feat: add ai response parser validation foundation`. Added isolated parser and validation for future Gemini JSON output. No real Gemini call, no CourseService/CourseController wiring, no frontend, no DB migration, no placeholder course-generation replacement, and no Phase 2 features. |
+| 23 | 2026-05-05 | Frontend course generation UI | Course Generation / Frontend | DashboardShell.jsx, courseApi.js | Frontend `cd frontend && npm run build` PASS. Browser manual generate-course test PASS. Browser cache-hit UI test PASS. | `3ba0ef8 feat: add frontend course generation UI`. Commit pushed; git status clean. |
+| 24 | 2026-05-05 | Build Log update after Frontend course generation UI | Docs | CodeQuest_Build_Log.md | Git status clean after docs commit | `9ee8748 docs: record frontend course generation UI completion`. Commit pushed; git status clean. |
+| 25 | 2026-05-05 | GeminiService + PromptBuilder foundation | AI / Gemini Foundation | GeminiProperties, PromptBuilder, GeminiService, main application.yml Gemini env placeholders, PromptBuilderTest, GeminiServiceTest, test application.yml Gemini test-safe config | Backend `cd backend && .\mvnw.cmd test` PASS; 57 tests total, 0 failures, 0 errors | `7162e2d feat: add gemini service and prompt builder foundation`. Commit pushed; git status clean. |
+| 26 | 2026-05-05 | ResponseParser + AI validation foundation | AI / Response Parser Foundation | ResponseParser, AiCourseResponse, AiLevelResponse, AiFlashcardResponse, AiQuizQuestionResponse, AiCodingProblemResponse, AiResponseValidationException, ResponseParserTest | Backend `cd backend && .\mvnw.cmd test` PASS; 65 tests total, 0 failures, 0 errors | `dd3bd86 feat: add ai response parser validation foundation`. Commit pushed; git status clean. |
+| 27 | 2026-05-05 | GeminiService + ResponseParser course generation wiring with safe fallback | AI / Course Generation Integration | GeminiClient, GeminiHttpClient, GeminiException, GeminiService, CourseService, GeminiServiceTest, CourseServiceTest | Backend `cd backend && .\mvnw.cmd test` PASS; 71 tests total, 0 failures, 0 errors. Manual backend runtime PASS with Gemini env vars. Manual browser course generation PASS. DB result for test topic persisted `source_type=PLACEHOLDER`, confirming fallback safety. | Pending commit: `feat: wire gemini course generation fallback`. Added real Gemini client abstraction/HTTP client and wired AI generation on cache miss behind safe placeholder fallback. No frontend, no DB migration, no CourseController change. Mocked tests confirm AI success path; manual real AI-success persistence not confirmed yet. |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -353,89 +375,81 @@ Git status: pending commit for ResponseParser + AI validation foundation files p
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | GlobalExceptionHandlerTest initially failed due missing validation provider/test context; fixed by adding validation starter and stable standalone MockMvcBuilders test | Yes |
-| 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | Auth register tests passed according to Codex output: AuthControllerTest, AuthServiceTest, HealthControllerTest, GlobalExceptionHandlerTest, CodeQuestApplicationTests; total 15 tests | Yes |
+| 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | Auth register tests passed according to Codex output: total 15 tests | Yes |
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | Auth login tests: 27 total | Yes |
-| 2026-05-04 | `cd backend && .\mvnw.cmd test` | PASS | JWT authentication tests passed: 33 total including JwtServiceTest and SecurityConfigTest; SecurityConfigTest ran 3 tests | Yes |
-| 2026-05-04 | `cd backend && .\mvnw.cmd test` | PASS | Refresh token tests passed: 37 total, 0 failures, 0 errors, 0 skipped. Initial refresh-token test failed because refreshed JWT matched original token when generated in same second; fixed by adding unique JWT `jti` claim in JwtService. | Yes |
-| 2026-05-04 | `cd backend && .\mvnw.cmd test` | FAIL | Logout task initially showed 4 `AuthControllerTest` errors where `ApiException` appeared to escape instead of becoming standard ErrorDTO. Investigation found stale compiled build output, later confirmed by `NoClassDefFoundError: GlobalExceptionHandler$1`. | Yes |
-| 2026-05-04 | `cd backend && .\mvnw.cmd -Dtest=AuthServiceTest test` | PASS | Logout service tests passed: 14 AuthService tests, 0 failures, 0 errors, 0 skipped. | Yes |
-| 2026-05-04 | `cd backend && .\mvnw.cmd -Dtest=AuthControllerTest#shouldRegisterUserSuccessfully test` | PASS | Controller success path verified: 1 test, 0 failures, 0 errors, 0 skipped. | Yes |
-| 2026-05-04 | `cd backend && .\mvnw.cmd -Dtest=AuthControllerTest#shouldReturnConflictForDuplicateEmail test` | FAIL | Exposed real cause: `NoClassDefFoundError: com/codequest/common/exception/GlobalExceptionHandler$1`, caused by stale compiled class output in `target/`. | Yes |
-| 2026-05-04 | `cd backend && .\mvnw.cmd clean test` | PASS | Full backend clean test passed after removing stale target output: 39 tests, 0 failures, 0 errors, 0 skipped. | Yes |
-| 2026-05-04 | `cd backend && .\mvnw.cmd -Dtest=UserServiceTest test` | PASS | User profile service tests passed: 2 tests, 0 failures, 0 errors, 0 skipped. | Yes |
-| 2026-05-04 | `cd backend && .\mvnw.cmd -Dtest=UserControllerTest test` | PASS | User profile controller tests passed: 2 tests, 0 failures, 0 errors, 0 skipped. Tests used real register -> login -> JWT -> `/api/users/me` flow before API contract alignment. | Yes |
-| 2026-05-04 | `cd backend && .\mvnw.cmd test` | PASS | User profile full backend tests passed: 43 total, 0 failures, 0 errors, 0 skipped. Included UserServiceTest and UserControllerTest for authenticated GET `/api/users/me` before API contract alignment. | Yes |
-| 2026-05-04 | `cd backend && .\mvnw.cmd -Dtest=UserControllerTest test` | PASS | User profile API contract alignment controller tests passed. Tests now use real register -> login -> JWT -> `/api/user/profile` flow. | Yes |
-| 2026-05-04 | `cd backend && .\mvnw.cmd test` | PASS | User profile API contract alignment full backend tests passed: 43 total, 0 failures, 0 errors, 0 skipped. | Yes |
-| 2026-05-04 | `cd backend && .\mvnw.cmd spring-boot:run` | FAIL | Runtime startup failed because no active profile was set and no datasource URL was configured. Error: `Failed to determine suitable jdbc url`. This was a local runtime DB configuration issue, not a user profile API alignment failure. | Yes; fixed by installing PostgreSQL, creating `codequest` DB, and running with env vars. |
-| 2026-05-05 | `cd frontend && npm run build` | PASS | Frontend build succeeded with authApi.js, tokenStorage.js, Register.jsx, Login.jsx, and App.jsx wiring. No errors, no warnings. | Yes |
-| 2026-05-05 | `cd frontend && npm run build` | PASS | Frontend build succeeded with protected view, authState.js, and getCurrentUserProfile helper. | Yes |
-| 2026-05-05 | `cd frontend && npm run build` | PASS | Frontend build succeeded with DashboardShell.jsx and App.jsx dashboard wiring. | Yes |
+| 2026-05-04 | `cd backend && .\mvnw.cmd test` | PASS | JWT authentication tests passed: 33 total | Yes |
+| 2026-05-04 | `cd backend && .\mvnw.cmd test` | PASS | Refresh token tests passed: 37 total. Initial refreshed-token equality issue fixed by adding JWT `jti`. | Yes |
+| 2026-05-04 | `cd backend && .\mvnw.cmd test` | FAIL | Logout task initially showed controller errors caused by stale compiled build output. | Yes |
+| 2026-05-04 | `cd backend && .\mvnw.cmd clean test` | PASS | Full backend clean test passed after removing stale target output: 39 tests. | Yes |
+| 2026-05-04 | `cd backend && .\mvnw.cmd -Dtest=UserServiceTest test` | PASS | User profile service tests passed. | Yes |
+| 2026-05-04 | `cd backend && .\mvnw.cmd -Dtest=UserControllerTest test` | PASS | User profile controller tests passed. | Yes |
+| 2026-05-04 | `cd backend && .\mvnw.cmd test` | PASS | User profile full backend tests passed: 43 total. | Yes |
+| 2026-05-04 | `cd backend && .\mvnw.cmd test` after profile API alignment | PASS | User profile API alignment full backend tests passed: 43 total. | Yes |
+| 2026-05-04 | `cd backend && .\mvnw.cmd spring-boot:run` | FAIL | Runtime startup failed because no datasource URL was configured. | Yes; fixed by local PostgreSQL/env vars. |
+| 2026-05-05 | `cd frontend && npm run build` | PASS | Frontend auth build succeeded. | Yes |
+| 2026-05-05 | `cd frontend && npm run build` | PASS | Protected routes build succeeded. | Yes |
+| 2026-05-05 | `cd frontend && npm run build` | PASS | Dashboard shell build succeeded. | Yes |
 | 2026-05-05 | `psql -U postgres -W -c "CREATE DATABASE codequest;"` | PASS | Local PostgreSQL database `codequest` created successfully. | Yes |
-| 2026-05-05 | `cd backend && .\mvnw.cmd spring-boot:run` with DATABASE_URL/DATABASE_USERNAME/DATABASE_PASSWORD/JWT_SECRET env vars | PASS | Backend started on port 8080. Hikari connected to PostgreSQL 17.9. Flyway validated and applied 2 migrations, schema now at v2. | Yes |
-| 2026-05-05 | `curl http://localhost:8080/api/health` | PASS | Backend returned 200 with `{"status":"UP","service":"CodeQuest Backend"}`. | Yes |
-| 2026-05-05 | Browser register before CORS fix | FAIL | Browser blocked request from Vite origin `http://localhost:5174` to backend `http://localhost:8080` due missing `Access-Control-Allow-Origin`. | Yes; fixed by CORS config. |
-| 2026-05-05 | `cd backend && .\mvnw.cmd test` after CORS fix | PASS | Backend tests passed: 44 tests, 0 failures, 0 errors, 0 skipped. Added CORS preflight test for local Vite origin. | Yes |
-| 2026-05-05 | Browser register/login/profile after CORS fix | PASS | Browser register/login worked, Protected Area opened, `Load my profile` returned safe fields. | Yes |
-| 2026-05-05 | `cd backend && .\mvnw.cmd test` after Course DB/entity/repository foundation | PASS | Backend tests passed: 45 tests, 0 failures, 0 errors. Added CourseRepositoryTest. | Yes |
-| 2026-05-05 | `cd backend && .\mvnw.cmd test` after CourseService + DTOs | PASS | Backend tests passed: 48 tests, 0 failures, 0 errors. Added CourseServiceTest. | Yes |
-| 2026-05-05 | `cd backend && .\mvnw.cmd test` after CourseController/API endpoint | PASS | Backend tests passed: 53 tests, 0 failures, 0 errors. Added CourseControllerTest with authenticated success, 401 missing token, 400 invalid topic, 400 missing difficulty, and cache-hit flow. | Yes |
-| 2026-05-05 | `cd backend && .\mvnw.cmd spring-boot:run` after Course foundation with placeholder password literal | FAIL | Runtime failed with `FATAL: password authentication failed for user "postgres"` because placeholder `<your-local-postgres-password>` was used literally instead of the real local PostgreSQL password. | Yes; fixed by setting real local password in env var. Do not commit real password. |
-| 2026-05-05 | `cd backend && .\mvnw.cmd spring-boot:run` after setting real local DB password | PASS | Backend started on port 8080. Flyway validated 3 migrations and applied V3 to local PostgreSQL, schema now at v3. | Yes |
-| 2026-05-05 | Manual API: register/login then POST `/api/courses/generate` | PASS | Authenticated request returned 200 with courseId, title `Binary Search`, description, `cacheHit=false`, and 3 levels with XP 50/75/100. | Yes |
-| 2026-05-05 | Manual API cache test: POST `/api/courses/generate` with `"  BINARY   SEARCH  "` | PASS | Returned same courseId and `cacheHit=true`. | Yes |
-| 2026-05-05 | `cd frontend && npm run build` after frontend course generation UI | PASS | Frontend build succeeded with DashboardShell course generation UI and courseApi.js. Vite transformed 38 modules and built successfully. | Yes |
-| 2026-05-05 | Browser UI: DashboardShell generate course | PASS | Browser generated and displayed a course from DashboardShell with title, description, course id, 3 level cards, XP rewards, and Boss/Standard badges. | Yes |
-| 2026-05-05 | Browser UI: DashboardShell cache-hit course generation | PASS | Browser generated existing `Binary Search` course and displayed `Cache Hit` with levels visible. | Yes |
-| 2026-05-05 | `cd backend && .\mvnw.cmd test` after GeminiService + PromptBuilder foundation | PASS | Backend tests passed: 57 tests, 0 failures, 0 errors. Added PromptBuilderTest and GeminiServiceTest. No real Gemini network calls were made. Existing placeholder course generation flow was intentionally unchanged. | Yes |
-| 2026-05-05 | `cd backend && .\mvnw.cmd test` after ResponseParser + AI validation foundation | PASS | Backend tests passed: 65 tests, 0 failures, 0 errors. Added ResponseParserTest with malformed JSON, missing title, invalid difficulty, empty levels, duplicate order numbers, invalid correctAnswer, and successful parse coverage. No real Gemini calls were made. Existing placeholder course generation flow was intentionally unchanged. | Yes |
+| 2026-05-05 | `cd backend && .\mvnw.cmd spring-boot:run` with DB/JWT env vars | PASS | Backend started on port 8080. Flyway applied migrations. | Yes |
+| 2026-05-05 | `curl http://localhost:8080/api/health` | PASS | Backend returned health response. | Yes |
+| 2026-05-05 | Browser register before CORS fix | FAIL | Browser blocked request due missing CORS. | Yes; fixed by CORS config. |
+| 2026-05-05 | `cd backend && .\mvnw.cmd test` after CORS fix | PASS | Backend tests passed: 44 tests. | Yes |
+| 2026-05-05 | Browser register/login/profile after CORS fix | PASS | Browser register/login/profile smoke test passed. | Yes |
+| 2026-05-05 | `cd backend && .\mvnw.cmd test` after Course DB/entity/repository foundation | PASS | Backend tests passed: 45 tests. | Yes |
+| 2026-05-05 | `cd backend && .\mvnw.cmd test` after CourseService + DTOs | PASS | Backend tests passed: 48 tests. | Yes |
+| 2026-05-05 | `cd backend && .\mvnw.cmd test` after CourseController/API endpoint | PASS | Backend tests passed: 53 tests. | Yes |
+| 2026-05-05 | `cd backend && .\mvnw.cmd spring-boot:run` after Course foundation with placeholder password literal | FAIL | Runtime failed because placeholder DB password was used literally. | Yes; fixed by setting real local password in env var. |
+| 2026-05-05 | `cd backend && .\mvnw.cmd spring-boot:run` after setting real local DB password | PASS | Backend started; Flyway validated 3 migrations and applied V3. | Yes |
+| 2026-05-05 | Manual API: register/login then POST `/api/courses/generate` | PASS | Authenticated request returned placeholder course and 3 levels. | Yes |
+| 2026-05-05 | Manual API cache test | PASS | Same normalized topic/difficulty returned same courseId with `cacheHit=true`. | Yes |
+| 2026-05-05 | `cd frontend && npm run build` after frontend course generation UI | PASS | Frontend build succeeded. | Yes |
+| 2026-05-05 | Browser UI: DashboardShell generate course | PASS | Browser generated/displayed course and level cards. | Yes |
+| 2026-05-05 | Browser UI: DashboardShell cache-hit course generation | PASS | Browser displayed `Cache Hit` with levels visible. | Yes |
+| 2026-05-05 | `cd backend && .\mvnw.cmd test` after GeminiService + PromptBuilder foundation | PASS | Backend tests passed: 57 tests. No real Gemini calls. | Yes |
+| 2026-05-05 | `cd backend && .\mvnw.cmd test` after ResponseParser + AI validation foundation | PASS | Backend tests passed: 65 tests. No real Gemini calls. | Yes |
+| 2026-05-05 | `cd backend && .\mvnw.cmd test` after Gemini course generation wiring | PASS | Backend tests passed: 71 tests, 0 failures, 0 errors. Tests cover cache hit no Gemini call, missing config fallback, client failure fallback, parser failure fallback, valid AI response persistence, and preserved placeholder compatibility. No real Gemini calls in tests. | Yes |
+| 2026-05-05 | `git diff -- frontend`, `git diff -- backend/src/main/resources/db/migration`, `git diff -- backend/src/main/java/com/codequest/course/CourseController.java` | PASS | No frontend diff, no DB migration diff, no CourseController diff. | Yes |
+| 2026-05-05 | Manual backend runtime with Gemini env vars | PASS | Backend started on port 8080 with PostgreSQL/Flyway and Gemini env vars configured. | Yes |
+| 2026-05-05 | Manual browser course generation with Gemini env vars | PASS | Browser generated course for new topic without crashing. DB showed fallback `source_type=PLACEHOLDER`. | Yes |
 
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
 |---|---|---|---|---|
 | 2026-05-03 | Backend health endpoint | GET `/api/health` | 200 OK with backend health response | Passed during feature task |
-| 2026-05-03 | Auth register | POST `/api/auth/register` with valid name, email, password | 201 Created with userId, name, email, rank BEGINNER, xp 0; no passwordHash | Automated tests passed; browser smoke test passed after local runtime + CORS fix |
+| 2026-05-03 | Auth register | POST `/api/auth/register` with valid name, email, password | 201 Created with safe user response | Automated tests passed; browser smoke test passed after local runtime + CORS fix |
 | 2026-05-03 | Auth register duplicate email | POST `/api/auth/register` again with same email | 409 Conflict with standard ErrorDTO and EMAIL_ALREADY_EXISTS | Recommended for future manual API pass |
 | 2026-05-03 | Auth register invalid password | POST `/api/auth/register` with weak password | 400 Bad Request with standard ErrorDTO and VALIDATION_ERROR | Browser showed 400 Invalid request for weak/invalid password; strong password worked |
-| 2026-05-03 | Auth login | POST `/api/auth/login` with valid registered email and correct password | 200 OK with userId, name, email, rank BEGINNER, xp 0, streak 0, accessToken, refreshToken, tokenType, expiresInSeconds | Browser smoke test passed after local runtime + CORS fix |
-| 2026-05-03 | Auth login wrong password | POST `/api/auth/login` with registered email and wrong password | 401 Unauthorized with standard ErrorDTO and INVALID_CREDENTIALS | Recommended for future manual API pass |
-| 2026-05-03 | Auth login unknown email | POST `/api/auth/login` with unregistered email | 401 Unauthorized with standard ErrorDTO and INVALID_CREDENTIALS | Recommended for future manual API pass |
-| 2026-05-04 | JWT authentication | POST `/api/auth/login` with valid credentials | 200 OK with userId, name, email, rank, xp, streak, accessToken, tokenType Bearer, expiresInSeconds | Browser login smoke test passed after local runtime + CORS fix |
-| 2026-05-04 | JWT protected endpoint without token | Request any protected endpoint without Authorization header | 401 Unauthorized with standard ErrorDTO | Automated tests passed; manual API check recommended later |
+| 2026-05-03 | Auth login | POST `/api/auth/login` with valid credentials | 200 OK with safe user fields, accessToken, refreshToken, tokenType, expiresInSeconds | Browser smoke test passed after local runtime + CORS fix |
+| 2026-05-03 | Auth login wrong password | POST `/api/auth/login` with wrong password | 401 Unauthorized with standard ErrorDTO and INVALID_CREDENTIALS | Recommended for future manual API pass |
 | 2026-05-04 | JWT public health endpoint | GET `/api/health` without token | 200 OK | Passed with local backend runtime |
-| 2026-05-04 | Refresh token login response | POST `/api/auth/login` with valid credentials | 200 OK with accessToken and refreshToken; no passwordHash, password_hash, role, or tokenHash | Browser login smoke test passed; detailed token response manual API check recommended later |
-| 2026-05-04 | Refresh token endpoint | POST `/api/auth/refresh` with valid refreshToken | 200 OK with new accessToken, tokenType Bearer, expiresInSeconds | Automated tests passed; manual API smoke test recommended later |
-| 2026-05-04 | Invalid refresh token | POST `/api/auth/refresh` with invalid refreshToken | 401 Unauthorized with standard ErrorDTO and INVALID_REFRESH_TOKEN | Automated tests passed; manual API smoke test recommended later |
-| 2026-05-04 | Missing refresh token | POST `/api/auth/refresh` with blank/missing refreshToken | 400 Bad Request with standard ErrorDTO and VALIDATION_ERROR | Automated tests passed; manual API smoke test recommended later |
-| 2026-05-04 | Logout / token revoke | POST `/api/auth/logout` with valid refreshToken from login | 200 OK with safe success message; refresh token row has `revokedAt` set | Automated service tests passed; manual API smoke test recommended later |
-| 2026-05-04 | Refresh after logout | POST `/api/auth/refresh` using same refreshToken after logout | 401 Unauthorized with standard ErrorDTO and INVALID_REFRESH_TOKEN | Automated service tests passed; manual API smoke test recommended later |
-| 2026-05-04 | Logout safety | Inspect logout response | Response must not include tokenHash, raw token, passwordHash, password_hash, role, or internal user data | Automated service tests passed; manual API smoke test recommended later |
-| 2026-05-04 | User profile API alignment with token | GET `/api/user/profile` with valid JWT access token | 200 OK with userId, name, email, rank, xp, streak, goal, avatarUrl, createdAt | Browser Protected Area `Load my profile` passed after local runtime + CORS fix |
-| 2026-05-04 | User profile API alignment without token | GET `/api/user/profile` without Authorization header | 401 Unauthorized | Automated integration test passed; manual API check recommended later |
-| 2026-05-04 | User profile API alignment safety | Inspect GET `/api/user/profile` response | Response must not include passwordHash, password_hash, tokenHash, refreshToken, role, or raw password | Browser profile showed safe fields only: name, email, rank, XP, streak |
-| 2026-05-05 | Local PostgreSQL setup | Install PostgreSQL 17, add psql to current PATH, create `codequest` database | PostgreSQL accepts connection and `CREATE DATABASE codequest` succeeds | Passed |
+| 2026-05-04 | User profile API alignment with token | GET `/api/user/profile` with valid JWT | 200 OK with safe profile fields | Browser Protected Area `Load my profile` passed after local runtime + CORS fix |
+| 2026-05-04 | User profile API alignment without token | GET `/api/user/profile` without token | 401 Unauthorized | Automated integration test passed |
+| 2026-05-05 | Local PostgreSQL setup | Install PostgreSQL 17, add psql to current PATH, create `codequest` database | PostgreSQL accepts connection and DB exists | Passed |
 | 2026-05-05 | Backend runtime startup after local DB setup | `cd backend && .\mvnw.cmd spring-boot:run` with env vars | Backend starts on port 8080 and Flyway applies migrations | Passed |
-| 2026-05-05 | Backend health after runtime setup | GET `/api/health` | 200 OK with `{"status":"UP","service":"CodeQuest Backend"}` | Passed |
-| 2026-05-05 | Frontend auth pages after CORS fix | Register and login in browser | Register works with strong password; login works and frontend proceeds to Protected Area | Passed |
-| 2026-05-05 | Protected routes after CORS fix | Protected Area backend-connected profile load smoke test | Logged-in user can open Protected Area and load safe profile fields from GET `/api/user/profile` | Passed |
-| 2026-05-05 | Dashboard shell | Dashboard shell UI smoke check | User can open Dashboard Shell from Protected Area and see static cards/placeholders without backend calls | Passed; DashboardShell may show profile fallback depending on profile state |
-| 2026-05-05 | Local frontend-backend CORS | Browser preflight from Vite origin `http://localhost:5174` to backend `http://localhost:8080` | No CORS block; register/login/profile browser requests reach backend | Passed after `8da4448 fix: allow local frontend cors` |
-| 2026-05-05 | Course generation foundation runtime migration | Start backend with local PostgreSQL env vars after V3 migration added | Flyway validates 3 migrations and applies V3; backend starts on port 8080 | Passed |
-| 2026-05-05 | Course generation foundation success | Register/login user, then POST `/api/courses/generate` with Bearer token and topic `Binary Search`, difficulty `BEGINNER` | 200 OK with courseId, title, description, `cacheHit=false`, and 3 ordered levels | Passed |
-| 2026-05-05 | Course generation foundation cache | Repeat POST `/api/courses/generate` with topic `"  BINARY   SEARCH  "` and same difficulty | Same courseId as first request and `cacheHit=true` | Passed |
+| 2026-05-05 | Backend health after runtime setup | GET `/api/health` | 200 OK | Passed |
+| 2026-05-05 | Frontend auth pages after CORS fix | Register and login in browser | Register/login works | Passed |
+| 2026-05-05 | Protected routes after CORS fix | Protected Area backend-connected profile load smoke test | Logged-in user loads safe profile fields | Passed |
+| 2026-05-05 | Dashboard shell | Dashboard shell UI smoke check | User can open Dashboard Shell | Passed |
+| 2026-05-05 | Local frontend-backend CORS | Browser requests from Vite origin to backend | No CORS block | Passed |
+| 2026-05-05 | Course generation foundation runtime migration | Start backend after V3 migration added | Flyway validates/applies V3 and backend starts | Passed |
+| 2026-05-05 | Course generation foundation success | Register/login user, POST `/api/courses/generate` | 200 OK placeholder course with 3 ordered levels | Passed |
+| 2026-05-05 | Course generation foundation cache | Repeat normalized topic/difficulty | Same courseId with `cacheHit=true` | Passed |
 | 2026-05-05 | Course generation foundation protected endpoint | POST `/api/courses/generate` without token | 401 Unauthorized | Automated controller test passed |
-| 2026-05-05 | Course generation foundation validation | POST `/api/courses/generate` with invalid topic or missing difficulty | 400 Bad Request | Automated controller test passed |
-| 2026-05-05 | Course generation foundation safety | Inspect response | Response contains course/level fields only; no user password, token, tokenHash, role, or sensitive fields | Passed by response shape/manual inspection |
+| 2026-05-05 | Course generation foundation validation | Invalid topic or missing difficulty | 400 Bad Request | Automated controller test passed |
+| 2026-05-05 | Course generation foundation safety | Inspect response | No user password/token/internal sensitive fields | Passed |
 | 2026-05-05 | Frontend course generation UI build | `cd frontend && npm run build` | Vite build succeeds | Passed |
-| 2026-05-05 | Frontend course generation UI success | In browser, open Dashboard Shell, enter topic/difficulty/goal, click Generate Course | Generated course appears with title, description, course id, 3 level cards, XP rewards, and Boss/Standard badges | Passed |
-| 2026-05-05 | Frontend course generation UI cache | In browser, generate existing `Binary Search` course again | UI shows `Cache Hit`, course title and levels remain visible | Passed |
-| 2026-05-05 | Frontend course generation UI safety | Inspect DashboardShell result UI | UI does not show accessToken, refreshToken, password, passwordHash, tokenHash, role, or sensitive backend data | Passed |
-| 2026-05-05 | GeminiService + PromptBuilder foundation tests | `cd backend && .\mvnw.cmd test` | 57 tests pass; PromptBuilderTest and GeminiServiceTest pass; no real Gemini call happens | Passed |
-| 2026-05-05 | GeminiService + PromptBuilder scope check | Inspect changed files and `git diff --stat` | Only AI module files and Gemini config placeholders changed; no frontend, no DB migrations, no CourseService/CourseController changes | Passed |
-| 2026-05-05 | GeminiService + PromptBuilder runtime boundary | Existing POST `/api/courses/generate` flow | Existing placeholder course generation should remain unchanged because Gemini is not wired into CourseService yet | Optional manual smoke test not required because task was isolated and automated tests passed |
-| 2026-05-05 | ResponseParser + AI validation foundation tests | `cd backend && .\mvnw.cmd test` | 65 tests pass; ResponseParserTest passes; malformed/invalid AI JSON is rejected safely; successful AI JSON parses into typed DTO records | Passed |
-| 2026-05-05 | ResponseParser + AI validation scope check | `git diff -- frontend`, `git diff -- CourseService`, `git diff -- CourseController`, `git diff -- db/migration` | No unrelated frontend, course service/controller, or DB migration changes | Passed |
-| 2026-05-05 | ResponseParser + AI validation runtime boundary | Existing POST `/api/courses/generate` flow | Existing placeholder course generation should remain unchanged because ResponseParser is not wired into CourseService yet | Optional manual smoke test not required because task was isolated and automated tests passed |
+| 2026-05-05 | Frontend course generation UI success | Browser Dashboard Shell Generate Course | Course and level cards appear | Passed |
+| 2026-05-05 | Frontend course generation UI cache | Browser generate existing `Binary Search` | UI shows `Cache Hit` | Passed |
+| 2026-05-05 | GeminiService + PromptBuilder foundation tests | `cd backend && .\mvnw.cmd test` | 57 tests pass | Passed |
+| 2026-05-05 | GeminiService + PromptBuilder scope check | Inspect changed files and `git diff --stat` | Only AI module/config/test files changed | Passed |
+| 2026-05-05 | ResponseParser + AI validation foundation tests | `cd backend && .\mvnw.cmd test` | 65 tests pass | Passed |
+| 2026-05-05 | ResponseParser + AI validation scope check | `git diff -- frontend`, `git diff -- CourseService`, `git diff -- CourseController`, `git diff -- db/migration` | No unrelated changes | Passed |
+| 2026-05-05 | Gemini course generation wiring tests | `cd backend && .\mvnw.cmd test` | 71 tests pass; Gemini wiring/fallback tests pass; no real Gemini call in tests | Passed |
+| 2026-05-05 | Gemini course generation wiring scope check | `git diff -- frontend`, `git diff -- db/migration`, `git diff -- CourseController` | No frontend, migration, or controller changes | Passed |
+| 2026-05-05 | Gemini course generation backend runtime | Start backend with DB/JWT/Gemini env vars | Backend starts successfully on port 8080; Flyway schema up to date | Passed |
+| 2026-05-05 | Gemini course generation browser fallback check | Generate new uncached topic `Graph Traversal BFS Real AI Test` from browser | Course generation works without browser crash/error | Passed |
+| 2026-05-05 | Gemini course generation DB fallback check | Query `courses` for normalized topic `graph traversal bfs real ai test` | Row exists with `source_type=PLACEHOLDER`, `total_xp=225` | Passed; fallback safety confirmed |
+| 2026-05-05 | Gemini course generation real AI-success check | Manual real Gemini run should ideally persist `source_type=AI` for valid Gemini output | Not confirmed manually yet; automated mocked test covers AI success path | Pending future investigation |
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -517,8 +531,7 @@ Started CodeQuestApplication
 Expected Flyway behavior after Course generation foundation:
 ```text
 Successfully validated 3 migrations
-Successfully applied V3 if not already applied
-Schema "public" now at version v3
+Schema "public" is up to date. No migration necessary.
 ```
 
 Health check from another PowerShell:
@@ -552,21 +565,6 @@ Content-Type: application/json
 }
 ```
 
-PowerShell register request:
-```powershell
-$body = @{
-  name = "Antara"
-  email = "antara@example.com"
-  password = "StrongPass123"
-} | ConvertTo-Json
-
-Invoke-WebRequest -UseBasicParsing `
-  -Uri "http://localhost:8080/api/auth/register" `
-  -Method POST `
-  -ContentType "application/json" `
-  -Body $body
-```
-
 Expected success:
 ```json
 {
@@ -595,7 +593,6 @@ Important Auth register boundaries:
 - Response must not contain `password_hash`.
 - Response must not contain `role`.
 - Register response still does not return JWT/access token.
-- Login, JwtService, JWT filter, refresh token, logout, frontend auth, dashboard, CORS, and course generation were separate tasks.
 - Frontend auth pages are implemented.
 - Protected routes are implemented.
 - Dashboard shell is implemented.
@@ -604,6 +601,7 @@ Important Auth register boundaries:
 - Frontend course generation UI is implemented.
 - GeminiService + PromptBuilder foundation is implemented.
 - ResponseParser + AI validation foundation is implemented.
+- Gemini course generation wiring with safe fallback is implemented.
 
 ## Auth Login Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
@@ -619,7 +617,7 @@ Content-Type: application/json
 }
 ```
 
-Expected success after User profile feature:
+Expected success:
 ```json
 {
   "userId": "uuid",
@@ -642,54 +640,16 @@ code: INVALID_CREDENTIALS
 message: "Invalid email or password."
 ```
 
-Unknown email expected:
-```text
-HTTP 401 Unauthorized
-code: INVALID_CREDENTIALS
-message: "Invalid email or password."
-```
-
 Important Auth login boundaries:
 - Response must not contain `passwordHash`.
 - Response must not contain `password_hash`.
 - Response must not contain `role`.
 - Response must not contain `tokenHash`.
-- Login response now contains JWT accessToken, opaque refreshToken, tokenType, and expiresInSeconds.
-- Logout/token revoke is implemented for refresh token revocation.
-- User profile is implemented as authenticated GET `/api/user/profile`.
-- Frontend auth pages are implemented.
-- Protected routes are implemented.
-- Dashboard shell is implemented.
-- Local frontend-backend CORS is implemented.
-- Course generation foundation is implemented.
-- Frontend course generation UI is implemented.
-- GeminiService + PromptBuilder foundation is implemented.
-- ResponseParser + AI validation foundation is implemented.
+- Login response contains JWT accessToken, opaque refreshToken, tokenType, and expiresInSeconds.
 - Token rotation is still not implemented.
 
 ## JWT Authentication Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
-
-Login and copy token:
-```http
-POST http://localhost:8080/api/auth/login
-Content-Type: application/json
-
-{
-  "email": "antara@example.com",
-  "password": "StrongPass123"
-}
-```
-
-Expected token fields:
-```json
-{
-  "accessToken": "jwt-token",
-  "refreshToken": "opaque-refresh-token",
-  "tokenType": "Bearer",
-  "expiresInSeconds": 900
-}
-```
 
 Public endpoint without token:
 ```http
@@ -721,45 +681,11 @@ Important JWT authentication boundaries:
 - JWT includes unique `jti` claim.
 - JWT claims must not include passwordHash, password_hash, raw password, refresh token, secrets, or private data.
 - JWT secret and expiry must come from config/environment.
-- Refresh token is implemented as an opaque token stored only as a hash.
-- Logout/token revoke is implemented by revoking refresh tokens only.
-- User profile uses authenticated JWT principal.
-- User profile endpoint is GET `/api/user/profile`.
-- Course generation uses authenticated JWT principal via `CurrentUserPrincipal`.
-- Course generation endpoint is POST `/api/courses/generate`.
-- Frontend auth pages are implemented.
-- Protected routes are implemented.
-- Dashboard shell is implemented.
-- Local frontend-backend CORS is implemented.
-- Frontend course generation UI is implemented.
-- GeminiService + PromptBuilder foundation is implemented.
-- ResponseParser + AI validation foundation is implemented.
 - No access-token blacklist implemented.
 - No token rotation implemented yet.
 
 ## Refresh Token Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
-
-Login and copy refresh token:
-```http
-POST http://localhost:8080/api/auth/login
-Content-Type: application/json
-
-{
-  "email": "antara@example.com",
-  "password": "StrongPass123"
-}
-```
-
-Expected login token fields:
-```json
-{
-  "accessToken": "jwt-token",
-  "refreshToken": "opaque-refresh-token",
-  "tokenType": "Bearer",
-  "expiresInSeconds": 900
-}
-```
 
 Refresh access token:
 ```http
@@ -787,12 +713,6 @@ code: INVALID_REFRESH_TOKEN
 message: "Invalid refresh token."
 ```
 
-Missing or blank refresh token expected:
-```text
-HTTP 400 Bad Request
-code: VALIDATION_ERROR
-```
-
 Important Refresh token boundaries:
 - Refresh token is opaque, not JWT.
 - Only refresh token hash is stored in database.
@@ -801,47 +721,10 @@ Important Refresh token boundaries:
 - tokenHash must never be returned in API response.
 - Refresh endpoint returns new accessToken only.
 - Refresh endpoint does not return new refreshToken.
-- Logout/token revoke is implemented.
-- User profile is implemented as GET `/api/user/profile`.
-- Course generation foundation is implemented as POST `/api/courses/generate`.
-- Frontend auth pages are implemented.
-- Protected routes are implemented.
-- Dashboard shell is implemented.
-- Local frontend-backend CORS is implemented.
-- Frontend course generation UI is implemented.
-- GeminiService + PromptBuilder foundation is implemented.
-- ResponseParser + AI validation foundation is implemented.
 - Token rotation is not implemented yet.
 
 ## Logout / Token Revoke Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
-
-Start backend:
-```powershell
-cd backend
-.\mvnw.cmd spring-boot:run
-```
-
-Login and copy refresh token:
-```http
-POST http://localhost:8080/api/auth/login
-Content-Type: application/json
-
-{
-  "email": "antara@example.com",
-  "password": "StrongPass123"
-}
-```
-
-Expected login token fields:
-```json
-{
-  "accessToken": "jwt-token",
-  "refreshToken": "opaque-refresh-token",
-  "tokenType": "Bearer",
-  "expiresInSeconds": 900
-}
-```
 
 Logout using refresh token:
 ```http
@@ -877,68 +760,17 @@ code: INVALID_REFRESH_TOKEN
 message: "Invalid refresh token."
 ```
 
-Blank logout refresh token expected:
-```text
-HTTP 400 Bad Request
-code: VALIDATION_ERROR
-```
-
 Important Logout / token revoke boundaries:
 - Logout revokes refresh token by setting `revokedAt`.
 - Logout does not delete refresh token rows.
 - Logout does not blacklist existing JWT access tokens.
 - Existing access tokens remain valid until expiry.
 - Logout does not rotate refresh tokens.
-- Logout does not require a Flyway migration.
-- Logout response must not contain `refreshToken`.
-- Logout response must not contain `tokenHash`.
-- Logout response must not contain `passwordHash`.
-- Logout response must not contain `password_hash`.
-- Logout response must not contain `role`.
-- Logout response must not expose internal user data.
+- Logout response must not expose sensitive fields.
 - Frontend logout UI is not implemented yet.
 
 ## User Profile Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
-
-Start backend:
-```powershell
-cd backend
-.\mvnw.cmd spring-boot:run
-```
-
-Register a user:
-```http
-POST http://localhost:8080/api/auth/register
-Content-Type: application/json
-
-{
-  "name": "Antara",
-  "email": "antara@example.com",
-  "password": "StrongPass123"
-}
-```
-
-Login and copy access token:
-```http
-POST http://localhost:8080/api/auth/login
-Content-Type: application/json
-
-{
-  "email": "antara@example.com",
-  "password": "StrongPass123"
-}
-```
-
-Expected login token fields:
-```json
-{
-  "accessToken": "jwt-token",
-  "refreshToken": "opaque-refresh-token",
-  "tokenType": "Bearer",
-  "expiresInSeconds": 900
-}
-```
 
 Get current user profile:
 ```http
@@ -974,38 +806,11 @@ HTTP 401 Unauthorized
 Important User profile boundaries:
 - Endpoint must use authenticated user from JWT/SecurityContext.
 - Endpoint must not accept userId from request params, request body, or path.
-- Response must not expose `passwordHash`.
-- Response must not expose `password_hash`.
-- Response must not expose `tokenHash`.
-- Response must not expose `refreshToken`.
-- Response must not expose `role`.
-- Response must not expose raw password.
-- Current implemented endpoint is GET `/api/user/profile`.
-- Old GET `/api/users/me` path should no longer be used after API contract alignment.
+- Response must not expose password/token/internal fields.
 - No update profile endpoint implemented yet.
-- Frontend auth pages are implemented.
-- Protected routes are implemented.
-- Dashboard shell is implemented.
-- Local frontend-backend CORS is implemented.
-- Course generation foundation is implemented.
-- Frontend course generation UI is implemented.
-- GeminiService + PromptBuilder foundation is implemented.
-- ResponseParser + AI validation foundation is implemented.
-- Profile edit UI is not implemented yet.
 
 ## Course Generation Foundation Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
-
-Start backend:
-```powershell
-$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
-$env:DATABASE_USERNAME="postgres"
-$env:DATABASE_PASSWORD="<your-local-postgres-password>"
-$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
-
-cd backend
-.\mvnw.cmd spring-boot:run
-```
 
 Register, login, and generate course:
 ```powershell
@@ -1052,7 +857,7 @@ Invoke-RestMethod `
   -Body $courseBody
 ```
 
-Expected first response:
+Expected placeholder response when fallback path is used:
 ```text
 courseId: exists
 title: Binary Search
@@ -1087,45 +892,20 @@ cacheHit: True
 levels remain ordered by orderNumber
 ```
 
-Missing token check:
-```http
-POST http://localhost:8080/api/courses/generate
-Content-Type: application/json
-
-{
-  "topic": "Binary Search",
-  "difficulty": "BEGINNER",
-  "goal": "DSA"
-}
-```
-
-Expected:
-```text
-HTTP 401 Unauthorized
-```
-
-Invalid request checks:
-```text
-blank topic -> HTTP 400 Bad Request
-missing difficulty -> HTTP 400 Bad Request
-```
-
-Important Course generation foundation boundaries:
+Important Course generation boundaries:
 - Endpoint is POST `/api/courses/generate`.
 - Endpoint requires JWT Bearer token.
 - Endpoint must not accept user id from path, query params, or request body.
 - Controller must stay thin and delegate to CourseService.
-- Service handles normalization, cache lookup, deterministic placeholder creation, and response mapping.
-- Current source type is PLACEHOLDER.
-- GeminiService + PromptBuilder foundation is implemented but not wired into this flow yet.
-- ResponseParser + AI validation foundation is implemented but not wired into this flow yet.
-- No external Gemini API call is implemented.
-- No real AI-generated lessons are implemented.
+- Current flow now attempts Gemini only on cache miss when Gemini config is present.
+- Cache hit must not call Gemini.
+- Missing Gemini config falls back to placeholder.
+- Gemini/client failure falls back to placeholder.
+- Parser validation failure falls back to placeholder.
+- Valid parsed AI output can persist supported course/level fields with `sourceType=AI`.
 - No quiz, flashcard, note, progress, XP/rank/streak, leaderboard, Piston/code execution, Docker, CI/CD, deployment, or Phase 2 features are implemented.
 
 ## GeminiService + PromptBuilder Foundation Manual Test Commands
-Use these after the GeminiService + PromptBuilder foundation task.
-
 Automated verification:
 ```powershell
 cd backend
@@ -1135,37 +915,10 @@ cd ..
 
 Expected:
 ```text
-Tests run: 57
+Tests run: 57 or more depending on later features
 Failures: 0
 Errors: 0
 BUILD SUCCESS
-```
-
-Focused tests included:
-```text
-com.codequest.ai.PromptBuilderTest
-com.codequest.ai.GeminiServiceTest
-```
-
-Optional runtime sanity check:
-```powershell
-$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
-$env:DATABASE_USERNAME="postgres"
-$env:DATABASE_PASSWORD="<your-local-postgres-password>"
-$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
-$env:GEMINI_API_KEY="test-local-placeholder"
-$env:GEMINI_MODEL="gemini-1.5-flash"
-$env:GEMINI_BASE_URL="https://generativelanguage.googleapis.com"
-
-cd backend
-.\mvnw.cmd spring-boot:run
-```
-
-Expected:
-```text
-Backend starts normally.
-No Gemini network call happens automatically.
-Existing placeholder course generation endpoint remains unchanged.
 ```
 
 Important GeminiService + PromptBuilder boundaries:
@@ -1175,22 +928,16 @@ Important GeminiService + PromptBuilder boundaries:
   - `backend/src/main/java/com/codequest/ai/GeminiService.java`
   - `backend/src/test/java/com/codequest/ai/PromptBuilderTest.java`
   - `backend/src/test/java/com/codequest/ai/GeminiServiceTest.java`
-- Updated config files:
-  - `backend/src/main/resources/application.yml`
-  - `backend/src/test/resources/application.yml`
-- No real Gemini network integration.
-- CourseService or CourseController are not wired to Gemini yet.
-- No DB migration.
-- No frontend changes.
-- No package changes.
-- No lessons, quizzes, flashcards, notes, progress, leaderboard, Piston/code execution, Docker, CI/CD, deployment, or Phase 2 features.
+- Later Gemini wiring added:
+  - `GeminiClient`
+  - `GeminiHttpClient`
+  - `GeminiException`
+- API key must come from env/config only.
+- Never hardcode or commit real API keys.
 - PromptBuilder must create JSON-only prompts with schema guidance.
 - PromptBuilder must treat user topic/goal as untrusted input.
-- GeminiService must remain isolated behind the AI module.
 
 ## ResponseParser + AI Validation Foundation Manual Test Commands
-Use these after the ResponseParser + AI validation foundation task.
-
 Automated verification:
 ```powershell
 cd backend
@@ -1200,28 +947,10 @@ cd ..
 
 Expected:
 ```text
-Tests run: 65
+Tests run: 65 or more depending on later features
 Failures: 0
 Errors: 0
 BUILD SUCCESS
-```
-
-Focused tests included:
-```text
-com.codequest.ai.ResponseParserTest
-```
-
-Unrelated diff checks:
-```powershell
-git diff -- frontend
-git diff -- backend/src/main/java/com/codequest/course/CourseService.java
-git diff -- backend/src/main/java/com/codequest/course/CourseController.java
-git diff -- backend/src/main/resources/db/migration
-```
-
-Expected:
-```text
-No output for all unrelated diff checks.
 ```
 
 Important ResponseParser + AI validation boundaries:
@@ -1234,18 +963,114 @@ Important ResponseParser + AI validation boundaries:
   - `backend/src/main/java/com/codequest/ai/AiCodingProblemResponse.java`
   - `backend/src/main/java/com/codequest/ai/AiResponseValidationException.java`
   - `backend/src/test/java/com/codequest/ai/ResponseParserTest.java`
-- No real Gemini network integration.
-- No CourseService or CourseController wiring.
-- No DB migration.
-- No frontend changes.
-- No package changes.
-- No persistence.
-- No live placeholder course-generation replacement.
-- No lessons UI, quizzes UI, flashcards UI, notes UI, progress, leaderboard, Piston/code execution, Docker, CI/CD, deployment, or Phase 2 features.
 - Parser validates AI JSON but does not repair bad AI data silently.
 - Parser throws safe `AiResponseValidationException` for malformed/invalid AI output.
 - Parser must not include raw full AI payload or secrets in exception messages.
-- Parser is ready for future Gemini wiring but is not used by live endpoint yet.
+
+## Gemini Course Generation Wiring Manual Test Commands
+Use this after the Gemini wiring task.
+
+### Automated verification
+```powershell
+cd backend
+.\mvnw.cmd test
+cd ..
+```
+
+Expected:
+```text
+Tests run: 71
+Failures: 0
+Errors: 0
+BUILD SUCCESS
+```
+
+### Scope checks
+```powershell
+git diff -- frontend
+git diff -- backend/src/main/resources/db/migration
+git diff -- backend/src/main/java/com/codequest/course/CourseController.java
+```
+
+Expected:
+```text
+No output for all unrelated diff checks.
+```
+
+### Fallback manual check without Gemini key
+Start backend without `GEMINI_API_KEY`:
+```powershell
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
+$env:DATABASE_USERNAME="postgres"
+$env:DATABASE_PASSWORD="<your-local-postgres-password>"
+$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
+Remove-Item Env:GEMINI_API_KEY -ErrorAction SilentlyContinue
+
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+Generate a new uncached topic from frontend/API.
+
+Expected:
+```text
+Placeholder course still works.
+3 deterministic levels appear.
+No frontend crash.
+```
+
+### Real Gemini runtime check
+Use only with a valid local Gemini key. Do not paste key in chat, screenshots, logs, or Build Log.
+```powershell
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
+$env:DATABASE_USERNAME="postgres"
+$env:DATABASE_PASSWORD="<your-local-postgres-password>"
+$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
+
+$env:GEMINI_API_KEY="<your-real-gemini-key>"
+$env:GEMINI_MODEL="gemini-1.5-flash"
+$env:GEMINI_BASE_URL="https://generativelanguage.googleapis.com"
+
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+Generate a new uncached topic from frontend/API:
+```text
+Topic: Graph Traversal BFS Real AI Test
+Difficulty: BEGINNER
+Goal: Learn BFS for Java DSA interviews
+```
+
+Check DB source type:
+```powershell
+$env:Path += ";C:\Program Files\PostgreSQL\17\bin"
+psql -U postgres -W -d codequest -c "select title, difficulty, source_type, total_xp, created_at from courses where normalized_topic='graph traversal bfs real ai test' order by created_at desc limit 1;"
+```
+
+Observed latest manual result:
+```text
+title: Graph Traversal Bfs Real Ai Test
+difficulty: BEGINNER
+source_type: PLACEHOLDER
+total_xp: 225
+```
+
+Meaning:
+```text
+Manual fallback safety confirmed.
+Manual real AI-success persistence not confirmed yet.
+Mocked automated tests confirm valid AI-success path.
+```
+
+Important Gemini wiring boundaries:
+- No frontend changes.
+- No DB migration changes.
+- CourseController unchanged.
+- Tests must not call real Gemini.
+- API key must be env/config only.
+- Do not log or expose API key.
+- Safe fallback must remain.
 
 ## Frontend Course Generation UI Manual Test Commands
 Use these after starting backend and frontend.
@@ -1282,10 +1107,7 @@ Browser flow:
 1. Register/login if needed.
 2. Open Protected Area.
 3. Open Dashboard Shell.
-4. In Generate Course form, enter:
-   Topic: Binary Search
-   Difficulty: BEGINNER
-   Goal: DSA interview preparation
+4. In Generate Course form, enter a topic/difficulty/goal.
 5. Click Generate Course.
 ```
 
@@ -1296,24 +1118,9 @@ Title appears.
 Description appears.
 Course ID appears in muted text.
 Cache badge appears.
-3 level cards appear.
-Level 1: Introduction to Binary Search, XP Reward 50, Standard
-Level 2: Practice Binary Search, XP Reward 75, Standard
-Level 3: Binary Search Boss Challenge, XP Reward 100, Boss
+Level cards appear.
 No accessToken or refreshToken is visible.
 No CORS error appears.
-```
-
-Cache UI check:
-```text
-Generate the same topic/difficulty again, or use topic with different casing/spaces:
-  BINARY   SEARCH
-```
-
-Expected:
-```text
-Cache Hit badge appears.
-Course title and levels remain visible.
 ```
 
 Important Frontend course generation UI boundaries:
@@ -1329,12 +1136,10 @@ Important Frontend course generation UI boundaries:
 - Does not add React Router.
 - Does not add dependencies.
 - Does not touch package files.
-- GeminiService + PromptBuilder foundation is implemented separately in backend but not used by this UI yet.
-- ResponseParser + AI validation foundation is implemented separately in backend but not used by this UI yet.
-- Does not implement real lessons, quizzes, flashcards, notes, XP/streak/progress, leaderboard, code execution, Docker, CI/CD, deployment, or Phase 2 features.
+- Does not implement real course map, lessons UI, quizzes UI, flashcards UI, notes UI, XP/streak/progress, leaderboard, code execution, Docker, CI/CD, deployment, or Phase 2 features.
 
 ## Frontend Auth Pages Manual Test Commands
-Use these after starting the backend with a configured local datasource/profile.
+Use these after starting backend and frontend.
 
 Start frontend:
 ```powershell
@@ -1347,23 +1152,7 @@ Open:
 http://localhost:5173
 ```
 
-If Vite starts on a different port such as 5174, use that URL. CORS currently allows local Vite ports 5173 and 5174.
-
-Register UI check:
-```text
-Open Register page.
-Enter name, email, and password.
-Submit the form.
-Expected: frontend calls POST /api/auth/register and shows success or backend validation error.
-```
-
-Login UI check:
-```text
-Open Login page.
-Enter email and password.
-Submit the form.
-Expected: frontend calls POST /api/auth/login, saves accessToken and refreshToken to localStorage, and returns to Protected Area or home according to current App.jsx flow.
-```
+or Vite’s shown port.
 
 Expected localStorage keys:
 ```text
@@ -1375,32 +1164,11 @@ Important Frontend auth boundaries:
 - Frontend auth pages use React state navigation only.
 - React Router was not added.
 - No package.json or package-lock.json change was made.
-- Protected routes are implemented later in row 17.
-- Dashboard shell is implemented later in row 18.
-- Local frontend-backend CORS is implemented later in row 19.
-- Course generation foundation is implemented later in row 21.
-- Frontend course generation UI is implemented later in row 23.
-- GeminiService + PromptBuilder foundation is implemented later in row 25.
-- ResponseParser + AI validation foundation is implemented later in row 26.
 - No logout UI was implemented.
 - No profile page was implemented.
-- Manual browser register/login smoke test now passes after local runtime setup and CORS fix.
 
 ## Protected Routes Manual Test Commands
-Use these after starting the backend with a configured local datasource/profile.
-
-Start frontend:
-```powershell
-cd frontend
-npm run dev
-```
-
-Open:
-```text
-http://localhost:5173
-```
-
-If Vite starts on `http://localhost:5174`, use that URL.
+Use these after starting backend and frontend.
 
 Protected Area without login:
 ```text
@@ -1420,60 +1188,29 @@ Expected: login saves accessToken and refreshToken to localStorage and navigates
 Load profile:
 ```text
 In Protected Area, click "Load my profile".
-Expected: frontend calls GET /api/user/profile with Authorization Bearer accessToken and shows safe fields only: name, email, rank, xp, streak.
+Expected: frontend calls GET /api/user/profile with Authorization Bearer accessToken and shows safe fields only.
 ```
 
 Important Protected routes boundaries:
-- Protected routes use React state navigation only.
 - React Router was not added.
-- Protected Area checks local accessToken presence.
-- Protected Area can load profile via GET `/api/user/profile`.
 - Protected Area must not show accessToken or refreshToken.
-- Protected Area must not show passwordHash, password_hash, tokenHash, role, or raw password.
 - Protected Area is not the final dashboard.
-- Dashboard shell is implemented.
-- Local frontend-backend CORS is implemented.
-- Course generation foundation is implemented.
-- Frontend course generation UI is implemented in DashboardShell.
-- GeminiService + PromptBuilder foundation is implemented in backend AI module.
-- ResponseParser + AI validation foundation is implemented in backend AI module.
 - Logout UI is not implemented.
 - Refresh-token retry and token rotation are not implemented.
-- Browser profile smoke test now passes after local runtime setup and CORS fix.
 
 ## Dashboard Shell Manual Test Commands
-Use these after starting the frontend. Opening DashboardShell through the normal login flow requires backend auth to work.
-
-Start frontend:
-```powershell
-cd frontend
-npm run dev
-```
-
-Open:
-```text
-http://localhost:5173
-```
-
-If Vite starts on `http://localhost:5174`, use that URL.
+Use these after starting frontend.
 
 Dashboard shell route through UI:
 ```text
 Open Protected Area.
 Click Open Dashboard Shell.
-Expected: Dashboard shell opens with title "Dashboard", subtitle "Your Java learning command center.", profile summary/fallback, Generate Course form, course progress placeholder, next actions placeholder, and safety/status note.
-```
-
-If profile is not loaded or profile state is not passed:
-```text
-Expected: Dashboard shell shows "Profile not loaded yet."
+Expected: Dashboard shell opens with dashboard content and Generate Course form.
 ```
 
 Generate Course from DashboardShell:
 ```text
-Topic: Binary Search
-Difficulty: BEGINNER
-Goal: DSA interview preparation
+Enter topic/difficulty/goal.
 Click Generate Course.
 ```
 
@@ -1486,12 +1223,9 @@ Important Dashboard shell boundaries:
 - Dashboard shell is still MVP UI, not final product dashboard.
 - Dashboard shell uses React state navigation only.
 - React Router was not added.
-- Dashboard shell receives profile from App.jsx props only.
 - Dashboard shell does not read or show accessToken or refreshToken.
-- Dashboard shell now calls POST `/api/courses/generate` only when user clicks Generate Course.
-- Dashboard shell does not implement real course map routing, AI/Gemini live generation, XP/streak logic, leaderboard, logout UI, code execution, Docker, CI/CD, deployment, or Phase 2 features.
-- GeminiService + PromptBuilder foundation exists in backend but is not wired into DashboardShell/course generation yet.
-- ResponseParser + AI validation foundation exists in backend but is not wired into DashboardShell/course generation yet.
+- Dashboard shell calls POST `/api/courses/generate` only when user clicks Generate Course.
+- Dashboard shell does not implement real course map routing, XP/streak logic, leaderboard, logout UI, code execution, Docker, CI/CD, deployment, or Phase 2 features.
 
 ## Local Frontend-Backend CORS Manual Test Commands
 Use these after starting backend and frontend.
@@ -1511,27 +1245,6 @@ Start frontend separately:
 ```powershell
 cd frontend
 npm run dev
-```
-
-Open the Vite URL:
-```text
-http://localhost:5173
-```
-
-or:
-```text
-http://localhost:5174
-```
-
-Browser checks:
-```text
-1. Register a user with a strong password such as StrongPass123.
-2. Login with the same user.
-3. Open Protected Area.
-4. Click Load my profile.
-5. Confirm safe fields appear: name, email, rank, XP, streak.
-6. Click Open Dashboard Shell.
-7. Generate a course from Dashboard Shell.
 ```
 
 Expected:
@@ -1559,12 +1272,12 @@ Continue CodeQuest from the current status.
 Do not redesign anything.
 Do not implement Phase 2 features.
 
-Current module: AI / Response Parser Foundation.
-Last completed feature: ResponseParser + AI validation foundation.
-Current feature status: ResponseParser + AI validation foundation completed and backend tests passed; commit may still be pending if this Build Log update has not been committed.
-Latest completed commit before ResponseParser foundation: 7162e2d feat: add gemini service and prompt builder foundation.
-Pending commit for ResponseParser foundation: feat: add ai response parser validation foundation.
-Git status: should be clean only after committing ResponseParser + AI validation foundation files and this Build Log update.
+Current module: AI / Gemini Course Generation Integration.
+Last completed feature: GeminiService + ResponseParser course generation wiring with safe fallback.
+Current feature status: Gemini course generation wiring completed, backend tests passed, manual runtime fallback verified; commit may still be pending if this Build Log update has not been committed.
+Latest completed commit before this pending feature: dd3bd86 feat: add ai response parser validation foundation.
+Pending commit for current feature: feat: wire gemini course generation fallback.
+Git status: should be clean only after committing Gemini wiring files and this Build Log update.
 
 Important completed local runtime details:
 - PostgreSQL 17 installed locally.
@@ -1577,119 +1290,57 @@ Important completed local runtime details:
 - Flyway applied V1, V2, and V3 migrations to local PostgreSQL.
 - Backend health endpoint works on http://localhost:8080/api/health.
 
-Important completed CORS details:
-- CORS enabled in Spring Security.
-- Allowed origins:
-  http://localhost:5173
-  http://localhost:5174
-  http://127.0.0.1:5173
-  http://127.0.0.1:5174
-- No wildcard CORS.
-- No credentials enabled.
-- Preflight OPTIONS permitted.
-- Browser register/login/protected profile smoke test passed after CORS fix.
-- Browser course generation from DashboardShell works with Bearer token.
-
-Important completed Course generation foundation details:
+Important completed Course generation details:
 - V3 migration creates courses and levels tables.
-- Course entity, CourseRepository, CourseDifficulty, CourseSourceType are implemented.
-- Level entity and LevelRepository are implemented.
-- GenerateCourseRequest, GenerateCourseResponse, and CourseLevelSummaryResponse are implemented.
-- CourseService implements deterministic placeholder generation and cache behavior.
+- CourseService implements normalized topic/difficulty cache behavior.
 - CourseController exposes authenticated POST /api/courses/generate.
 - Endpoint uses JWT principal and does not accept userId from path, params, or body.
 - Cache key is normalizedTopic + difficulty.
-- Topic normalization trims, lowercases, and collapses whitespace.
-- Cache miss creates PLACEHOLDER course with exactly 3 levels and totalXp 225.
 - Cache hit returns same courseId with cacheHit=true.
-- Backend tests pass: 53 tests, 0 failures, 0 errors, 0 skipped during course generation foundation.
-- Manual API smoke test passed.
-- Manual cache-hit test passed.
-- Commit e4734e2 was pushed to main.
+- Cache hit must not call Gemini.
+- Placeholder fallback creates exactly 3 levels and totalXp 225.
+- Frontend DashboardShell calls POST /api/courses/generate and displays returned course/levels.
 
-Important completed Frontend course generation UI details:
-- `frontend/src/services/courseApi.js` created.
-- `generateCourse({ accessToken, topic, difficulty, goal })` calls POST `/api/courses/generate`.
-- DashboardShell has Generate Course form with topic, difficulty, optional goal.
-- DashboardShell uses existing tokenStorage access token.
-- DashboardShell calls backend only when user clicks Generate Course.
-- DashboardShell shows loading and error states.
-- DashboardShell displays generated course title, description, cache badge, course id, and ordered level cards.
-- Level cards show order number, title, XP reward, and Boss/Standard badge.
-- No token is shown or stored in UI.
-- Frontend build passed.
-- Browser manual test passed.
-- Browser cache-hit UI test passed.
-- Commit `3ba0ef8 feat: add frontend course generation UI` was pushed to main.
-- Docs commit `9ee8748 docs: record frontend course generation UI completion` was pushed to main.
+Important completed AI details:
+- GeminiProperties, PromptBuilder, GeminiService foundation implemented.
+- ResponseParser + AI response DTO records implemented.
+- ResponseParser validates Gemini JSON and throws safe AiResponseValidationException.
+- GeminiClient abstraction implemented.
+- GeminiHttpClient implemented using Spring RestClient.
+- GeminiException implemented for safe Gemini failures.
+- GeminiService now delegates to GeminiClient only when Gemini config is present.
+- CourseService now attempts Gemini + ResponseParser only on cache miss when config is present.
+- If config missing, Gemini/client fails, or parser rejects response, CourseService falls back to deterministic placeholder generation.
+- If AI response is valid, CourseService persists supported course/level fields with sourceType=AI.
+- Flashcards, quizzes, and codingProblems from parsed AI output are not persisted yet because DB tables/features are not implemented.
+- CourseController was not changed.
+- Frontend was not changed.
+- DB migrations were not changed.
 
-Important completed GeminiService + PromptBuilder foundation details:
-- New backend AI module files:
-  - backend/src/main/java/com/codequest/ai/GeminiProperties.java
-  - backend/src/main/java/com/codequest/ai/PromptBuilder.java
-  - backend/src/main/java/com/codequest/ai/GeminiService.java
-  - backend/src/test/java/com/codequest/ai/PromptBuilderTest.java
-  - backend/src/test/java/com/codequest/ai/GeminiServiceTest.java
-- Updated config files:
-  - backend/src/main/resources/application.yml
-  - backend/src/test/resources/application.yml
-- Gemini config uses safe env placeholders:
-  GEMINI_API_KEY
-  GEMINI_MODEL
-  GEMINI_BASE_URL
-- PromptBuilder creates structured course-generation prompts with topic, difficulty, optional goal, JSON-only instruction, schema guidance, and defensive wording against prompt-injection-style user input.
-- GeminiService is a safe abstraction only for now.
-- GeminiService builds prompts and reports config state.
-- GeminiService does not make real network calls.
-- Backend tests passed:
+Testing completed:
+- Backend test command:
   cd backend
   .\mvnw.cmd test
-  Result: 57 tests, 0 failures, 0 errors.
-- Real Gemini wiring is not implemented.
-- CourseService and CourseController were not touched.
-- Existing POST /api/courses/generate placeholder/cache behavior remains unchanged.
-- No frontend, DB migration, package files, lessons, quizzes, flashcards, notes, XP/streak/progress, leaderboard, Piston/code execution, Docker, CI/CD, deployment, or Phase 2 features were implemented.
-- Commit `7162e2d feat: add gemini service and prompt builder foundation` was pushed to main.
+- Result: 71 tests, 0 failures, 0 errors.
+- Tests cover cache hit no Gemini call, missing config fallback, Gemini/client failure fallback, parser failure fallback, valid AI response persistence, and preserved placeholder compatibility.
+- Scope checks showed no frontend diff, no DB migration diff, and no CourseController diff.
+- Manual backend runtime with Gemini env vars started successfully.
+- Manual browser course generation with new topic worked.
+- Manual DB check for normalized topic `graph traversal bfs real ai test` returned source_type=PLACEHOLDER and total_xp=225.
+- This confirms fallback safety.
+- Manual real AI-success persistence with source_type=AI is not confirmed yet.
+- Mocked automated tests confirm valid AI success path.
 
-Important completed ResponseParser + AI validation foundation details:
-- New backend AI module files:
-  - backend/src/main/java/com/codequest/ai/ResponseParser.java
-  - backend/src/main/java/com/codequest/ai/AiCourseResponse.java
-  - backend/src/main/java/com/codequest/ai/AiLevelResponse.java
-  - backend/src/main/java/com/codequest/ai/AiFlashcardResponse.java
-  - backend/src/main/java/com/codequest/ai/AiQuizQuestionResponse.java
-  - backend/src/main/java/com/codequest/ai/AiCodingProblemResponse.java
-  - backend/src/main/java/com/codequest/ai/AiResponseValidationException.java
-  - backend/src/test/java/com/codequest/ai/ResponseParserTest.java
-- ResponseParser parses raw AI JSON into typed AI DTO records.
-- ResponseParser validates:
-  - blank/null raw JSON
-  - malformed JSON
-  - top-level required fields
-  - allowed course difficulty values BEGINNER/INTERMEDIATE/ADVANCED
-  - level count limits
-  - unique positive orderNumber
-  - required isBoss
-  - bounded positive xpReward
-  - flashcard front/back presence
-  - quiz options/correctAnswer/explanation/conceptTag/xpReward
-  - coding problem title/description/difficulty/xpReward
-- ResponseParser throws safe AiResponseValidationException for malformed or invalid AI response.
-- Exception messages should not include secrets or full raw AI payload.
-- No real Gemini call happens.
-- No CourseService/CourseController wiring.
-- No DB persistence.
-- No replacement of placeholder course generation.
-- Backend tests passed:
-  cd backend
-  .\mvnw.cmd test
-  Result: 65 tests, 0 failures, 0 errors.
-- Unrelated diff checks showed no frontend, CourseService, CourseController, or DB migration changes.
+Security notes:
+- Do not paste API keys, DB passwords, or JWT secrets in chat, screenshots, Build Log, or commits.
+- A Gemini API key was accidentally pasted during manual testing. Revoke/delete that exposed key and create a new key.
+- A local DB password was also pasted during manual testing. Consider rotating local DB password later.
+- Never hardcode API keys.
+- Never commit real secrets.
 
 Not implemented yet:
-- Real Gemini network call
-- GeminiService + ResponseParser wiring into CourseService
-- Real AI-generated course persistence
+- Confirmed real Gemini AI-success manual persistence
+- Prompt/response compatibility polish for real Gemini
 - Real Course map navigation
 - Lesson page
 - Flashcards UI
@@ -1705,24 +1356,16 @@ Not implemented yet:
 - Phase 2 features
 
 Next safest step:
-First confirm git status is clean after committing ResponseParser + AI validation foundation.
-Then implement GeminiService + ResponseParser wiring into course generation behind safe fallback.
-Do not remove the stable placeholder fallback.
+First confirm git status is clean after committing Gemini course generation wiring.
+Then investigate why real Gemini manual run fell back to PLACEHOLDER.
+Goal: improve prompt/response compatibility or Gemini response extraction so a valid real Gemini run can persist source_type=AI.
+Do not remove placeholder fallback.
 Do not touch frontend unless explicitly scoped.
+Do not add DB migrations unless explicitly scoped.
 Do not implement course map, lesson UI, quiz UI, flashcard UI, code execution, leaderboard, deployment, or Phase 2 features.
-Do not persist unsafe/unvalidated AI output.
-Do not call Gemini in tests.
+Do not call Gemini in automated tests.
 Keep tests deterministic.
-If Gemini config is missing, invalid, response fails, or parser rejects data, existing placeholder generation should still work.
-
-Give me the next strict Codex prompt with:
-- exact scope
-- files to touch
-- files not to touch
-- commands to run
-- manual checks
-- expected output
-- Build Log update plan
+Do not persist unsafe/unvalidated AI output.
 ```
 
 ## Update Protocol After Every Feature
@@ -1766,15 +1409,15 @@ Database: PostgreSQL + Flyway
 AI: Gemini API
 Code execution: Piston API
 
-Current module: AI / Response Parser Foundation
-Last completed feature: ResponseParser + AI validation foundation
-Current feature status: ResponseParser + AI validation foundation completed and backend tests passed; commit may still be pending if Build Log update has not been committed yet
-Next task: Wire GeminiService + ResponseParser into course generation behind safe fallback
-Latest completed commit before ResponseParser foundation: 7162e2d feat: add gemini service and prompt builder foundation
-Pending commit: feat: add ai response parser validation foundation
-Git status: should be clean only after committing ResponseParser + AI validation foundation files and this Build Log update
-Tests passed: Backend .\mvnw.cmd test PASS with 65 tests, 0 failures, 0 errors
-Known bugs/blockers: None currently.
+Current module: AI / Gemini Course Generation Integration
+Last completed feature: GeminiService + ResponseParser course generation wiring with safe fallback
+Current feature status: Gemini course generation wiring completed, backend tests passed, manual fallback verified; commit may still be pending if Build Log update has not been committed yet
+Next task: Investigate real Gemini AI-success/manual AI persistence path and polish prompt/response compatibility if needed
+Latest completed commit before this feature: dd3bd86 feat: add ai response parser validation foundation
+Pending commit: feat: wire gemini course generation fallback
+Git status: should be clean only after committing Gemini wiring files and this Build Log update
+Tests passed: Backend .\mvnw.cmd test PASS with 71 tests, 0 failures, 0 errors
+Known bugs/blockers: Manual real Gemini run fell back to PLACEHOLDER; source_type=AI not manually confirmed yet. Mocked automated tests cover AI success path.
 
 Important completed Auth details:
 - Register implemented.
@@ -1783,18 +1426,8 @@ Important completed Auth details:
 - Login response returns accessToken and refreshToken.
 - Refresh token is opaque, not JWT.
 - Refresh token is stored only as a hash in the refresh_tokens table.
-- V2 Flyway migration creates refresh_tokens table.
 - POST /api/auth/refresh implemented.
-- Refresh endpoint accepts refreshToken and returns a new accessToken, tokenType Bearer, and expiresInSeconds.
-- Refresh endpoint does not return a new refreshToken because token rotation is not implemented yet.
-- INVALID_REFRESH_TOKEN maps to HTTP 401 with a safe generic message.
-- JwtService includes unique jti claim so newly generated access tokens differ even when generated in the same second.
 - POST /api/auth/logout implemented.
-- Logout accepts refreshToken through LogoutRequest.
-- Logout returns safe LogoutResponse message.
-- Logout revokes refresh token by setting revokedAt.
-- Logout does not delete refresh token rows.
-- Logout does not blacklist JWT access tokens.
 - Existing access tokens remain valid until expiry.
 - No refresh-token rotation implemented.
 
@@ -1803,190 +1436,81 @@ Important completed User profile details:
 - Endpoint requires JWT authentication.
 - Endpoint uses CurrentUserPrincipal from SecurityContext.
 - Endpoint does not accept userId from params, body, or path.
-- UserProfileResponse returns safe fields: userId, name, email, rank, xp, streak, goal, avatarUrl, createdAt.
-- UserProfileResponse does not expose passwordHash, password_hash, tokenHash, refreshToken, role, or raw password.
-- UserControllerTest uses real register -> login -> JWT -> /api/user/profile flow.
-- UserServiceTest and UserControllerTest pass.
+- UserProfileResponse returns safe fields.
 - No update profile endpoint implemented.
 
-Important completed Frontend auth details:
+Important completed Frontend details:
 - Login page implemented.
 - Register page implemented.
-- App.jsx uses React state navigation only.
-- No React Router added.
-- No package.json or package-lock.json changes.
-- authApi.js uses VITE_API_BASE_URL or fallback http://localhost:8080.
-- tokenStorage.js stores accessToken and refreshToken in localStorage for MVP.
-- Login saves accessToken and refreshToken.
-- Register does not save tokens.
-- Frontend build passed with npm run build.
-- Browser register/login smoke test passes after local runtime setup and CORS fix.
-
-Important completed Protected routes details:
-- App.jsx wired with React state navigation only.
-- authApi.js includes getCurrentUserProfile(accessToken) function.
-- authState.js includes isAuthenticated() and getStoredAuthSnapshot() functions.
-- Protected Area implemented as MVP protected view, not final dashboard.
-- Protected Area checks local accessToken presence.
-- Protected Area loads profile via GET /api/user/profile with Bearer token.
-- Protected Area shows safe fields: name, email, rank, xp, streak.
-- Protected Area does not show accessToken, refreshToken, or sensitive fields.
-- No React Router added.
-- No logout UI implemented.
-- No token refresh retry or rotation implemented.
-- Frontend build passed with npm run build.
-- Browser protected profile smoke test passes after local runtime setup and CORS fix.
-
-Important completed Dashboard shell details:
-- DashboardShell.jsx is implemented as MVP dashboard shell.
-- App.jsx wires DashboardShell using React state navigation only.
-- Dashboard shell can be opened from Protected Area.
-- Dashboard shell receives profile from App.jsx props only.
-- Dashboard shell does not show accessToken or refreshToken.
-- Dashboard shell shows safe profile fields only when profile prop is available.
-- Dashboard shell now includes Generate Course form.
-- Dashboard shell calls POST /api/courses/generate only on button click.
-- Dashboard shell displays generated course and levels.
-- No React Router added.
-- No logout UI implemented.
-- No AI/Gemini live generation, XP/streak logic, leaderboard, or code execution implemented.
-- Browser DashboardShell course generation smoke test passed.
-- Browser cache-hit UI test passed.
+- Protected Area implemented.
+- DashboardShell implemented.
+- DashboardShell includes Generate Course form.
+- DashboardShell calls POST /api/courses/generate only on button click.
+- DashboardShell displays generated course and levels.
+- React Router not added.
+- Logout UI not implemented.
 
 Important completed Local runtime / CORS details:
 - PostgreSQL 17 installed locally.
-- `psql` works after adding `C:\Program Files\PostgreSQL\17\bin` to current PowerShell PATH.
-- Local database `codequest` created.
-- Backend starts with PostgreSQL env vars:
-  DATABASE_URL=jdbc:postgresql://localhost:5432/codequest
-  DATABASE_USERNAME=postgres
-  DATABASE_PASSWORD=<local postgres password>
-  JWT_SECRET=dev-only-change-this-secret-dev-only-change-this-secret
-- Flyway applied V1, V2, and V3 migrations to local PostgreSQL.
-- Backend health endpoint returns 200.
-- Browser initially failed with CORS from Vite origin 5174.
-- CORS fixed in SecurityConfig and application.yml.
-- Allowed origins: localhost/127.0.0.1 on ports 5173 and 5174.
-- No wildcard CORS.
-- No credentials enabled.
-- Spring Security remains enabled.
-- Preflight OPTIONS permitted.
+- Local database codequest created.
+- Backend starts with DATABASE_URL, DATABASE_USERNAME, DATABASE_PASSWORD, JWT_SECRET.
+- Flyway applied V1, V2, V3.
+- CORS allows localhost/127.0.0.1 ports 5173 and 5174.
 - Browser register/login/profile/course-generation smoke tests pass.
 
-Important completed Course generation foundation details:
+Important completed Course generation details:
 - V3 migration creates courses and levels tables.
-- Course table includes normalized_topic, title, description, created_by, difficulty, is_public, total_xp, source_type, created_at, updated_at.
-- Levels table includes course_id, title, content_markdown, order_number, is_boss, xp_reward, created_at, updated_at.
-- courses(normalized_topic, difficulty) is unique.
-- levels(course_id, order_number) is unique.
-- Course entity, CourseRepository, CourseDifficulty, CourseSourceType implemented.
-- Level entity and LevelRepository implemented.
-- GenerateCourseRequest, GenerateCourseResponse, CourseLevelSummaryResponse implemented.
-- CourseService implements deterministic placeholder generation and cache behavior.
+- CourseService implements normalized topic/difficulty cache behavior.
 - CourseController exposes authenticated POST /api/courses/generate.
-- Endpoint uses JWT principal and does not accept userId from path, params, or body.
-- Request fields: topic, difficulty, goal.
-- topic validation: not blank, size 2 to 80.
-- difficulty validation: not null.
-- goal validation: optional max 200.
-- Topic normalization trims, lowercases, and collapses whitespace.
-- Cache key is normalizedTopic + difficulty.
-- Cache miss creates PLACEHOLDER course with exactly 3 levels and totalXp 225.
 - Cache hit returns same courseId with cacheHit=true.
-- Backend tests passed: 53 tests, 0 failures, 0 errors, 0 skipped during course foundation.
-- Local runtime applied V3 successfully.
-- Manual API smoke test passed.
-- Manual cache-hit test passed.
-- Commit `e4734e2 feat: add course generation foundation` was pushed to main.
-- No Gemini network integration implemented.
-- No real AI-generated lesson content implemented.
+- Cache hit does not call Gemini.
+- Placeholder fallback creates exactly 3 levels and totalXp 225.
+- Frontend DashboardShell displays returned course and levels.
 
-Important completed Frontend course generation UI details:
-- `frontend/src/services/courseApi.js` implemented.
-- `generateCourse({ accessToken, topic, difficulty, goal })` calls POST /api/courses/generate.
-- DashboardShell has form fields for topic, difficulty, and optional goal.
-- DashboardShell gets accessToken from existing tokenStorage.
-- DashboardShell calls backend only when user clicks Generate Course.
-- DashboardShell shows loading and error states.
-- DashboardShell displays generated course title, description, cache badge, course id, and level cards.
-- Level cards show order number, title, XP reward, and Boss/Standard badge.
-- No token is shown or stored in UI.
-- No localStorage persistence for generated course.
-- Frontend build passed.
-- Browser manual test passed.
-- Browser cache-hit UI test passed.
-- Commit `3ba0ef8 feat: add frontend course generation UI` was pushed to main.
-- Docs commit `9ee8748 docs: record frontend course generation UI completion` was pushed to main.
-- No backend files touched.
-- No package files touched.
-- No React Router added.
-- No Gemini/AI live generation implemented.
-
-Important completed GeminiService + PromptBuilder foundation details:
-- GeminiProperties created.
-- PromptBuilder created.
-- GeminiService created.
-- PromptBuilderTest created.
-- GeminiServiceTest created.
-- main application.yml updated with safe Gemini env placeholders.
-- test application.yml updated with test-safe Gemini config values.
-- PromptBuilder creates defensive structured course-generation prompts.
-- PromptBuilder includes topic, difficulty, optional goal, JSON-only output instructions, schema guidance, and prompt-injection defensive wording.
-- GeminiService is intentionally non-network foundation for now.
-- GeminiService can build prompts and report whether Gemini config is present.
-- No real Gemini HTTP call is implemented.
-- No real Gemini call happens during tests.
-- No CourseService/CourseController wiring.
-- No replacement of placeholder course generation.
-- Backend tests passed with 57 tests, 0 failures, 0 errors.
-- Commit `7162e2d feat: add gemini service and prompt builder foundation` was pushed to main.
-
-Important completed ResponseParser + AI validation foundation details:
-- ResponseParser created.
-- AiCourseResponse created.
-- AiLevelResponse created.
-- AiFlashcardResponse created.
-- AiQuizQuestionResponse created.
-- AiCodingProblemResponse created.
-- AiResponseValidationException created.
-- ResponseParserTest created.
-- ResponseParser parses defensive structured AI JSON into typed DTO records.
-- ResponseParser validates title, description, difficulty, levels, order numbers, isBoss, xpReward, flashcards, quiz questions, coding problems, and nested data.
-- ResponseParser rejects malformed JSON.
-- ResponseParser rejects missing or invalid required fields.
-- ResponseParser rejects duplicate order numbers.
-- ResponseParser rejects invalid quiz correctAnswer values.
-- ResponseParser throws safe AiResponseValidationException.
-- No real Gemini HTTP call is implemented.
-- No real Gemini call happens during tests.
-- No CourseService/CourseController wiring.
-- No DB persistence.
-- No replacement of placeholder course generation.
-- Backend tests passed with 65 tests, 0 failures, 0 errors.
+Important completed AI details:
+- GeminiProperties implemented.
+- PromptBuilder implemented.
+- GeminiService implemented.
+- ResponseParser implemented.
+- AI response DTO records implemented.
+- GeminiClient abstraction implemented.
+- GeminiHttpClient implemented using Spring RestClient.
+- GeminiException implemented.
+- GeminiService delegates to GeminiClient only when config is present.
+- CourseService attempts Gemini + ResponseParser only on cache miss when config is present.
+- Missing config/client failure/parser failure falls back to placeholder.
+- Valid AI response can persist supported course/level fields with sourceType=AI.
+- Flashcards, quizzes, and codingProblems are parsed/validated but not persisted.
+- No frontend changes.
+- No DB migration changes.
+- CourseController unchanged.
 
 Testing notes:
 - Always use Maven Wrapper only for backend:
   cd backend
   .\mvnw.cmd test
-- If stale compiled class issues appear, run:
+- If stale compiled class issues appear:
   cd backend
   .\mvnw.cmd clean test
 - For frontend tasks:
   cd frontend
   npm run build
-- For local backend runtime:
-  set DATABASE_URL, DATABASE_USERNAME, DATABASE_PASSWORD, JWT_SECRET, then run:
-  cd backend
-  .\mvnw.cmd spring-boot:run
 - For browser integration:
   start backend on 8080 and frontend on Vite 5173 or 5174.
+- For real Gemini runtime:
+  set GEMINI_API_KEY, GEMINI_MODEL, GEMINI_BASE_URL in local PowerShell only.
+  Never paste or commit real keys.
+
+Security notes:
+- A Gemini API key was accidentally pasted in chat/log context during manual testing. Revoke/delete that key and create a new one.
+- A local DB password was also pasted in chat/log context. Consider rotating it later.
+- Do not commit or document real secrets.
+- Do not paste secrets in future chats/screenshots.
 
 Runtime note:
 - `cd backend && .\mvnw.cmd spring-boot:run` requires datasource env vars.
 - Without datasource URL/profile it fails with `Failed to determine suitable jdbc url`.
-- This is expected unless env vars or a profile are configured.
 - Local PostgreSQL + env var path is confirmed working.
-- Do not commit or document real local DB passwords.
 
 Rules:
 Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Prompts, Build Log, and AGENTS.md.

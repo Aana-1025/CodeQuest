@@ -1,6 +1,7 @@
 package com.codequest.ai;
 
 import com.codequest.course.CourseDifficulty;
+import com.codequest.course.dto.GenerateCourseRequest;
 
 import org.springframework.stereotype.Service;
 
@@ -9,10 +10,12 @@ public class GeminiService {
 
     private final GeminiProperties geminiProperties;
     private final PromptBuilder promptBuilder;
+    private final GeminiClient geminiClient;
 
-    public GeminiService(GeminiProperties geminiProperties, PromptBuilder promptBuilder) {
+    public GeminiService(GeminiProperties geminiProperties, PromptBuilder promptBuilder, GeminiClient geminiClient) {
         this.geminiProperties = geminiProperties;
         this.promptBuilder = promptBuilder;
+        this.geminiClient = geminiClient;
     }
 
     public boolean isConfigured() {
@@ -23,6 +26,25 @@ public class GeminiService {
 
     public String buildCourseGenerationPrompt(String topic, CourseDifficulty difficulty, String goal) {
         return promptBuilder.buildCourseGenerationPrompt(topic, difficulty, goal);
+    }
+
+    public String generateCourseJson(GenerateCourseRequest request) {
+        if (!isConfigured()) {
+            throw new GeminiException("Gemini is not configured.");
+        }
+
+        String prompt = promptBuilder.buildCourseGenerationPrompt(
+                request.topic(),
+                request.difficulty(),
+                request.goal()
+        );
+
+        return geminiClient.generateContent(
+                geminiProperties.getBaseUrl(),
+                geminiProperties.getModel(),
+                geminiProperties.getApiKey(),
+                prompt
+        );
     }
 
     public String getConfiguredModel() {
