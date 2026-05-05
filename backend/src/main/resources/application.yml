@@ -20,6 +20,9 @@ jwt:
   access-minutes: ${JWT_ACCESS_MINUTES:15}
 auth:
   refresh-token-days: ${REFRESH_TOKEN_DAYS:7}
+app:
+  cors:
+    allowed-origins: http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174
 logging:
   level:
     root: INFO
