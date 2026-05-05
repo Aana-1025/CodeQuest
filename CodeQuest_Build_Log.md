@@ -6,13 +6,13 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 ## Current Status
 Phase: MVP
 Current module: Frontend Auth
-Current feature: Frontend auth pages completed, build passed, pending commit
-Last completed feature: User profile API contract alignment
-Next feature: Protected routes only, but do not start until git status is clean after frontend auth commit
+Current feature: Frontend auth pages completed, committed, and pushed
+Last completed feature: Frontend auth pages
+Next feature: Protected routes only
 Current branch: main
-Latest commit: 7f1a179 docs: record user profile API alignment completion
+Latest commit: 891476c feat: add frontend auth pages
 Test status: Frontend `cd frontend && npm run build` PASS; backend tests not required for frontend-only task
-Git status: modified files pending commit for frontend auth pages
+Git status: clean after frontend auth commit and push
 
 ## Completed Features
 - [x] Project setup
@@ -100,7 +100,7 @@ Git status: modified files pending commit for frontend auth pages
 - Frontend must use GET `/api/user/profile` for current user profile in a later protected routes/profile task.
 - Running `.\mvnw.cmd spring-boot:run` without a configured local database fails because the default profile has no datasource URL. This is not caused by the user profile API alignment or frontend auth pages. Do not fix database runtime configuration inside unrelated feature tasks.
 - Local manual API smoke testing with `spring-boot:run` requires a configured PostgreSQL datasource/profile or environment variables. Backend tests can still pass using the test configuration.
-- Next feature must be Protected routes only, but do not start it until frontend auth pages are committed and git status is clean.
+- Next feature must be Protected routes only, but do not start it unless git status is clean.
 - Do not combine protected routes with dashboard, profile update, course, AI, Docker, deployment, or Phase 2 features.
 
 ## Current Source of Truth Files
@@ -148,6 +148,7 @@ Git status: modified files pending commit for frontend auth pages
 - Frontend auth pages note: `frontend/package.json` and `frontend/package-lock.json` were not changed.
 - Frontend auth pages note: Backend files were not changed.
 - Frontend auth pages note: Frontend build passed with `cd frontend && npm run build`.
+- Frontend auth pages note: Commit `891476c feat: add frontend auth pages` was pushed to `main`, and git status was clean afterward.
 - Frontend auth pages note: Manual backend-connected smoke test was not completed because local backend runtime datasource is not configured.
 - Runtime database config note: A manual `.\mvnw.cmd spring-boot:run` attempt failed because no active profile was set and no datasource URL was configured. This is a local runtime configuration issue, not a failed API alignment or frontend auth issue. Do not mix this with user profile endpoint alignment, frontend auth pages, or protected routes.
 
@@ -169,7 +170,7 @@ Git status: modified files pending commit for frontend auth pages
 | 13 | 2026-05-04 | User profile | User | UserProfileResponse, UserMapper, UserService, UserController, UserServiceTest, UserControllerTest | Backend `cd backend && .\mvnw.cmd test` PASS; 43 tests total | `9ba94ad feat: add user profile endpoint`. Initially implemented authenticated GET `/api/users/me` with safe response fields. Commit pushed; git status clean. |
 | 14 | 2026-05-04 | Build Log update after User profile | Docs | CodeQuest_Build_Log.md | Git status clean after docs commit | `051f278 docs: record user profile completion` |
 | 15 | 2026-05-04 | User profile API contract alignment | User | UserController, UserControllerTest, CodeQuest_Build_Log.md | Backend `cd backend && .\mvnw.cmd -Dtest=UserControllerTest test` PASS; Backend `cd backend && .\mvnw.cmd test` PASS; 43 tests total | `b9039ad fix: align user profile endpoint contract`. Changed authenticated profile endpoint from GET `/api/users/me` to GET `/api/user/profile`. No business logic, DTO, security, DB, Flyway, auth, refresh token, logout, or frontend changes. No PATCH profile endpoint implemented. Commit pushed; git status clean. |
-| 16 | 2026-05-05 | Frontend auth pages | Frontend Auth | App.jsx, Login.jsx, Register.jsx, authApi.js, tokenStorage.js, CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS | Pending commit. Implemented login/register pages using React state navigation, auth API service, and localStorage token storage. No protected routes, dashboard, logout UI, profile page, package changes, or backend changes. |
+| 16 | 2026-05-05 | Frontend auth pages | Frontend Auth | App.jsx, Login.jsx, Register.jsx, authApi.js, tokenStorage.js, CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS | `891476c feat: add frontend auth pages`. Implemented login/register pages using React state navigation, auth API service, and localStorage token storage. No protected routes, dashboard, logout UI, profile page, package changes, or backend changes. Commit pushed; git status clean. |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -321,7 +322,7 @@ Important Auth register boundaries:
 - Response must not contain `role`.
 - Register response still does not return JWT/access token.
 - Login, JwtService, JWT filter, refresh token, logout, frontend auth, and dashboard were separate tasks.
-- Frontend auth pages are now implemented, but protected routes and dashboard are still not implemented.
+- Frontend auth pages are implemented, but protected routes and dashboard are still not implemented.
 
 ## Auth Login Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
@@ -740,11 +741,10 @@ Do not redesign anything.
 Do not implement Phase 2 features.
 
 Current module: Frontend Auth.
-Current feature status: Frontend auth pages implemented, frontend build passed, pending commit.
-Last completed feature: User profile API contract alignment.
-Latest completed commit: 7f1a179 docs: record user profile API alignment completion.
-Pending commit: Frontend auth pages.
-Git status: modified files pending commit for frontend auth pages.
+Last completed feature: Frontend auth pages.
+Current feature status: Frontend auth pages implemented, frontend build passed, committed and pushed.
+Latest completed commit: 891476c feat: add frontend auth pages.
+Git status: clean after frontend auth commit and push.
 
 Frontend auth pages implementation details:
 - Login page implemented.
@@ -776,15 +776,13 @@ Important backend state:
 - Local backend spring-boot:run requires datasource config and may fail without it.
 
 Before starting any next feature:
-1. Commit frontend auth pages if not already committed.
-2. Confirm git status is clean.
-3. Next feature must be Protected routes only.
-4. Do not implement dashboard, course, AI, leaderboard, Docker, CI/CD, deployment, or Phase 2 features in the protected routes task.
+1. Confirm git status is clean.
+2. Next feature must be Protected routes only.
+3. Do not implement dashboard, course, AI, leaderboard, Docker, CI/CD, deployment, or Phase 2 features in the protected routes task.
 
 Give me the next safest step only:
-1. First confirm git status.
-2. If frontend auth pages are still uncommitted, help verify diff and commit them.
-3. If git status is clean after commit, propose one strict Codex prompt for Protected routes only.
+1. First confirm git status is clean.
+2. If git status is clean, propose one strict Codex prompt for Protected routes only.
 Include exact files to touch, files not to touch, commands to run, manual checks, expected output, and Build Log update after completion.
 ```
 
@@ -830,12 +828,11 @@ AI: Gemini API
 Code execution: Piston API
 
 Current module: Frontend Auth
-Current feature status: Frontend auth pages implemented, frontend build passed, pending commit
-Last completed feature: User profile API contract alignment
-Next task: Commit frontend auth pages if pending, confirm git status clean, then select Protected routes only
-Latest completed commit: 7f1a179 docs: record user profile API alignment completion
-Pending commit: Frontend auth pages
-Git status: modified files pending commit for frontend auth pages
+Last completed feature: Frontend auth pages
+Current feature status: Frontend auth pages implemented, frontend build passed, committed and pushed
+Next task: Protected routes only
+Latest completed commit: 891476c feat: add frontend auth pages
+Git status: clean after frontend auth commit and push
 Tests passed: Frontend npm run build PASS; backend tests not required for frontend-only task
 Known bugs: None currently
 
@@ -884,6 +881,7 @@ Important completed Frontend auth details:
 - Login saves accessToken and refreshToken.
 - Register does not save tokens.
 - Frontend build passed with npm run build.
+- Commit `891476c feat: add frontend auth pages` was pushed to main.
 - Manual backend-connected smoke test not completed because local backend datasource is not configured.
 - Protected routes UI, dashboard, profile UI, logout UI, token rotation, and Phase 2 features are not implemented yet.
 
