@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import DashboardShell from "./pages/DashboardShell";
 import { getCurrentUserProfile } from "./services/authApi";
 import { getAccessToken } from "./utils/tokenStorage";
 import { getStoredAuthSnapshot } from "./utils/authState";
@@ -134,6 +135,13 @@ function App() {
                 {profileLoading ? "Loading..." : "Load my profile"}
               </button>
 
+              <button
+                onClick={() => setActivePage("dashboard")}
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
+              >
+                Open Dashboard Shell
+              </button>
+
               {profileError && (
                 <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
                   {profileError}
@@ -174,6 +182,10 @@ function App() {
 
   if (activePage === "protected") {
     return renderProtected();
+  }
+
+  if (activePage === "dashboard") {
+    return <DashboardShell profile={profile} onBackHome={() => setActivePage("home")} />;
   }
 
   return renderHome();
