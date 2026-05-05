@@ -94,4 +94,37 @@ class GeminiServiceTest {
                 () -> geminiService.generateCourseJson(new GenerateCourseRequest("Binary Search", CourseDifficulty.BEGINNER, null))
         );
     }
+
+    @Test
+    void shouldSanitizeFencedGeminiJsonOutput() {
+        String sanitized = GeminiHttpClient.sanitizeGeneratedText("""
+                ```json
+                {
+                  "title": "Binary Search"
+                }
+                ```
+                """);
+
+        assertEquals("""
+                {
+                  "title": "Binary Search"
+                }
+                """.trim(), sanitized);
+    }
+
+    @Test
+    void shouldExtractJsonObjectFromGeminiTextWithExtraProse() {
+        String sanitized = GeminiHttpClient.sanitizeGeneratedText("""
+                Here is the JSON you requested:
+                {
+                  "title": "Binary Search"
+                }
+                """);
+
+        assertEquals("""
+                {
+                  "title": "Binary Search"
+                }
+                """.trim(), sanitized);
+    }
 }

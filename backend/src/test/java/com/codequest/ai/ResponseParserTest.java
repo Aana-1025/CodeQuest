@@ -107,6 +107,18 @@ class ResponseParserTest {
     }
 
     @Test
+    void shouldRejectLevelXpRewardOutsideAllowedRange() {
+        String invalidXpJson = validCourseJson().replace("\"xpReward\": 50,", "\"xpReward\": 0,");
+
+        AiResponseValidationException exception = assertThrows(
+                AiResponseValidationException.class,
+                () -> responseParser.parseCourseResponse(invalidXpJson)
+        );
+
+        assertEquals("level.xpReward must be between 1 and 500.", exception.getMessage());
+    }
+
+    @Test
     void shouldParseValidCourseResponse() {
         AiCourseResponse response = responseParser.parseCourseResponse(validCourseJson());
 

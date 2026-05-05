@@ -7,10 +7,14 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.codequest.ai.AiCourseResponse;
+import com.codequest.ai.AiResponseValidationException;
+import com.codequest.ai.GeminiException;
 import com.codequest.ai.AiLevelResponse;
 import com.codequest.ai.GeminiService;
 import com.codequest.ai.ResponseParser;
@@ -26,6 +30,8 @@ import com.codequest.user.UserRepository;
 
 @Service
 public class CourseService {
+
+    private static final Logger logger = LoggerFactory.getLogger(CourseService.class);
 
     private final CourseRepository courseRepository;
     private final LevelRepository levelRepository;
@@ -66,8 +72,14 @@ public class CourseService {
                 AiCourseResponse aiCourseResponse = responseParser.parseCourseResponse(rawAiResponse);
                 validateRequestedDifficulty(request.difficulty(), aiCourseResponse.difficulty());
                 return createAiCourse(creator, normalizedTopic, request.difficulty(), aiCourseResponse);
-            } catch (RuntimeException ignored) {
-                // Safe fallback keeps course generation stable if AI is unavailable or invalid.
+            } catch (GeminiException ex) {
+                logger.info("Falling back to placeholder course for topic '{}' because Gemini request failed.", normalizedTopic);
+            } catch (AiResponseValidationException ex) {
+                logger.info("Falling back to placeholder course for topic '{}' because AI response validation failed.", normalizedTopic);
+            } catch (IllegalArgumentException ex) {
+                logger.info("Falling back to placeholder course for topic '{}' because AI difficulty did not match request.", normalizedTopic);
+            } catch (RuntimeException ex) {
+                logger.info("Falling back to placeholder course for topic '{}' because AI generation failed safely.", normalizedTopic);
             }
         }
 

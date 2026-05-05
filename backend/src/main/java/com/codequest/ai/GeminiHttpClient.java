@@ -50,12 +50,38 @@ public class GeminiHttpClient implements GeminiClient {
         return responseText;
     }
 
+    static String sanitizeGeneratedText(String text) {
+        if (text == null) {
+            return "";
+        }
+
+        String trimmed = text.trim();
+        if (trimmed.startsWith("```")) {
+            int firstNewline = trimmed.indexOf('\n');
+            if (firstNewline >= 0) {
+                trimmed = trimmed.substring(firstNewline + 1).trim();
+            }
+
+            if (trimmed.endsWith("```")) {
+                trimmed = trimmed.substring(0, trimmed.length() - 3).trim();
+            }
+        }
+
+        int firstBrace = trimmed.indexOf('{');
+        int lastBrace = trimmed.lastIndexOf('}');
+        if (firstBrace >= 0 && lastBrace >= firstBrace) {
+            return trimmed.substring(firstBrace, lastBrace + 1).trim();
+        }
+
+        return trimmed;
+    }
+
     private String extractText(GenerateContentResponse response) {
         if (response == null || response.candidates() == null || response.candidates().isEmpty()) {
             return "";
         }
 
-        return response.candidates().stream()
+        String joinedText = response.candidates().stream()
                 .filter(Objects::nonNull)
                 .map(Candidate::content)
                 .filter(Objects::nonNull)
@@ -68,6 +94,8 @@ public class GeminiHttpClient implements GeminiClient {
                 .map(String::trim)
                 .filter(text -> !text.isBlank())
                 .collect(Collectors.joining("\n"));
+
+        return sanitizeGeneratedText(joinedText);
     }
 
     private record GenerateContentRequest(
