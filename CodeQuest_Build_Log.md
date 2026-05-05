@@ -6,13 +6,13 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 ## Current Status
 Phase: MVP
 Current module: Frontend Auth
-Current feature: Protected routes completed, build passed, pending commit
-Last completed feature: Frontend auth pages
-Next feature: Dashboard shell only, but do not start until git status is clean after protected routes commit
+Current feature: Protected routes completed, committed, and pushed
+Last completed feature: Protected routes
+Next feature: Dashboard shell only
 Current branch: main
-Latest commit: 13edc71 docs: record frontend auth completion
+Latest commit: c607568 feat: add protected routes
 Test status: Frontend `cd frontend && npm run build` PASS; backend tests not required for frontend-only task
-Git status: modified files pending commit for protected routes
+Git status: clean after protected routes commit and push
 
 ## Completed Features
 - [x] Project setup
@@ -158,6 +158,7 @@ Git status: modified files pending commit for protected routes
 - Frontend auth pages note: Commit `891476c feat: add frontend auth pages` was pushed to `main`, and git status was clean afterward.
 - Frontend auth pages note: Manual backend-connected smoke test was not completed because local backend runtime datasource is not configured.
 - Protected routes note: Protected Area implemented as a simple MVP protected view, not the final dashboard.
+- Protected routes note: Commit `c607568 feat: add protected routes` was pushed to `main`, and git status was clean afterward.
 - Protected routes note: Manual backend-connected profile load smoke test was not completed because local backend datasource/profile is not configured.
 - Runtime database config note: A manual `.\mvnw.cmd spring-boot:run` attempt failed because no active profile was set and no datasource URL was configured. This is a local runtime configuration issue, not a failed API alignment, frontend auth, or protected routes issue. Do not mix this with unrelated feature tasks.
 
@@ -180,7 +181,7 @@ Git status: modified files pending commit for protected routes
 | 14 | 2026-05-04 | Build Log update after User profile | Docs | CodeQuest_Build_Log.md | Git status clean after docs commit | `051f278 docs: record user profile completion` |
 | 15 | 2026-05-04 | User profile API contract alignment | User | UserController, UserControllerTest, CodeQuest_Build_Log.md | Backend `cd backend && .\mvnw.cmd -Dtest=UserControllerTest test` PASS; Backend `cd backend && .\mvnw.cmd test` PASS; 43 tests total | `b9039ad fix: align user profile endpoint contract`. Changed authenticated profile endpoint from GET `/api/users/me` to GET `/api/user/profile`. No business logic, DTO, security, DB, Flyway, auth, refresh token, logout, or frontend changes. No PATCH profile endpoint implemented. Commit pushed; git status clean. |
 | 16 | 2026-05-05 | Frontend auth pages | Frontend Auth | App.jsx, Login.jsx, Register.jsx, authApi.js, tokenStorage.js, CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS | `891476c feat: add frontend auth pages`. Implemented login/register pages using React state navigation, auth API service, and localStorage token storage. No protected routes, dashboard, logout UI, profile page, package changes, or backend changes. Commit pushed; git status clean. |
-| 17 | 2026-05-05 | Protected routes | Frontend Auth | App.jsx, authApi.js, authState.js, CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS | Pending commit. Implemented React state based Protected Area, local auth snapshot check, and profile loading via GET `/api/user/profile`. No React Router, dashboard, logout UI, token refresh retry, package changes, or backend changes. |
+| 17 | 2026-05-05 | Protected routes | Frontend Auth | App.jsx, authApi.js, authState.js, CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS | `c607568 feat: add protected routes`. Implemented React state based Protected Area, local auth snapshot check, and profile loading via GET `/api/user/profile`. No React Router, dashboard, logout UI, token refresh retry, package changes, or backend changes. Commit pushed; git status clean. |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -335,7 +336,7 @@ Important Auth register boundaries:
 - Register response still does not return JWT/access token.
 - Login, JwtService, JWT filter, refresh token, logout, frontend auth, and dashboard were separate tasks.
 - Frontend auth pages are implemented.
-- Protected routes are implemented but pending commit.
+- Protected routes are implemented.
 - Dashboard is still not implemented.
 
 ## Auth Login Manual Test Commands
@@ -391,7 +392,7 @@ Important Auth login boundaries:
 - Logout/token revoke is implemented for refresh token revocation.
 - User profile is implemented as authenticated GET `/api/user/profile`.
 - Frontend auth pages are implemented.
-- Protected routes are implemented but pending commit.
+- Protected routes are implemented.
 - Token rotation and dashboard are still not implemented.
 
 ## JWT Authentication Manual Test Commands
@@ -453,7 +454,7 @@ Important JWT authentication boundaries:
 - User profile uses authenticated JWT principal.
 - User profile endpoint is GET `/api/user/profile`.
 - Frontend auth pages are implemented.
-- Protected routes are implemented but pending commit.
+- Protected routes are implemented.
 - No access-token blacklist implemented.
 - No token rotation implemented yet.
 - Dashboard is not implemented yet.
@@ -525,7 +526,7 @@ Important Refresh token boundaries:
 - Logout/token revoke is implemented.
 - User profile is implemented as GET `/api/user/profile`.
 - Frontend auth pages are implemented.
-- Protected routes are implemented but pending commit.
+- Protected routes are implemented.
 - Token rotation is not implemented yet.
 - Dashboard is not implemented yet.
 
@@ -700,7 +701,7 @@ Important User profile boundaries:
 - Old GET `/api/users/me` path should no longer be used after API contract alignment.
 - No update profile endpoint implemented yet.
 - Frontend auth pages are implemented.
-- Protected routes are implemented but pending commit.
+- Protected routes are implemented.
 - Profile edit UI is not implemented yet.
 
 ## Frontend Auth Pages Manual Test Commands
@@ -744,7 +745,7 @@ Important Frontend auth boundaries:
 - React Router was not added.
 - No package.json or package-lock.json change was made.
 - No protected routes were implemented during the frontend auth pages task.
-- Protected routes are implemented later in row 17 but are still pending commit in the current state.
+- Protected routes are implemented later in row 17.
 - No dashboard was implemented.
 - No logout UI was implemented.
 - No profile page was implemented.
@@ -810,9 +811,9 @@ Do not implement Phase 2 features.
 
 Current module: Frontend Auth.
 Last completed feature: Protected routes.
-Current feature status: Protected routes implemented, frontend build passed, pending commit.
-Latest completed commit: 13edc71 docs: record frontend auth completion.
-Git status: modified files pending commit for protected routes.
+Current feature status: Protected routes implemented, frontend build passed, committed and pushed.
+Latest completed commit: c607568 feat: add protected routes.
+Git status: clean after protected routes commit and push.
 
 Protected routes implementation details:
 - App.jsx wired with React state navigation only.
@@ -844,7 +845,7 @@ Important backend state:
 - Local backend spring-boot:run requires datasource config and may fail without it.
 
 Before starting any next feature:
-1. Confirm git status is clean after protected routes commit.
+1. Confirm git status is clean.
 2. Next feature must be Dashboard shell only.
 3. Do not implement course, AI, leaderboard, Docker, CI/CD, deployment, or Phase 2 features in the dashboard task.
 
@@ -897,11 +898,10 @@ Code execution: Piston API
 
 Current module: Frontend Auth
 Last completed feature: Protected routes
-Current feature status: Protected routes implemented, frontend build passed, pending commit
-Next task: Commit protected routes if pending, confirm git status clean, then select Dashboard shell only
-Latest completed commit: 13edc71 docs: record frontend auth completion
-Pending commit: Protected routes
-Git status: modified files pending commit for protected routes
+Current feature status: Protected routes implemented, frontend build passed, committed and pushed
+Next task: Dashboard shell only
+Latest completed commit: c607568 feat: add protected routes
+Git status: clean after protected routes commit and push
 Tests passed: Frontend npm run build PASS; backend tests not required for frontend-only task
 Known bugs: None currently
 
@@ -970,7 +970,7 @@ Important completed Protected routes details:
 - No logout UI implemented.
 - No token refresh retry or rotation implemented.
 - Frontend build passed with npm run build.
-- Pending commit for protected routes.
+- Commit `c607568 feat: add protected routes` was pushed to main.
 - Manual backend-connected profile load smoke test not completed because local backend datasource is not configured.
 - Dashboard implementation, course, AI, leaderboard, Docker, CI/CD, deployment, and Phase 2 features are not implemented yet.
 
