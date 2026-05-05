@@ -48,4 +48,19 @@ async function loginUser({ email, password }) {
   return handleResponse(response);
 }
 
-export { registerUser, loginUser, API_BASE_URL };
+async function getCurrentUserProfile(accessToken) {
+  if (!accessToken) {
+    throw new Error("Access token is missing.");
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/user/profile`, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+    },
+  });
+
+  return handleResponse(response);
+}
+
+export { registerUser, loginUser, getCurrentUserProfile, API_BASE_URL };

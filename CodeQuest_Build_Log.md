@@ -6,13 +6,13 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 ## Current Status
 Phase: MVP
 Current module: Frontend Auth
-Current feature: Frontend auth pages completed, committed, and pushed
+Current feature: Protected routes completed, build passed, pending commit
 Last completed feature: Frontend auth pages
-Next feature: Protected routes only
+Next feature: Dashboard shell only, but do not start until git status is clean after protected routes commit
 Current branch: main
-Latest commit: 891476c feat: add frontend auth pages
+Latest commit: 13edc71 docs: record frontend auth completion
 Test status: Frontend `cd frontend && npm run build` PASS; backend tests not required for frontend-only task
-Git status: clean after frontend auth commit and push
+Git status: modified files pending commit for protected routes
 
 ## Completed Features
 - [x] Project setup
@@ -28,7 +28,7 @@ Git status: clean after frontend auth commit and push
 - [x] Logout / token revoke
 - [x] User profile
 - [x] Frontend auth pages
-- [ ] Protected routes
+- [x] Protected routes
 - [ ] Dashboard shell
 - [ ] Course generation
 - [ ] GeminiService + PromptBuilder
@@ -96,12 +96,19 @@ Git status: clean after frontend auth commit and push
 - No PATCH profile endpoint is implemented yet.
 - Frontend auth pages use backend auth endpoints POST `/api/auth/register` and POST `/api/auth/login`.
 - Frontend auth pages store `accessToken` and `refreshToken` in localStorage for MVP only.
-- Frontend auth pages do not implement protected routes, dashboard, profile page, logout UI, token refresh retry logic, or refresh-token rotation.
-- Frontend must use GET `/api/user/profile` for current user profile in a later protected routes/profile task.
-- Running `.\mvnw.cmd spring-boot:run` without a configured local database fails because the default profile has no datasource URL. This is not caused by the user profile API alignment or frontend auth pages. Do not fix database runtime configuration inside unrelated feature tasks.
+- Frontend auth pages do not implement dashboard, profile page, logout UI, token refresh retry logic, or refresh-token rotation.
+- Protected routes are implemented using React state navigation only.
+- React Router was not added for protected routes.
+- Protected Area checks local accessToken presence using tokenStorage.
+- Protected Area can call GET `/api/user/profile` using Bearer accessToken through getCurrentUserProfile.
+- Protected Area shows safe profile fields only: name, email, rank, xp, streak.
+- Protected Area does not show accessToken or refreshToken.
+- Protected routes do not implement real dashboard, logout UI, refresh-token retry logic, token rotation, or profile edit.
+- Frontend must use GET `/api/user/profile` for current user profile in the protected routes task.
+- Running `.\mvnw.cmd spring-boot:run` without a configured local database fails because the default profile has no datasource URL. This is not caused by the user profile API alignment, frontend auth pages, or protected routes. Do not fix database runtime configuration inside unrelated feature tasks.
 - Local manual API smoke testing with `spring-boot:run` requires a configured PostgreSQL datasource/profile or environment variables. Backend tests can still pass using the test configuration.
-- Next feature must be Protected routes only, but do not start it unless git status is clean.
-- Do not combine protected routes with dashboard, profile update, course, AI, Docker, deployment, or Phase 2 features.
+- Next feature must be Dashboard shell only, but do not start it unless git status is clean after protected routes commit.
+- Do not combine dashboard with course, AI, leaderboard, Docker, CI/CD, deployment, or Phase 2 features.
 
 ## Current Source of Truth Files
 - CodeQuest_AI_Control_Master_Blueprint_v3.docx: full master blueprint in ChatGPT Project resources.
@@ -150,7 +157,9 @@ Git status: clean after frontend auth commit and push
 - Frontend auth pages note: Frontend build passed with `cd frontend && npm run build`.
 - Frontend auth pages note: Commit `891476c feat: add frontend auth pages` was pushed to `main`, and git status was clean afterward.
 - Frontend auth pages note: Manual backend-connected smoke test was not completed because local backend runtime datasource is not configured.
-- Runtime database config note: A manual `.\mvnw.cmd spring-boot:run` attempt failed because no active profile was set and no datasource URL was configured. This is a local runtime configuration issue, not a failed API alignment or frontend auth issue. Do not mix this with user profile endpoint alignment, frontend auth pages, or protected routes.
+- Protected routes note: Protected Area implemented as a simple MVP protected view, not the final dashboard.
+- Protected routes note: Manual backend-connected profile load smoke test was not completed because local backend datasource/profile is not configured.
+- Runtime database config note: A manual `.\mvnw.cmd spring-boot:run` attempt failed because no active profile was set and no datasource URL was configured. This is a local runtime configuration issue, not a failed API alignment, frontend auth, or protected routes issue. Do not mix this with unrelated feature tasks.
 
 ## Feature History
 | # | Date | Feature | Module | Files changed | Tests | Commit/Notes |
@@ -171,6 +180,7 @@ Git status: clean after frontend auth commit and push
 | 14 | 2026-05-04 | Build Log update after User profile | Docs | CodeQuest_Build_Log.md | Git status clean after docs commit | `051f278 docs: record user profile completion` |
 | 15 | 2026-05-04 | User profile API contract alignment | User | UserController, UserControllerTest, CodeQuest_Build_Log.md | Backend `cd backend && .\mvnw.cmd -Dtest=UserControllerTest test` PASS; Backend `cd backend && .\mvnw.cmd test` PASS; 43 tests total | `b9039ad fix: align user profile endpoint contract`. Changed authenticated profile endpoint from GET `/api/users/me` to GET `/api/user/profile`. No business logic, DTO, security, DB, Flyway, auth, refresh token, logout, or frontend changes. No PATCH profile endpoint implemented. Commit pushed; git status clean. |
 | 16 | 2026-05-05 | Frontend auth pages | Frontend Auth | App.jsx, Login.jsx, Register.jsx, authApi.js, tokenStorage.js, CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS | `891476c feat: add frontend auth pages`. Implemented login/register pages using React state navigation, auth API service, and localStorage token storage. No protected routes, dashboard, logout UI, profile page, package changes, or backend changes. Commit pushed; git status clean. |
+| 17 | 2026-05-05 | Protected routes | Frontend Auth | App.jsx, authApi.js, authState.js, CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS | Pending commit. Implemented React state based Protected Area, local auth snapshot check, and profile loading via GET `/api/user/profile`. No React Router, dashboard, logout UI, token refresh retry, package changes, or backend changes. |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -197,6 +207,7 @@ Git status: clean after frontend auth commit and push
 | 2026-05-04 | `cd backend && .\mvnw.cmd test` | PASS | User profile API contract alignment full backend tests passed: 43 total, 0 failures, 0 errors, 0 skipped. | Yes |
 | 2026-05-04 | `cd backend && .\mvnw.cmd spring-boot:run` | FAIL | Runtime startup failed because no active profile was set and no datasource URL was configured. Error: `Failed to determine suitable jdbc url`. This is a local runtime DB configuration issue, not a user profile API alignment failure. | No action in this task; handle local runtime DB config separately later if needed. |
 | 2026-05-05 | `cd frontend && npm run build` | PASS | Frontend build succeeded with authApi.js, tokenStorage.js, Register.jsx, Login.jsx, and App.jsx wiring. No errors, no warnings. | Yes |
+| 2026-05-05 | `cd frontend && npm run build` | PASS | Frontend build succeeded with protected view, authState.js, and getCurrentUserProfile helper. | Yes |
 
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
@@ -226,6 +237,7 @@ Git status: clean after frontend auth commit and push
 | 2026-05-04 | User profile API alignment safety | Inspect GET `/api/user/profile` response | Response must not include passwordHash, password_hash, tokenHash, refreshToken, role, or raw password | Automated integration test passed |
 | 2026-05-04 | Backend runtime startup | `cd backend && .\mvnw.cmd spring-boot:run` | Backend starts only if datasource URL/profile is configured | Failed due missing local datasource URL; not related to API alignment |
 | 2026-05-05 | Frontend auth pages | Register/login UI backend-connected smoke test | Register and login forms call backend, login saves accessToken and refreshToken | Not completed because local backend datasource is not configured |
+| 2026-05-05 | Protected routes | Protected Area backend-connected profile load smoke test | Logged-in user can open Protected Area and load safe profile fields from GET `/api/user/profile` | Not completed because local backend datasource is not configured |
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -322,7 +334,9 @@ Important Auth register boundaries:
 - Response must not contain `role`.
 - Register response still does not return JWT/access token.
 - Login, JwtService, JWT filter, refresh token, logout, frontend auth, and dashboard were separate tasks.
-- Frontend auth pages are implemented, but protected routes and dashboard are still not implemented.
+- Frontend auth pages are implemented.
+- Protected routes are implemented but pending commit.
+- Dashboard is still not implemented.
 
 ## Auth Login Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
@@ -377,7 +391,8 @@ Important Auth login boundaries:
 - Logout/token revoke is implemented for refresh token revocation.
 - User profile is implemented as authenticated GET `/api/user/profile`.
 - Frontend auth pages are implemented.
-- Token rotation, protected routes UI, and dashboard are still not implemented.
+- Protected routes are implemented but pending commit.
+- Token rotation and dashboard are still not implemented.
 
 ## JWT Authentication Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
@@ -438,9 +453,10 @@ Important JWT authentication boundaries:
 - User profile uses authenticated JWT principal.
 - User profile endpoint is GET `/api/user/profile`.
 - Frontend auth pages are implemented.
+- Protected routes are implemented but pending commit.
 - No access-token blacklist implemented.
 - No token rotation implemented yet.
-- No protected routes implemented yet.
+- Dashboard is not implemented yet.
 
 ## Refresh Token Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
@@ -509,8 +525,9 @@ Important Refresh token boundaries:
 - Logout/token revoke is implemented.
 - User profile is implemented as GET `/api/user/profile`.
 - Frontend auth pages are implemented.
+- Protected routes are implemented but pending commit.
 - Token rotation is not implemented yet.
-- Protected routes are not implemented yet.
+- Dashboard is not implemented yet.
 
 ## Logout / Token Revoke Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
@@ -682,7 +699,9 @@ Important User profile boundaries:
 - Current implemented endpoint is GET `/api/user/profile`.
 - Old GET `/api/users/me` path should no longer be used after API contract alignment.
 - No update profile endpoint implemented yet.
-- Frontend auth pages are implemented, but protected routes/profile UI are not implemented yet.
+- Frontend auth pages are implemented.
+- Protected routes are implemented but pending commit.
+- Profile edit UI is not implemented yet.
 
 ## Frontend Auth Pages Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
@@ -724,11 +743,60 @@ Important Frontend auth boundaries:
 - Frontend auth pages use React state navigation only.
 - React Router was not added.
 - No package.json or package-lock.json change was made.
-- No protected routes were implemented.
+- No protected routes were implemented during the frontend auth pages task.
+- Protected routes are implemented later in row 17 but are still pending commit in the current state.
 - No dashboard was implemented.
 - No logout UI was implemented.
 - No profile page was implemented.
 - No backend files were touched.
+- Manual backend-connected smoke test is blocked until backend local datasource/profile is configured.
+
+## Protected Routes Manual Test Commands
+Use these after starting the backend with a configured local datasource/profile.
+
+Start frontend:
+```powershell
+cd frontend
+npm run dev
+```
+
+Open:
+```text
+http://localhost:5173
+```
+
+Protected Area without login:
+```text
+Open home page.
+Click Protected Area without logging in.
+Expected: inline message says "Please log in to view the protected area."
+```
+
+Login then Protected Area:
+```text
+Open Login page.
+Enter valid email and password.
+Submit the form.
+Expected: login saves accessToken and refreshToken to localStorage and navigates to Protected Area.
+```
+
+Load profile:
+```text
+In Protected Area, click "Load my profile".
+Expected: frontend calls GET /api/user/profile with Authorization Bearer accessToken and shows safe fields only: name, email, rank, xp, streak.
+```
+
+Important Protected routes boundaries:
+- Protected routes use React state navigation only.
+- React Router was not added.
+- Protected Area checks local accessToken presence.
+- Protected Area can load profile via GET `/api/user/profile`.
+- Protected Area must not show accessToken or refreshToken.
+- Protected Area must not show passwordHash, password_hash, tokenHash, role, or raw password.
+- Protected Area is not the final dashboard.
+- Dashboard shell is still not implemented.
+- Logout UI is not implemented.
+- Refresh-token retry and token rotation are not implemented.
 - Manual backend-connected smoke test is blocked until backend local datasource/profile is configured.
 
 ## Next Chat Prompt
@@ -741,48 +809,48 @@ Do not redesign anything.
 Do not implement Phase 2 features.
 
 Current module: Frontend Auth.
-Last completed feature: Frontend auth pages.
-Current feature status: Frontend auth pages implemented, frontend build passed, committed and pushed.
-Latest completed commit: 891476c feat: add frontend auth pages.
-Git status: clean after frontend auth commit and push.
+Last completed feature: Protected routes.
+Current feature status: Protected routes implemented, frontend build passed, pending commit.
+Latest completed commit: 13edc71 docs: record frontend auth completion.
+Git status: modified files pending commit for protected routes.
 
-Frontend auth pages implementation details:
-- Login page implemented.
-- Register page implemented.
-- App.jsx uses React state navigation only.
+Protected routes implementation details:
+- App.jsx wired with React state navigation only.
+- authApi.js includes getCurrentUserProfile(accessToken) function.
+- authState.js includes isAuthenticated() and getStoredAuthSnapshot() functions.
+- Protected Area implemented as MVP protected view.
+- Protected Area checks local accessToken presence.
+- Protected Area can load profile via GET /api/user/profile with Bearer token.
+- Protected Area shows safe fields: name, email, rank, xp, streak.
+- Protected Area does not show accessToken, refreshToken, or sensitive fields.
 - No React Router was added.
 - No package.json or package-lock.json changes were made.
 - No backend files were touched.
-- authApi.js uses VITE_API_BASE_URL or fallback http://localhost:8080.
-- tokenStorage.js stores accessToken and refreshToken in localStorage for MVP.
-- Login saves accessToken and refreshToken.
-- Register does not store tokens because register response does not include tokens.
-- No protected routes implemented.
-- No dashboard implemented.
-- No profile page implemented.
+- No real dashboard implemented.
 - No logout UI implemented.
+- No token refresh retry or rotation implemented.
 - Frontend build passed:
   cd frontend
   npm run build
 
 Important backend state:
-- Register implemented.
-- Login implemented.
-- JWT authentication implemented.
-- Refresh token implemented.
-- Logout/token revoke implemented.
-- GET /api/user/profile implemented and aligned to API contract.
-- Backend tests previously passed: 43 tests.
+- Register implemented and tested.
+- Login implemented and tested, returns accessToken and refreshToken.
+- JWT authentication implemented and tested.
+- Refresh token implemented and tested.
+- Logout/token revoke implemented and tested.
+- GET /api/user/profile implemented, aligned to API contract, tested with integration flow.
+- Backend tests: 43 tests passed.
 - Local backend spring-boot:run requires datasource config and may fail without it.
 
 Before starting any next feature:
-1. Confirm git status is clean.
-2. Next feature must be Protected routes only.
-3. Do not implement dashboard, course, AI, leaderboard, Docker, CI/CD, deployment, or Phase 2 features in the protected routes task.
+1. Confirm git status is clean after protected routes commit.
+2. Next feature must be Dashboard shell only.
+3. Do not implement course, AI, leaderboard, Docker, CI/CD, deployment, or Phase 2 features in the dashboard task.
 
 Give me the next safest step only:
 1. First confirm git status is clean.
-2. If git status is clean, propose one strict Codex prompt for Protected routes only.
+2. If git status is clean, propose one strict Codex prompt for Dashboard shell only.
 Include exact files to touch, files not to touch, commands to run, manual checks, expected output, and Build Log update after completion.
 ```
 
@@ -828,11 +896,12 @@ AI: Gemini API
 Code execution: Piston API
 
 Current module: Frontend Auth
-Last completed feature: Frontend auth pages
-Current feature status: Frontend auth pages implemented, frontend build passed, committed and pushed
-Next task: Protected routes only
-Latest completed commit: 891476c feat: add frontend auth pages
-Git status: clean after frontend auth commit and push
+Last completed feature: Protected routes
+Current feature status: Protected routes implemented, frontend build passed, pending commit
+Next task: Commit protected routes if pending, confirm git status clean, then select Dashboard shell only
+Latest completed commit: 13edc71 docs: record frontend auth completion
+Pending commit: Protected routes
+Git status: modified files pending commit for protected routes
 Tests passed: Frontend npm run build PASS; backend tests not required for frontend-only task
 Known bugs: None currently
 
@@ -883,7 +952,27 @@ Important completed Frontend auth details:
 - Frontend build passed with npm run build.
 - Commit `891476c feat: add frontend auth pages` was pushed to main.
 - Manual backend-connected smoke test not completed because local backend datasource is not configured.
-- Protected routes UI, dashboard, profile UI, logout UI, token rotation, and Phase 2 features are not implemented yet.
+- Dashboard, profile UI, logout UI, token rotation, and Phase 2 features are not implemented yet.
+
+Important completed Protected routes details:
+- App.jsx wired with React state navigation only.
+- authApi.js includes getCurrentUserProfile(accessToken) function.
+- authState.js includes isAuthenticated() and getStoredAuthSnapshot() functions.
+- Protected Area implemented as MVP protected view, not final dashboard.
+- Protected Area checks local accessToken presence.
+- Protected Area loads profile via GET /api/user/profile with Bearer token.
+- Protected Area shows safe fields: name, email, rank, xp, streak.
+- Protected Area does not show accessToken, refreshToken, or sensitive fields.
+- No React Router added.
+- No package.json or package-lock.json changes.
+- No backend files touched.
+- No real dashboard implemented.
+- No logout UI implemented.
+- No token refresh retry or rotation implemented.
+- Frontend build passed with npm run build.
+- Pending commit for protected routes.
+- Manual backend-connected profile load smoke test not completed because local backend datasource is not configured.
+- Dashboard implementation, course, AI, leaderboard, Docker, CI/CD, deployment, and Phase 2 features are not implemented yet.
 
 Testing notes:
 - Always use Maven Wrapper only for backend:
@@ -895,13 +984,13 @@ Testing notes:
 - For frontend tasks:
   cd frontend
   npm run build
-- Frontend auth build result:
+- Frontend protected routes build result:
   npm run build PASS
 
 Runtime note:
 - `cd backend && .\mvnw.cmd spring-boot:run` currently requires local datasource configuration.
 - Without datasource URL/profile it fails with `Failed to determine suitable jdbc url`.
-- This is not an API alignment or frontend auth bug.
+- This is not an API alignment, frontend auth, or protected routes bug.
 
 Rules:
 Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Prompts, Build Log, and AGENTS.md.
