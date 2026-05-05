@@ -5,14 +5,14 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Course Generation
-Current feature: Course generation foundation completed, committed, and pushed
-Last completed feature: Course generation foundation
-Next feature: Decide next smallest step after clean docs commit. Recommended next: Course map / frontend dashboard integration for generated course OR GeminiService + PromptBuilder foundation only, but do not mix both.
+Current module: Course Generation / Frontend Integration
+Current feature: Frontend course generation UI completed, committed, and pushed
+Last completed feature: Frontend course generation UI
+Next feature: GeminiService + PromptBuilder foundation only, but do not start until git status is clean after this docs update commit
 Current branch: main
-Latest commit: e4734e2 feat: add course generation foundation
-Test status: Backend `cd backend && .\mvnw.cmd test` PASS with 53 tests; local backend runtime PASS with PostgreSQL env vars; Flyway V3 applied successfully; manual API smoke test for POST `/api/courses/generate` PASS; cache-hit test PASS; frontend build last PASS during dashboard shell task
-Git status: clean after course generation foundation commit and push; pending docs-only Build Log update until this file is committed
+Latest commit: 3ba0ef8 feat: add frontend course generation UI
+Test status: Frontend `cd frontend && npm run build` PASS; browser manual test PASS for Dashboard Shell course generation; browser cache-hit UI test PASS; backend `cd backend && .\mvnw.cmd test` last PASS with 53 tests during course generation foundation; local backend runtime PASS with PostgreSQL env vars; Flyway V3 applied successfully
+Git status: clean after frontend course generation UI commit and push; pending docs-only Build Log update until this file is committed
 
 ## Completed Features
 - [x] Project setup
@@ -33,6 +33,7 @@ Git status: clean after course generation foundation commit and push; pending do
 - [x] Local backend runtime config / dev database setup
 - [x] Local frontend-backend CORS
 - [x] Course generation foundation
+- [x] Frontend course generation UI
 - [ ] GeminiService + PromptBuilder
 - [ ] ResponseParser + AI validation
 - [ ] Course map
@@ -111,10 +112,13 @@ Git status: clean after course generation foundation commit and push; pending do
 - Dashboard shell uses React state navigation only.
 - React Router was not added.
 - Dashboard shell receives profile from App.jsx as props only.
-- Dashboard shell does not fetch data.
-- Dashboard shell does not read accessToken or refreshToken.
+- Dashboard shell does not fetch data on page load.
+- Dashboard shell does not read or show accessToken or refreshToken.
 - Dashboard shell shows safe profile fields only: name, email, rank, xp, streak.
-- Dashboard shell does not implement course generation, AI/Gemini, XP/rank logic, streak logic, leaderboard, logout UI, code execution, or backend calls.
+- Dashboard shell now includes frontend course generation UI wired to backend POST `/api/courses/generate`.
+- Dashboard shell course generation UI calls backend only when the user clicks Generate Course.
+- Dashboard shell course generation UI does not store course result in localStorage.
+- Dashboard shell course generation UI does not show accessToken, refreshToken, password, passwordHash, tokenHash, role, or sensitive fields.
 - Local PostgreSQL 17 is installed for development.
 - Local database `codequest` was created with PostgreSQL user `postgres`.
 - Local backend runtime works when these environment variables are set:
@@ -137,7 +141,7 @@ Git status: clean after course generation foundation commit and push; pending do
 - Protected endpoints remain protected.
 - Preflight `OPTIONS` requests are permitted.
 - Browser register/login/profile manual smoke test passed after CORS fix.
-- Course generation foundation is implemented as a deterministic placeholder/cache backend foundation only.
+- Course generation foundation is implemented as a deterministic placeholder/cache backend foundation.
 - Course generation foundation endpoint is POST `/api/courses/generate`.
 - POST `/api/courses/generate` is authenticated and protected.
 - POST `/api/courses/generate` uses `@AuthenticationPrincipal CurrentUserPrincipal`; it does not accept user id from request path, params, or body.
@@ -154,13 +158,26 @@ Git status: clean after course generation foundation commit and push; pending do
 - Course generation foundation uses `sourceType=PLACEHOLDER`.
 - Course generation foundation does not call Gemini.
 - Course generation foundation does not call any external API.
-- Course generation foundation does not implement PromptBuilder, ResponseParser, lessons, quizzes, flashcards, notes, XP/rank/streak progress, leaderboard, Piston/code execution, Docker, CI/CD, deployment, or Phase 2 features.
+- Course generation foundation does not implement PromptBuilder, ResponseParser, real AI lessons, quizzes, flashcards, notes, XP/rank/streak progress, leaderboard, Piston/code execution, Docker, CI/CD, deployment, or Phase 2 features.
 - V3 Flyway migration creates `courses` and `levels` tables.
 - `courses(normalized_topic, difficulty)` is unique for cache behavior.
 - `levels(course_id, order_number)` is unique for ordered levels.
-- Next feature should be chosen carefully after clean docs commit. Recommended options:
-  - Course map / frontend dashboard integration for generated course, using existing placeholder endpoint only
-  - GeminiService + PromptBuilder foundation only, without replacing stable placeholder flow yet
+- Frontend course generation UI is implemented in DashboardShell.
+- Frontend course generation API helper is implemented in `frontend/src/services/courseApi.js`.
+- Frontend course generation UI fields:
+  - topic input
+  - difficulty dropdown: BEGINNER, INTERMEDIATE, ADVANCED
+  - optional goal input
+  - Generate Course button
+- Frontend course generation result UI shows:
+  - title
+  - description
+  - cache hit / new placeholder course badge
+  - course id in muted text
+  - ordered level cards
+  - level order number, title, XP reward, and Boss/Standard badge
+- Frontend course generation UI does not implement real course map navigation, lesson page, quizzes, flashcards, notes, XP/rank/streak progress, leaderboard, code execution, Gemini/AI, PromptBuilder, ResponseParser, Docker, CI/CD, deployment, or Phase 2 features.
+- Next feature should be GeminiService + PromptBuilder foundation only, after this docs update is committed and git status is clean.
 - Do not combine Gemini/AI with frontend course map, quizzes, lessons, leaderboard, Docker, CI/CD, deployment, code execution, or Phase 2 features unless explicitly scoped.
 
 ## Current Source of Truth Files
@@ -213,9 +230,10 @@ Git status: clean after course generation foundation commit and push; pending do
 - Protected routes note: Protected Area implemented as a simple MVP protected view, not the final dashboard.
 - Protected routes note: Commit `c607568 feat: add protected routes` was pushed to `main`, and git status was clean afterward.
 - Protected routes note: Manual backend-connected profile load smoke test was initially blocked by local backend/CORS setup, then passed after local PostgreSQL runtime setup and CORS fix.
-- Dashboard shell note: DashboardShell is a static UI shell only, not the final dashboard logic.
+- Dashboard shell note: DashboardShell was first implemented as a static UI shell only.
 - Dashboard shell note: Commit `3abf231 feat: add dashboard shell` was pushed to `main`, and git status was clean afterward.
-- Dashboard shell note: No backend-connected manual smoke test was required because no new backend/API behavior was added.
+- Dashboard shell note: Static shell had no backend/API behavior at first.
+- Dashboard shell note: Opening Dashboard Shell may show `Profile not loaded yet` depending on current in-memory profile state. This is acceptable for shell/profile state work and can be polished later.
 - Runtime database config note: A manual `.\mvnw.cmd spring-boot:run` initially failed because no active profile was set and no datasource URL was configured.
 - Runtime database config note: PostgreSQL 17 was installed, `psql` was added to PATH for the active terminal, and database `codequest` was created.
 - Runtime database config note: Backend runtime then started successfully with PostgreSQL env vars and Flyway applied V1/V2 migrations.
@@ -224,7 +242,6 @@ Git status: clean after course generation foundation commit and push; pending do
 - CORS note: CORS allows local Vite origins only and does not use wildcard `"*"`.
 - CORS note: Backend tests passed after CORS fix: 44 tests, 0 failures, 0 errors, 0 skipped.
 - CORS note: Browser register/login/protected profile smoke test passed after CORS fix.
-- Dashboard shell note: Opening Dashboard Shell passed, but DashboardShell may show `Profile not loaded yet` depending on current in-memory profile state. This is acceptable for static dashboard shell and can be polished later during dashboard/profile state work.
 - Course generation foundation note: Commit `e4734e2 feat: add course generation foundation` was pushed to `main`, and git status was clean afterward.
 - Course generation foundation note: V3 migration creates `courses` and `levels` tables. V1 and V2 were not edited.
 - Course generation foundation note: Backend tests passed with 53 tests, 0 failures, 0 errors, 0 skipped.
@@ -233,6 +250,13 @@ Git status: clean after course generation foundation commit and push; pending do
 - Course generation foundation note: Manual cache test passed: repeated normalized topic/difficulty returned same `courseId` with `cacheHit=true`.
 - Course generation foundation note: No Gemini/AI, external API, PromptBuilder, ResponseParser, real lesson generation, quizzes, flashcards, notes, XP/streak/progress, leaderboard, Piston/code execution, frontend, Docker, CI/CD, or deployment was implemented.
 - Course generation foundation note: A real local PostgreSQL password was typed in terminal during manual testing. Do not commit real passwords or include them in docs; use `<your-local-postgres-password>` placeholder only.
+- Frontend course generation UI note: Commit `3ba0ef8 feat: add frontend course generation UI` was pushed to `main`, and git status was clean afterward.
+- Frontend course generation UI note: Frontend build passed with `cd frontend && npm run build`.
+- Frontend course generation UI note: Browser manual test passed on Vite port 5174.
+- Frontend course generation UI note: Dashboard Shell generated/displayed a course from browser and showed 3 levels with XP and Boss/Standard badges.
+- Frontend course generation UI note: Browser cache-hit UI test passed for `Binary Search`, showing `Cache Hit` and existing course/levels.
+- Frontend course generation UI note: No backend files, package files, React Router, Gemini/AI, quizzes, flashcards, notes, XP/streak/progress, leaderboard, code execution, Docker, CI/CD, deployment, or Phase 2 features were implemented.
+- Frontend course generation UI note: Browser test first used a mistyped topic `Binary Searcj`; this created a correctly matching placeholder for that typo. This was input behavior, not a code bug.
 
 ## Feature History
 | # | Date | Feature | Module | Files changed | Tests | Commit/Notes |
@@ -258,6 +282,8 @@ Git status: clean after course generation foundation commit and push; pending do
 | 19 | 2026-05-05 | Local backend runtime config + frontend CORS | Local Runtime / Security | SecurityConfig, application.yml, SecurityConfigTest, test application.yml | Backend `cd backend && .\mvnw.cmd test` PASS; 44 tests total. Local backend runtime PASS with PostgreSQL env vars. Browser register/login/profile smoke test PASS after CORS fix. | `8da4448 fix: allow local frontend cors`. Installed local PostgreSQL 17, created `codequest` database, ran backend with env vars, Flyway applied V1/V2 migrations, fixed CORS for local Vite origins 5173/5174. No frontend, package, DB migration, course, AI, dashboard, or business logic changes. Commit pushed; git status clean. |
 | 20 | 2026-05-05 | Build Log update after local runtime + CORS | Docs | CodeQuest_Build_Log.md | Git status clean after docs commit | `75fa636 docs: record local runtime and cors completion` |
 | 21 | 2026-05-05 | Course generation foundation | Course Generation | V3 migration, Course entity, CourseRepository, CourseDifficulty, CourseSourceType, Level entity, LevelRepository, GenerateCourseRequest, GenerateCourseResponse, CourseLevelSummaryResponse, CourseService, CourseController, CourseRepositoryTest, CourseServiceTest, CourseControllerTest | Backend `cd backend && .\mvnw.cmd test` PASS; 53 tests total. Local runtime PASS with Flyway V3 applied. Manual API smoke test PASS. Manual cache-hit test PASS. | `e4734e2 feat: add course generation foundation`. Added authenticated POST `/api/courses/generate`, deterministic placeholder course generation, normalized topic/difficulty cache, 3 placeholder levels, V3 courses/levels schema. No frontend, Gemini/AI, external API, PromptBuilder, ResponseParser, quizzes, flashcards, notes, progress, leaderboard, code execution, Docker, CI/CD, deployment, or Phase 2 features. Commit pushed; git status clean. |
+| 22 | 2026-05-05 | Build Log update after Course generation foundation | Docs | CodeQuest_Build_Log.md | Git status clean after docs commit | `8d66948 docs: record course generation foundation completion` |
+| 23 | 2026-05-05 | Frontend course generation UI | Course Generation / Frontend | DashboardShell.jsx, courseApi.js | Frontend `cd frontend && npm run build` PASS. Browser manual generate-course test PASS. Browser cache-hit UI test PASS. | `3ba0ef8 feat: add frontend course generation UI`. Added DashboardShell form for topic/difficulty/goal, wired POST `/api/courses/generate` with Bearer token, displayed generated course and level cards. No backend, package files, React Router, Gemini/AI, quizzes, flashcards, notes, XP/streak/progress, leaderboard, code execution, Docker, CI/CD, deployment, or Phase 2 features. Commit pushed; git status clean. |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -299,6 +325,9 @@ Git status: clean after course generation foundation commit and push; pending do
 | 2026-05-05 | `cd backend && .\mvnw.cmd spring-boot:run` after setting real local DB password | PASS | Backend started on port 8080. Flyway validated 3 migrations and applied V3 to local PostgreSQL, schema now at v3. | Yes |
 | 2026-05-05 | Manual API: register/login then POST `/api/courses/generate` | PASS | Authenticated request returned 200 with courseId, title `Binary Search`, description, `cacheHit=false`, and 3 levels with XP 50/75/100. | Yes |
 | 2026-05-05 | Manual API cache test: POST `/api/courses/generate` with `"  BINARY   SEARCH  "` | PASS | Returned same courseId and `cacheHit=true`. | Yes |
+| 2026-05-05 | `cd frontend && npm run build` after frontend course generation UI | PASS | Frontend build succeeded with DashboardShell course generation UI and courseApi.js. Vite transformed 38 modules and built successfully. | Yes |
+| 2026-05-05 | Browser UI: DashboardShell generate course | PASS | Browser generated and displayed a course from DashboardShell with title, description, course id, 3 level cards, XP rewards, and Boss/Standard badges. | Yes |
+| 2026-05-05 | Browser UI: DashboardShell cache-hit course generation | PASS | Browser generated existing `Binary Search` course and displayed `Cache Hit` with levels visible. | Yes |
 
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
@@ -341,6 +370,10 @@ Git status: clean after course generation foundation commit and push; pending do
 | 2026-05-05 | Course generation foundation protected endpoint | POST `/api/courses/generate` without token | 401 Unauthorized | Automated controller test passed |
 | 2026-05-05 | Course generation foundation validation | POST `/api/courses/generate` with invalid topic or missing difficulty | 400 Bad Request | Automated controller test passed |
 | 2026-05-05 | Course generation foundation safety | Inspect response | Response contains course/level fields only; no user password, token, tokenHash, role, or sensitive fields | Passed by response shape/manual inspection |
+| 2026-05-05 | Frontend course generation UI build | `cd frontend && npm run build` | Vite build succeeds | Passed |
+| 2026-05-05 | Frontend course generation UI success | In browser, open Dashboard Shell, enter topic/difficulty/goal, click Generate Course | Generated course appears with title, description, course id, 3 level cards, XP rewards, and Boss/Standard badges | Passed |
+| 2026-05-05 | Frontend course generation UI cache | In browser, generate existing `Binary Search` course again | UI shows `Cache Hit`, course title and levels remain visible | Passed |
+| 2026-05-05 | Frontend course generation UI safety | Inspect DashboardShell result UI | UI does not show accessToken, refreshToken, password, passwordHash, tokenHash, role, or sensitive backend data | Passed |
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -373,10 +406,11 @@ Before committing any Codex-generated change, always do this:
 
 5. Manually test the exact implemented feature when runtime configuration allows it:
    - For backend endpoints, use Swagger, Postman, Thunder Client, or curl.
+   - For frontend tasks, test the exact browser flow.
    - Test one success case.
-   - Test one important failure case.
-   - Confirm the response shape matches API contracts.
-   - Confirm standard ErrorDTO appears for errors.
+   - Test one important failure/cache case where practical.
+   - Confirm the response shape/UI matches API contracts.
+   - Confirm standard ErrorDTO appears for backend errors where practical.
    - Confirm sensitive fields are not leaked.
    - If `spring-boot:run` fails because local datasource variables are missing, record the runtime config issue separately and do not mix it with the feature implementation unless the task is explicitly database runtime setup.
 
@@ -505,6 +539,7 @@ Important Auth register boundaries:
 - Dashboard shell is implemented.
 - Local frontend-backend CORS is implemented.
 - Course generation foundation is implemented.
+- Frontend course generation UI is implemented.
 
 ## Auth Login Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
@@ -563,6 +598,7 @@ Important Auth login boundaries:
 - Dashboard shell is implemented.
 - Local frontend-backend CORS is implemented.
 - Course generation foundation is implemented.
+- Frontend course generation UI is implemented.
 - Token rotation is still not implemented.
 
 ## JWT Authentication Manual Test Commands
@@ -629,6 +665,7 @@ Important JWT authentication boundaries:
 - Protected routes are implemented.
 - Dashboard shell is implemented.
 - Local frontend-backend CORS is implemented.
+- Frontend course generation UI is implemented.
 - No access-token blacklist implemented.
 - No token rotation implemented yet.
 
@@ -703,6 +740,7 @@ Important Refresh token boundaries:
 - Protected routes are implemented.
 - Dashboard shell is implemented.
 - Local frontend-backend CORS is implemented.
+- Frontend course generation UI is implemented.
 - Token rotation is not implemented yet.
 
 ## Logout / Token Revoke Manual Test Commands
@@ -880,6 +918,7 @@ Important User profile boundaries:
 - Dashboard shell is implemented.
 - Local frontend-backend CORS is implemented.
 - Course generation foundation is implemented.
+- Frontend course generation UI is implemented.
 - Profile edit UI is not implemented yet.
 
 ## Course Generation Foundation Manual Test Commands
@@ -1011,7 +1050,92 @@ Important Course generation foundation boundaries:
 - No PromptBuilder is implemented.
 - No ResponseParser is implemented.
 - No real AI-generated lessons are implemented.
-- No quiz, flashcard, note, progress, XP/rank/streak, leaderboard, Piston/code execution, frontend course UI, Docker, CI/CD, deployment, or Phase 2 features are implemented.
+- No quiz, flashcard, note, progress, XP/rank/streak, leaderboard, Piston/code execution, Docker, CI/CD, deployment, or Phase 2 features are implemented.
+
+## Frontend Course Generation UI Manual Test Commands
+Use these after starting backend and frontend.
+
+Start backend:
+```powershell
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
+$env:DATABASE_USERNAME="postgres"
+$env:DATABASE_PASSWORD="<your-local-postgres-password>"
+$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
+
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+Start frontend:
+```powershell
+cd frontend
+npm run dev
+```
+
+Open Vite URL:
+```text
+http://localhost:5173
+```
+
+or:
+```text
+http://localhost:5174
+```
+
+Browser flow:
+```text
+1. Register/login if needed.
+2. Open Protected Area.
+3. Open Dashboard Shell.
+4. In Generate Course form, enter:
+   Topic: Binary Search
+   Difficulty: BEGINNER
+   Goal: DSA interview preparation
+5. Click Generate Course.
+```
+
+Expected UI:
+```text
+Generated course appears.
+Title appears.
+Description appears.
+Course ID appears in muted text.
+Cache badge appears.
+3 level cards appear.
+Level 1: Introduction to Binary Search, XP Reward 50, Standard
+Level 2: Practice Binary Search, XP Reward 75, Standard
+Level 3: Binary Search Boss Challenge, XP Reward 100, Boss
+No accessToken or refreshToken is visible.
+No CORS error appears.
+```
+
+Cache UI check:
+```text
+Generate the same topic/difficulty again, or use topic with different casing/spaces:
+  BINARY   SEARCH
+```
+
+Expected:
+```text
+Cache Hit badge appears.
+Course title and levels remain visible.
+```
+
+Important Frontend course generation UI boundaries:
+- Implemented in DashboardShell only.
+- API helper is `frontend/src/services/courseApi.js`.
+- Uses existing `API_BASE_URL` from authApi.js.
+- Uses access token from existing tokenStorage.
+- Sends Authorization Bearer token to POST `/api/courses/generate`.
+- Calls backend only when user clicks Generate Course.
+- Does not call backend on page load.
+- Does not store generated course in localStorage.
+- Does not show accessToken or refreshToken.
+- Does not add React Router.
+- Does not add dependencies.
+- Does not touch package files.
+- Does not touch backend.
+- Does not implement Gemini/AI, PromptBuilder, ResponseParser, real lessons, quizzes, flashcards, notes, XP/streak/progress, leaderboard, code execution, Docker, CI/CD, deployment, or Phase 2 features.
 
 ## Frontend Auth Pages Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
@@ -1059,6 +1183,7 @@ Important Frontend auth boundaries:
 - Dashboard shell is implemented later in row 18.
 - Local frontend-backend CORS is implemented later in row 19.
 - Course generation foundation is implemented later in row 21.
+- Frontend course generation UI is implemented later in row 23.
 - No logout UI was implemented.
 - No profile page was implemented.
 - Manual browser register/login smoke test now passes after local runtime setup and CORS fix.
@@ -1110,13 +1235,14 @@ Important Protected routes boundaries:
 - Protected Area is not the final dashboard.
 - Dashboard shell is implemented.
 - Local frontend-backend CORS is implemented.
-- Course generation foundation is implemented, but frontend course UI is not wired yet.
+- Course generation foundation is implemented.
+- Frontend course generation UI is implemented in DashboardShell.
 - Logout UI is not implemented.
 - Refresh-token retry and token rotation are not implemented.
 - Browser profile smoke test now passes after local runtime setup and CORS fix.
 
 ## Dashboard Shell Manual Test Commands
-Use these after starting the frontend. Backend is not required for the static DashboardShell component itself, but opening it through the normal login flow requires backend auth to work.
+Use these after starting the frontend. Opening DashboardShell through the normal login flow requires backend auth to work.
 
 Start frontend:
 ```powershell
@@ -1135,7 +1261,7 @@ Dashboard shell route through UI:
 ```text
 Open Protected Area.
 Click Open Dashboard Shell.
-Expected: Dashboard shell opens with title "Dashboard", subtitle "Your Java learning command center.", profile summary/fallback, course progress placeholder, next actions placeholder, and safety/status note.
+Expected: Dashboard shell opens with title "Dashboard", subtitle "Your Java learning command center.", profile summary/fallback, Generate Course form, course progress placeholder, next actions placeholder, and safety/status note.
 ```
 
 If profile is not loaded or profile state is not passed:
@@ -1143,17 +1269,27 @@ If profile is not loaded or profile state is not passed:
 Expected: Dashboard shell shows "Profile not loaded yet."
 ```
 
+Generate Course from DashboardShell:
+```text
+Topic: Binary Search
+Difficulty: BEGINNER
+Goal: DSA interview preparation
+Click Generate Course.
+```
+
+Expected:
+```text
+Generated course result appears with title, description, cache badge, course id, and level cards.
+```
+
 Important Dashboard shell boundaries:
-- Dashboard shell is a static MVP UI shell only.
+- Dashboard shell is still MVP UI, not final product dashboard.
 - Dashboard shell uses React state navigation only.
 - React Router was not added.
 - Dashboard shell receives profile from App.jsx props only.
-- Dashboard shell does not fetch data.
-- Dashboard shell does not call backend.
-- Dashboard shell does not read accessToken or refreshToken.
-- Dashboard shell must not show passwordHash, password_hash, tokenHash, role, raw password, accessToken, or refreshToken.
-- Dashboard shell does not yet call POST `/api/courses/generate`.
-- Dashboard shell does not implement course map, AI/Gemini, XP/streak logic, leaderboard, logout UI, code execution, Docker, CI/CD, deployment, or Phase 2 features.
+- Dashboard shell does not read or show accessToken or refreshToken.
+- Dashboard shell now calls POST `/api/courses/generate` only when user clicks Generate Course.
+- Dashboard shell does not implement real course map routing, AI/Gemini, XP/streak logic, leaderboard, logout UI, code execution, Docker, CI/CD, deployment, or Phase 2 features.
 
 ## Local Frontend-Backend CORS Manual Test Commands
 Use these after starting backend and frontend.
@@ -1193,13 +1329,13 @@ Browser checks:
 4. Click Load my profile.
 5. Confirm safe fields appear: name, email, rank, XP, streak.
 6. Click Open Dashboard Shell.
-7. Confirm static Dashboard shell appears.
+7. Generate a course from Dashboard Shell.
 ```
 
 Expected:
 ```text
 No CORS error in browser console.
-No Failed to fetch for register/login/profile.
+No Failed to fetch for register/login/profile/course generation.
 ```
 
 Important CORS boundaries:
@@ -1210,7 +1346,7 @@ Important CORS boundaries:
 - JWT filter remains active.
 - Auth endpoints remain public.
 - Protected endpoints remain protected.
-- POST `/api/courses/generate` is protected and should work from frontend only after frontend course UI is wired.
+- POST `/api/courses/generate` is protected and works from frontend with Bearer token.
 
 ## Next Chat Prompt
 Paste this into a fresh ChatGPT Project chat whenever the current chat becomes slow or confusing:
@@ -1221,11 +1357,11 @@ Continue CodeQuest from the current status.
 Do not redesign anything.
 Do not implement Phase 2 features.
 
-Current module: Course Generation.
-Last completed feature: Course generation foundation.
-Current feature status: Course generation foundation completed, committed, and pushed.
-Latest completed commit: e4734e2 feat: add course generation foundation.
-Git status: clean after Course generation foundation commit and push, except this Build Log may need a docs-only commit if not already committed.
+Current module: Course Generation / Frontend Integration.
+Last completed feature: Frontend course generation UI.
+Current feature status: Frontend course generation UI completed, committed, and pushed.
+Latest completed commit: 3ba0ef8 feat: add frontend course generation UI.
+Git status: clean after frontend course generation UI commit and push, except this Build Log may need a docs-only commit if not already committed.
 
 Important completed local runtime details:
 - PostgreSQL 17 installed locally.
@@ -1249,6 +1385,7 @@ Important completed CORS details:
 - No credentials enabled.
 - Preflight OPTIONS permitted.
 - Browser register/login/protected profile smoke test passed after CORS fix.
+- Browser course generation from DashboardShell works with Bearer token.
 
 Important completed Course generation foundation details:
 - V3 migration creates courses and levels tables.
@@ -1266,7 +1403,21 @@ Important completed Course generation foundation details:
 - Manual API smoke test passed.
 - Manual cache-hit test passed.
 - Commit e4734e2 was pushed to main.
-- Git status was clean after commit.
+
+Important completed Frontend course generation UI details:
+- `frontend/src/services/courseApi.js` created.
+- `generateCourse({ accessToken, topic, difficulty, goal })` calls POST `/api/courses/generate`.
+- DashboardShell has Generate Course form with topic, difficulty, optional goal.
+- DashboardShell uses existing tokenStorage access token.
+- DashboardShell calls backend only when user clicks Generate Course.
+- DashboardShell shows loading and error states.
+- DashboardShell displays generated course title, description, cache badge, course id, and ordered level cards.
+- Level cards show order number, title, XP reward, and Boss/Standard badge.
+- No token is shown or stored in UI.
+- Frontend build passed.
+- Browser manual test passed.
+- Browser cache-hit UI test passed.
+- Commit `3ba0ef8 feat: add frontend course generation UI` was pushed to main.
 
 Not implemented yet:
 - GeminiService
@@ -1274,7 +1425,7 @@ Not implemented yet:
 - ResponseParser
 - AI validation
 - Real AI-generated course content
-- Course map frontend
+- Real Course map navigation
 - Lesson page
 - Flashcards
 - Notes
@@ -1282,7 +1433,6 @@ Not implemented yet:
 - XP/rank/streak/progress
 - Leaderboard
 - Piston/code execution
-- Frontend course generation UI
 - Logout UI
 - Docker
 - CI/CD
@@ -1291,12 +1441,13 @@ Not implemented yet:
 
 Next safest step:
 First confirm git status is clean.
-Then choose ONE small task only.
-Recommended options:
-1. Frontend course generation UI integration in DashboardShell using existing POST /api/courses/generate endpoint, with no AI changes.
-OR
-2. GeminiService + PromptBuilder foundation only, with no frontend changes and no replacement of stable placeholder flow yet.
-Do not combine both.
+Then implement GeminiService + PromptBuilder foundation only.
+Do not replace the stable placeholder course generation flow yet.
+Do not call real Gemini from tests.
+Do not touch frontend.
+Do not implement ResponseParser yet unless explicitly scoped separately.
+Do not implement real AI course persistence yet.
+Do not combine with lessons/quizzes/code execution/leaderboard/deployment.
 
 Give me the next strict Codex prompt with:
 - exact scope
@@ -1331,8 +1482,8 @@ Give me the next strict Codex prompt with:
 - [ ] At least one meaningful automated test exists for backend logic.
 - [ ] Automated tests pass using Maven Wrapper for backend tasks.
 - [ ] Frontend build passes for frontend tasks.
-- [ ] Manual/API smoke test passes for the exact feature, or blocker is documented clearly.
-- [ ] Error case is manually checked where practical.
+- [ ] Manual/API/browser smoke test passes for the exact feature, or blocker is documented clearly.
+- [ ] Error/cache case is manually checked where practical.
 - [ ] Manual test steps are documented.
 - [ ] Build Log is updated.
 - [ ] Commit is created with a clear message.
@@ -1349,13 +1500,13 @@ Database: PostgreSQL + Flyway
 AI: Gemini API
 Code execution: Piston API
 
-Current module: Course Generation
-Last completed feature: Course generation foundation
-Current feature status: Course generation foundation completed, committed, and pushed
-Next task: Choose one small task only after clean git status. Recommended: frontend course generation UI integration OR GeminiService + PromptBuilder foundation, but do not combine.
-Latest completed commit: e4734e2 feat: add course generation foundation
-Git status: clean after Course generation foundation commit and push, except docs-only Build Log update may be pending if not committed yet
-Tests passed: Backend .\mvnw.cmd test PASS with 53 tests; frontend build last PASS during dashboard shell; local runtime PASS; Flyway V3 applied; manual Course generation API smoke test PASS; manual cache-hit test PASS
+Current module: Course Generation / Frontend Integration
+Last completed feature: Frontend course generation UI
+Current feature status: Frontend course generation UI completed, committed, and pushed
+Next task: GeminiService + PromptBuilder foundation only
+Latest completed commit: 3ba0ef8 feat: add frontend course generation UI
+Git status: clean after frontend course generation UI commit and push, except docs-only Build Log update may be pending if not committed yet
+Tests passed: Frontend npm run build PASS; browser course generation UI PASS; browser cache-hit UI PASS; backend .\mvnw.cmd test last PASS with 53 tests during course generation foundation; local runtime PASS; Flyway V3 applied
 Known bugs/blockers: None currently.
 
 Important completed Auth details:
@@ -1397,15 +1548,12 @@ Important completed Frontend auth details:
 - App.jsx uses React state navigation only.
 - No React Router added.
 - No package.json or package-lock.json changes.
-- No backend files touched during frontend auth.
 - authApi.js uses VITE_API_BASE_URL or fallback http://localhost:8080.
 - tokenStorage.js stores accessToken and refreshToken in localStorage for MVP.
 - Login saves accessToken and refreshToken.
 - Register does not save tokens.
 - Frontend build passed with npm run build.
-- Commit `891476c feat: add frontend auth pages` was pushed to main.
-- Browser register/login smoke test now passes after local runtime setup and CORS fix.
-- Profile UI, logout UI, token rotation, and Phase 2 features are not implemented yet.
+- Browser register/login smoke test passes after local runtime setup and CORS fix.
 
 Important completed Protected routes details:
 - App.jsx wired with React state navigation only.
@@ -1417,32 +1565,26 @@ Important completed Protected routes details:
 - Protected Area shows safe fields: name, email, rank, xp, streak.
 - Protected Area does not show accessToken, refreshToken, or sensitive fields.
 - No React Router added.
-- No package.json or package-lock.json changes.
-- No backend files touched.
-- No real dashboard implemented in protected routes task.
 - No logout UI implemented.
 - No token refresh retry or rotation implemented.
 - Frontend build passed with npm run build.
-- Commit `c607568 feat: add protected routes` was pushed to main.
-- Browser protected profile smoke test now passes after local runtime setup and CORS fix.
-- AI, leaderboard, Docker, CI/CD, deployment, and Phase 2 features are not implemented yet.
+- Browser protected profile smoke test passes after local runtime setup and CORS fix.
 
 Important completed Dashboard shell details:
-- DashboardShell.jsx is implemented as a static MVP dashboard shell only.
+- DashboardShell.jsx is implemented as MVP dashboard shell.
 - App.jsx wires DashboardShell using React state navigation only.
-- Dashboard shell can be opened from Protected Area even if profile is not loaded.
+- Dashboard shell can be opened from Protected Area.
 - Dashboard shell receives profile from App.jsx props only.
-- Dashboard shell does not fetch data.
-- Dashboard shell does not read accessToken or refreshToken.
-- Dashboard shell shows safe profile fields only: name, email, rank, xp, streak when profile prop is available.
+- Dashboard shell does not show accessToken or refreshToken.
+- Dashboard shell shows safe profile fields only when profile prop is available.
+- Dashboard shell now includes Generate Course form.
+- Dashboard shell calls POST /api/courses/generate only on button click.
+- Dashboard shell displays generated course and levels.
 - No React Router added.
-- No backend files touched.
-- No package.json or package-lock.json changes.
 - No logout UI implemented.
 - No AI/Gemini, XP/streak logic, leaderboard, or code execution implemented.
-- Frontend build passed with npm run build.
-- Commit `3abf231 feat: add dashboard shell` was pushed to main.
-- Browser dashboard shell smoke check passed; DashboardShell may show `Profile not loaded yet` fallback depending on profile state.
+- Browser DashboardShell course generation smoke test passed.
+- Browser cache-hit UI test passed.
 
 Important completed Local runtime / CORS details:
 - PostgreSQL 17 installed locally.
@@ -1462,9 +1604,7 @@ Important completed Local runtime / CORS details:
 - No credentials enabled.
 - Spring Security remains enabled.
 - Preflight OPTIONS permitted.
-- Backend tests passed after CORS fix.
-- Commit `8da4448 fix: allow local frontend cors` was pushed to main.
-- Browser register/login/profile smoke test passed after CORS fix.
+- Browser register/login/profile/course-generation smoke tests pass.
 
 Important completed Course generation foundation details:
 - V3 migration creates courses and levels tables.
@@ -1494,7 +1634,26 @@ Important completed Course generation foundation details:
 - No Gemini/AI/external API implemented.
 - No PromptBuilder/ResponseParser implemented.
 - No real AI-generated lesson content implemented.
-- No frontend course UI wired yet.
+
+Important completed Frontend course generation UI details:
+- `frontend/src/services/courseApi.js` implemented.
+- `generateCourse({ accessToken, topic, difficulty, goal })` calls POST /api/courses/generate.
+- DashboardShell has form fields for topic, difficulty, and optional goal.
+- DashboardShell gets accessToken from existing tokenStorage.
+- DashboardShell calls backend only when user clicks Generate Course.
+- DashboardShell shows loading and error states.
+- DashboardShell displays generated course title, description, cache badge, course id, and level cards.
+- Level cards show order number, title, XP reward, and Boss/Standard badge.
+- No token is shown or stored in UI.
+- No localStorage persistence for generated course.
+- Frontend build passed.
+- Browser manual test passed.
+- Browser cache-hit UI test passed.
+- Commit `3ba0ef8 feat: add frontend course generation UI` was pushed to main.
+- No backend files touched.
+- No package files touched.
+- No React Router added.
+- No Gemini/AI implemented.
 
 Testing notes:
 - Always use Maven Wrapper only for backend:
