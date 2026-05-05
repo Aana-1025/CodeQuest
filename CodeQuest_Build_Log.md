@@ -6,13 +6,13 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 ## Current Status
 Phase: MVP
 Current module: Dashboard
-Current feature: Dashboard shell completed, build passed, pending commit
-Last completed feature: Protected routes
-Next feature: Course generation only, but do not start until git status is clean after dashboard shell commit
+Current feature: Dashboard shell completed, committed, and pushed
+Last completed feature: Dashboard shell
+Next feature: Local backend runtime config / dev database setup, before Course generation
 Current branch: main
-Latest commit: a2ca3d4 docs: record protected routes completion
+Latest commit: 3abf231 feat: add dashboard shell
 Test status: Frontend `cd frontend && npm run build` PASS; backend tests not required for frontend-only task
-Git status: modified files pending commit for dashboard shell
+Git status: clean after dashboard shell commit and push
 
 ## Completed Features
 - [x] Project setup
@@ -105,10 +105,19 @@ Git status: modified files pending commit for dashboard shell
 - Protected Area does not show accessToken or refreshToken.
 - Protected routes do not implement real dashboard, logout UI, refresh-token retry logic, token rotation, or profile edit.
 - Frontend must use GET `/api/user/profile` for current user profile in the protected routes task.
-- Running `.\mvnw.cmd spring-boot:run` without a configured local database fails because the default profile has no datasource URL. This is not caused by the user profile API alignment, frontend auth pages, or protected routes. Do not fix database runtime configuration inside unrelated feature tasks.
+- Dashboard shell is implemented as a static MVP page.
+- Dashboard shell uses React state navigation only.
+- React Router was not added.
+- Dashboard shell receives profile from App.jsx as props only.
+- Dashboard shell does not fetch data.
+- Dashboard shell does not read accessToken or refreshToken.
+- Dashboard shell shows safe profile fields only: name, email, rank, xp, streak.
+- Dashboard shell does not implement course generation, AI/Gemini, XP/rank logic, streak logic, leaderboard, logout UI, code execution, or backend calls.
+- Running `.\mvnw.cmd spring-boot:run` without a configured local database fails because the default profile has no datasource URL. This is not caused by the user profile API alignment, frontend auth pages, protected routes, or dashboard shell. Do not fix database runtime configuration inside unrelated feature tasks.
 - Local manual API smoke testing with `spring-boot:run` requires a configured PostgreSQL datasource/profile or environment variables. Backend tests can still pass using the test configuration.
-- Next feature must be Dashboard shell only, but do not start it unless git status is clean after protected routes commit.
-- Do not combine dashboard with course, AI, leaderboard, Docker, CI/CD, deployment, or Phase 2 features.
+- Next feature should be Local backend runtime config / dev database setup before Course generation, because frontend auth/profile browser testing is currently blocked by backend runtime datasource configuration.
+- Do not start Course generation until git status is clean and local backend runtime config/dev database setup scope is confirmed.
+- Do not combine local backend runtime config with course generation, AI, leaderboard, Docker, CI/CD, deployment, or Phase 2 features.
 
 ## Current Source of Truth Files
 - CodeQuest_AI_Control_Master_Blueprint_v3.docx: full master blueprint in ChatGPT Project resources.
@@ -160,17 +169,11 @@ Git status: modified files pending commit for dashboard shell
 - Protected routes note: Protected Area implemented as a simple MVP protected view, not the final dashboard.
 - Protected routes note: Commit `c607568 feat: add protected routes` was pushed to `main`, and git status was clean afterward.
 - Protected routes note: Manual backend-connected profile load smoke test was not completed because local backend datasource/profile is not configured.
-- Dashboard shell is implemented as a static MVP page.
-- Dashboard shell uses React state navigation only.
-- React Router was not added.
-- Dashboard shell receives profile from App.jsx as props only.
-- Dashboard shell does not fetch data.
-- Dashboard shell does not read accessToken or refreshToken.
-- Dashboard shell shows safe profile fields only: name, email, rank, xp, streak.
-- Dashboard shell does not implement course generation, AI/Gemini, XP/rank logic, streak logic, leaderboard, logout UI, code execution, or backend calls.
 - Dashboard shell note: DashboardShell is a static UI shell only, not the final dashboard logic.
+- Dashboard shell note: Commit `3abf231 feat: add dashboard shell` was pushed to `main`, and git status was clean afterward.
 - Dashboard shell note: No backend-connected manual smoke test required because no new backend/API behavior was added.
-- Runtime database config note: A manual `.\mvnw.cmd spring-boot:run` attempt failed because no active profile was set and no datasource URL was configured. This is a local runtime configuration issue, not a failed API alignment, frontend auth, or protected routes issue. Do not mix this with unrelated feature tasks.
+- Frontend manual testing note: Register page showed `Failed to fetch` in browser because backend was not reachable/running with local datasource config. This is not a dashboard shell bug.
+- Runtime database config note: A manual `.\mvnw.cmd spring-boot:run` attempt failed because no active profile was set and no datasource URL was configured. This is a local runtime configuration issue, not a failed API alignment, frontend auth, protected routes, or dashboard shell issue. Do not mix this with unrelated feature tasks.
 
 ## Feature History
 | # | Date | Feature | Module | Files changed | Tests | Commit/Notes |
@@ -192,7 +195,7 @@ Git status: modified files pending commit for dashboard shell
 | 15 | 2026-05-04 | User profile API contract alignment | User | UserController, UserControllerTest, CodeQuest_Build_Log.md | Backend `cd backend && .\mvnw.cmd -Dtest=UserControllerTest test` PASS; Backend `cd backend && .\mvnw.cmd test` PASS; 43 tests total | `b9039ad fix: align user profile endpoint contract`. Changed authenticated profile endpoint from GET `/api/users/me` to GET `/api/user/profile`. No business logic, DTO, security, DB, Flyway, auth, refresh token, logout, or frontend changes. No PATCH profile endpoint implemented. Commit pushed; git status clean. |
 | 16 | 2026-05-05 | Frontend auth pages | Frontend Auth | App.jsx, Login.jsx, Register.jsx, authApi.js, tokenStorage.js, CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS | `891476c feat: add frontend auth pages`. Implemented login/register pages using React state navigation, auth API service, and localStorage token storage. No protected routes, dashboard, logout UI, profile page, package changes, or backend changes. Commit pushed; git status clean. |
 | 17 | 2026-05-05 | Protected routes | Frontend Auth | App.jsx, authApi.js, authState.js, CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS | `c607568 feat: add protected routes`. Implemented React state based Protected Area, local auth snapshot check, and profile loading via GET `/api/user/profile`. No React Router, dashboard, logout UI, token refresh retry, package changes, or backend changes. Commit pushed; git status clean. |
-| 18 | 2026-05-05 | Dashboard shell | Dashboard | App.jsx, DashboardShell.jsx, CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS | Pending commit. Implemented static dashboard shell page and wired it from Protected Area using React state navigation. No React Router, backend/API calls, course generation, AI/Gemini, XP/streak logic, leaderboard, logout UI, code execution, package changes, or backend changes. |
+| 18 | 2026-05-05 | Dashboard shell | Dashboard | App.jsx, DashboardShell.jsx, CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS | `3abf231 feat: add dashboard shell`. Implemented static dashboard shell page and wired it from Protected Area using React state navigation. No React Router, backend/API calls, course generation, AI/Gemini, XP/streak logic, leaderboard, logout UI, code execution, package changes, or backend changes. Commit pushed; git status clean. |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -251,7 +254,7 @@ Git status: modified files pending commit for dashboard shell
 | 2026-05-04 | Backend runtime startup | `cd backend && .\mvnw.cmd spring-boot:run` | Backend starts only if datasource URL/profile is configured | Failed due missing local datasource URL; not related to API alignment |
 | 2026-05-05 | Frontend auth pages | Register/login UI backend-connected smoke test | Register and login forms call backend, login saves accessToken and refreshToken | Not completed because local backend datasource is not configured |
 | 2026-05-05 | Protected routes | Protected Area backend-connected profile load smoke test | Logged-in user can open Protected Area and load safe profile fields from GET `/api/user/profile` | Not completed because local backend datasource is not configured |
-| 2026-05-05 | Dashboard shell | Dashboard shell UI smoke check | User can open Dashboard Shell from Protected Area and see static cards/placeholders without backend calls | Pending local browser check |
+| 2026-05-05 | Dashboard shell | Dashboard shell UI smoke check | User can open Dashboard Shell from Protected Area and see static cards/placeholders without backend calls | Not completed because browser flow was blocked by backend register/login `Failed to fetch`; dashboard shell itself has no backend/API behavior |
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -350,7 +353,8 @@ Important Auth register boundaries:
 - Login, JwtService, JWT filter, refresh token, logout, frontend auth, and dashboard were separate tasks.
 - Frontend auth pages are implemented.
 - Protected routes are implemented.
-- Dashboard is still not implemented.
+- Dashboard shell is implemented.
+- Course generation is still not implemented.
 
 ## Auth Login Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
@@ -406,7 +410,8 @@ Important Auth login boundaries:
 - User profile is implemented as authenticated GET `/api/user/profile`.
 - Frontend auth pages are implemented.
 - Protected routes are implemented.
-- Token rotation and dashboard are still not implemented.
+- Dashboard shell is implemented.
+- Token rotation and course generation are still not implemented.
 
 ## JWT Authentication Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
@@ -468,9 +473,10 @@ Important JWT authentication boundaries:
 - User profile endpoint is GET `/api/user/profile`.
 - Frontend auth pages are implemented.
 - Protected routes are implemented.
+- Dashboard shell is implemented.
 - No access-token blacklist implemented.
 - No token rotation implemented yet.
-- Dashboard is not implemented yet.
+- Course generation is not implemented yet.
 
 ## Refresh Token Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
@@ -540,8 +546,9 @@ Important Refresh token boundaries:
 - User profile is implemented as GET `/api/user/profile`.
 - Frontend auth pages are implemented.
 - Protected routes are implemented.
+- Dashboard shell is implemented.
 - Token rotation is not implemented yet.
-- Dashboard is not implemented yet.
+- Course generation is not implemented yet.
 
 ## Logout / Token Revoke Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
@@ -715,6 +722,7 @@ Important User profile boundaries:
 - No update profile endpoint implemented yet.
 - Frontend auth pages are implemented.
 - Protected routes are implemented.
+- Dashboard shell is implemented.
 - Profile edit UI is not implemented yet.
 
 ## Frontend Auth Pages Manual Test Commands
@@ -759,7 +767,7 @@ Important Frontend auth boundaries:
 - No package.json or package-lock.json change was made.
 - No protected routes were implemented during the frontend auth pages task.
 - Protected routes are implemented later in row 17.
-- No dashboard was implemented.
+- Dashboard shell is implemented later in row 18.
 - No logout UI was implemented.
 - No profile page was implemented.
 - No backend files were touched.
@@ -808,10 +816,47 @@ Important Protected routes boundaries:
 - Protected Area must not show accessToken or refreshToken.
 - Protected Area must not show passwordHash, password_hash, tokenHash, role, or raw password.
 - Protected Area is not the final dashboard.
-- Dashboard shell is still not implemented.
+- Dashboard shell is implemented.
 - Logout UI is not implemented.
 - Refresh-token retry and token rotation are not implemented.
 - Manual backend-connected smoke test is blocked until backend local datasource/profile is configured.
+
+## Dashboard Shell Manual Test Commands
+Use these after starting the frontend. Backend is not required for the static DashboardShell component itself, but opening it through the normal login flow requires backend auth to work.
+
+Start frontend:
+```powershell
+cd frontend
+npm run dev
+```
+
+Open:
+```text
+http://localhost:5173
+```
+
+Dashboard shell route through UI:
+```text
+Open Protected Area.
+Click Open Dashboard Shell.
+Expected: Dashboard shell opens with title "Dashboard", subtitle "Your Java learning command center.", profile summary/fallback, course progress placeholder, next actions placeholder, and safety/status note.
+```
+
+If profile is not loaded:
+```text
+Expected: Dashboard shell shows "Profile not loaded yet."
+```
+
+Important Dashboard shell boundaries:
+- Dashboard shell is a static MVP UI shell only.
+- Dashboard shell uses React state navigation only.
+- React Router was not added.
+- Dashboard shell receives profile from App.jsx props only.
+- Dashboard shell does not fetch data.
+- Dashboard shell does not call backend.
+- Dashboard shell does not read accessToken or refreshToken.
+- Dashboard shell must not show passwordHash, password_hash, tokenHash, role, raw password, accessToken, or refreshToken.
+- Dashboard shell does not implement course generation, AI/Gemini, XP/streak logic, leaderboard, logout UI, code execution, Docker, CI/CD, deployment, or Phase 2 features.
 
 ## Next Chat Prompt
 Paste this into a fresh ChatGPT Project chat whenever the current chat becomes slow or confusing:
@@ -824,12 +869,22 @@ Do not implement Phase 2 features.
 
 Current module: Dashboard.
 Last completed feature: Dashboard shell.
-Current feature status: Dashboard shell implemented, frontend build passed, pending commit.
-Latest completed commit: a2ca3d4 docs: record protected routes completion.
-Pending commit: Dashboard shell.
-Git status: modified files pending commit for dashboard shell.
-Next feature must be Course generation only after dashboard shell commit and clean git status.
-Do not implement AI/Gemini, lessons, quizzes, code execution, leaderboard, Docker, CI/CD, deployment, or Phase 2 features unless the next scoped task explicitly says so.
+Current feature status: Dashboard shell implemented, frontend build passed, committed and pushed.
+Latest completed commit: 3abf231 feat: add dashboard shell.
+Git status: clean after dashboard shell commit and push.
+
+Important current blocker:
+- Frontend register/login browser testing currently shows `Failed to fetch` because backend is not reachable/running with local datasource configuration.
+- Local backend runtime previously failed with `Failed to determine suitable jdbc url`.
+- Before Course generation, do Local backend runtime config / dev database setup so register/login/profile can be manually tested from the browser.
+
+Next feature must be Local backend runtime config / dev database setup.
+Do not implement Course generation, AI/Gemini, lessons, quizzes, code execution, leaderboard, Docker, CI/CD, deployment, or Phase 2 features in this task.
+
+Give me the next safest step only:
+1. First confirm git status is clean.
+2. Propose one strict Codex prompt for Local backend runtime config / dev database setup only.
+Include exact files to touch, files not to touch, commands to run, manual checks, expected output, and Build Log update after completion.
 ```
 
 ## Update Protocol After Every Feature
@@ -875,13 +930,12 @@ Code execution: Piston API
 
 Current module: Dashboard
 Last completed feature: Dashboard shell
-Current feature status: Dashboard shell implemented, frontend build passed, pending commit
-Next task: Commit dashboard shell if pending, confirm git status clean, then select Course generation only
-Latest completed commit: a2ca3d4 docs: record protected routes completion
-Pending commit: Dashboard shell
-Git status: modified files pending commit for dashboard shell
-Tests passed: Frontend npm run build PASS; backend tests not required for frontend-only task
-Known bugs: None currently
+Current feature status: Dashboard shell implemented, frontend build passed, committed and pushed
+Next task: Local backend runtime config / dev database setup before Course generation
+Latest completed commit: 3abf231 feat: add dashboard shell
+Git status: clean after dashboard shell commit and push
+Tests passed: Frontend npm run build PASS; backend tests not required for frontend-only dashboard shell task
+Known bugs/blockers: Frontend browser register/login shows `Failed to fetch` because backend is not reachable/running with local datasource config. Backend runtime previously failed with `Failed to determine suitable jdbc url`.
 
 Important completed Auth details:
 - Register implemented.
@@ -930,7 +984,8 @@ Important completed Frontend auth details:
 - Frontend build passed with npm run build.
 - Commit `891476c feat: add frontend auth pages` was pushed to main.
 - Manual backend-connected smoke test not completed because local backend datasource is not configured.
-- Dashboard, profile UI, logout UI, token rotation, and Phase 2 features are not implemented yet.
+- Dashboard shell is implemented.
+- Profile UI, logout UI, token rotation, and Phase 2 features are not implemented yet.
 
 Important completed Protected routes details:
 - App.jsx wired with React state navigation only.
@@ -944,13 +999,13 @@ Important completed Protected routes details:
 - No React Router added.
 - No package.json or package-lock.json changes.
 - No backend files touched.
-- No real dashboard implemented.
+- No real dashboard implemented in protected routes task.
 - No logout UI implemented.
 - No token refresh retry or rotation implemented.
 - Frontend build passed with npm run build.
 - Commit `c607568 feat: add protected routes` was pushed to main.
 - Manual backend-connected profile load smoke test not completed because local backend datasource is not configured.
-- Dashboard implementation, course, AI, leaderboard, Docker, CI/CD, deployment, and Phase 2 features are not implemented yet.
+- Course, AI, leaderboard, Docker, CI/CD, deployment, and Phase 2 features are not implemented yet.
 
 Important completed Dashboard shell details:
 - DashboardShell.jsx is implemented as a static MVP dashboard shell only.
@@ -966,8 +1021,8 @@ Important completed Dashboard shell details:
 - No logout UI implemented.
 - No course generation, AI/Gemini, XP/streak logic, leaderboard, or code execution implemented.
 - Frontend build passed with npm run build.
-- Dashboard shell changes are pending commit.
-- Local browser-only manual dashboard shell smoke check is still pending.
+- Commit `3abf231 feat: add dashboard shell` was pushed to main.
+- Browser-only dashboard shell smoke check was blocked by backend register/login `Failed to fetch`, but dashboard shell itself has no backend/API behavior.
 
 Testing notes:
 - Always use Maven Wrapper only for backend:
@@ -979,13 +1034,14 @@ Testing notes:
 - For frontend tasks:
   cd frontend
   npm run build
-- Frontend protected routes build result:
+- Frontend dashboard shell build result:
   npm run build PASS
 
 Runtime note:
 - `cd backend && .\mvnw.cmd spring-boot:run` currently requires local datasource configuration.
 - Without datasource URL/profile it fails with `Failed to determine suitable jdbc url`.
 - This is not an API alignment, frontend auth, protected routes, or dashboard shell bug.
+- Next safe task is Local backend runtime config / dev database setup before Course generation.
 
 Rules:
 Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Prompts, Build Log, and AGENTS.md.
