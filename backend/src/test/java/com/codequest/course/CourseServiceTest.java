@@ -173,8 +173,32 @@ class CourseServiceTest {
                 AiFallbackReason.GEMINI_REQUEST_FAILURE,
                 courseService.determineFallbackReason(true, new GeminiException(GeminiException.Category.REQUEST_FAILURE, "Gemini request failed."))
         );
+        assertEquals(
+                "Falling back to placeholder course. reasonCategory=GEMINI_REQUEST_FAILURE, topic='binary search', requestedDifficulty=BEGINNER, geminiConfigured=true, exceptionType=GeminiException, httpStatusCode=403, httpStatusFamily=4xx",
+                courseService.buildFallbackDiagnosticMessage(
+                        "binary search",
+                        CourseDifficulty.BEGINNER,
+                        true,
+                        AiFallbackReason.GEMINI_REQUEST_FAILURE,
+                        new GeminiException(GeminiException.Category.REQUEST_FAILURE, "Gemini request failed.", 403, null)
+                )
+        );
 
         verify(responseParser, never()).parseCourseResponse(any());
+    }
+
+    @Test
+    void buildFallbackDiagnosticMessage_shouldUseNoneWhenHttpStatusIsUnavailable() {
+        assertEquals(
+                "Falling back to placeholder course. reasonCategory=EMPTY_GEMINI_RESPONSE_TEXT, topic='hashmap', requestedDifficulty=BEGINNER, geminiConfigured=true, exceptionType=GeminiException, httpStatusCode=None, httpStatusFamily=None",
+                courseService.buildFallbackDiagnosticMessage(
+                        "hashmap",
+                        CourseDifficulty.BEGINNER,
+                        true,
+                        AiFallbackReason.EMPTY_GEMINI_RESPONSE_TEXT,
+                        new GeminiException(GeminiException.Category.EMPTY_RESPONSE_TEXT, "Gemini response did not contain usable text.")
+                )
+        );
     }
 
     @Test

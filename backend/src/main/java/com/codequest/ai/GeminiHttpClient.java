@@ -2,6 +2,7 @@ package com.codequest.ai;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -9,6 +10,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
 
 @Component
@@ -22,10 +24,7 @@ public class GeminiHttpClient implements GeminiClient {
 
     @Override
     public String generateContent(String baseUrl, String model, String apiKey, String prompt) {
-        URI uri = UriComponentsBuilder.fromUriString(baseUrl)
-                .path("/v1beta/models/{model}:generateContent")
-                .queryParam("key", apiKey)
-                .build(model);
+        URI uri = buildGenerateContentUri(baseUrl, model, apiKey);
 
         GenerateContentResponse response;
         try {
@@ -38,6 +37,14 @@ public class GeminiHttpClient implements GeminiClient {
                     ))
                     .retrieve()
                     .body(GenerateContentResponse.class);
+        } catch (RestClientResponseException ex) {
+            throw new GeminiException(
+                    GeminiException.Category.REQUEST_FAILURE,
+                    "Gemini request failed with HTTP status " + ex.getStatusCode().value()
+                            + " (" + (ex.getStatusCode().value() / 100) + "xx).",
+                    ex.getStatusCode().value(),
+                    ex
+            );
         } catch (RestClientException ex) {
             throw new GeminiException(GeminiException.Category.REQUEST_FAILURE, "Gemini request failed.", ex);
         }
@@ -57,6 +64,22 @@ public class GeminiHttpClient implements GeminiClient {
         }
 
         return responseText;
+    }
+
+    static URI buildGenerateContentUri(String baseUrl, String model, String apiKey) {
+        String normalizedBaseUrl = baseUrl == null ? "" : baseUrl.trim();
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(normalizedBaseUrl);
+        String apiBasePath = normalizeApiBasePath(builder.build().getPath());
+
+        return builder
+                .replacePath(apiBasePath + "/models/{model}:generateContent")
+                .replaceQuery(null)
+                .queryParam("key", "{key}")
+                .buildAndExpand(Map.of(
+                        "model", model,
+                        "key", apiKey
+                ))
+                .toUri();
     }
 
     static String sanitizeGeneratedText(String text) {
@@ -83,6 +106,19 @@ public class GeminiHttpClient implements GeminiClient {
         }
 
         return trimmed;
+    }
+
+    private static String normalizeApiBasePath(String path) {
+        if (path == null || path.isBlank() || "/".equals(path)) {
+            return "/v1beta";
+        }
+
+        String normalizedPath = path.endsWith("/") ? path.substring(0, path.length() - 1) : path;
+        if (normalizedPath.endsWith("/v1beta")) {
+            return normalizedPath;
+        }
+
+        return normalizedPath + "/v1beta";
     }
 
     private boolean looksLikeJsonObject(String text) {

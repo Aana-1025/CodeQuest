@@ -256,15 +256,42 @@ public class CourseService {
 
     private void logFallbackReason(String normalizedTopic, CourseDifficulty requestedDifficulty,
                                    boolean geminiConfigured, AiFallbackReason reason, RuntimeException ex) {
-        String exceptionType = ex == null ? "None" : ex.getClass().getSimpleName();
-        logger.info(
-                "Falling back to placeholder course. reasonCategory={}, topic='{}', requestedDifficulty={}, geminiConfigured={}, exceptionType={}",
-                reason,
+        logger.info(buildFallbackDiagnosticMessage(
                 normalizedTopic,
                 requestedDifficulty,
                 geminiConfigured,
-                exceptionType
-        );
+                reason,
+                ex
+        ));
+    }
+
+    String buildFallbackDiagnosticMessage(String normalizedTopic, CourseDifficulty requestedDifficulty,
+                                          boolean geminiConfigured, AiFallbackReason reason, RuntimeException ex) {
+        String exceptionType = ex == null ? "None" : ex.getClass().getSimpleName();
+        Integer httpStatusCode = extractHttpStatusCode(ex);
+        String httpStatusFamily = extractHttpStatusFamily(ex);
+
+        return "Falling back to placeholder course. reasonCategory=" + reason
+                + ", topic='" + normalizedTopic + "'"
+                + ", requestedDifficulty=" + requestedDifficulty
+                + ", geminiConfigured=" + geminiConfigured
+                + ", exceptionType=" + exceptionType
+                + ", httpStatusCode=" + (httpStatusCode == null ? "None" : httpStatusCode)
+                + ", httpStatusFamily=" + (httpStatusFamily == null ? "None" : httpStatusFamily);
+    }
+
+    private Integer extractHttpStatusCode(RuntimeException ex) {
+        if (ex instanceof GeminiException geminiException) {
+            return geminiException.getHttpStatusCode();
+        }
+        return null;
+    }
+
+    private String extractHttpStatusFamily(RuntimeException ex) {
+        if (ex instanceof GeminiException geminiException) {
+            return geminiException.getHttpStatusFamily();
+        }
+        return null;
     }
 
     private String toDisplayTitle(String normalizedTopic) {
