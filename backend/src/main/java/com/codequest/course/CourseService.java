@@ -66,21 +66,25 @@ public class CourseService {
     }
 
     private GenerateCourseResponse createCourseWithSafeFallback(User creator, String normalizedTopic, GenerateCourseRequest request) {
-        if (geminiService.isConfigured()) {
-            try {
-                String rawAiResponse = geminiService.generateCourseJson(request);
-                AiCourseResponse aiCourseResponse = responseParser.parseCourseResponse(rawAiResponse);
-                validateRequestedDifficulty(request.difficulty(), aiCourseResponse.difficulty());
-                return createAiCourse(creator, normalizedTopic, request.difficulty(), aiCourseResponse);
-            } catch (GeminiException ex) {
-                logger.info("Falling back to placeholder course for topic '{}' because Gemini request failed.", normalizedTopic);
-            } catch (AiResponseValidationException ex) {
-                logger.info("Falling back to placeholder course for topic '{}' because AI response validation failed.", normalizedTopic);
-            } catch (IllegalArgumentException ex) {
-                logger.info("Falling back to placeholder course for topic '{}' because AI difficulty did not match request.", normalizedTopic);
-            } catch (RuntimeException ex) {
-                logger.info("Falling back to placeholder course for topic '{}' because AI generation failed safely.", normalizedTopic);
-            }
+        boolean geminiConfigured = geminiService.isConfigured();
+        if (!geminiConfigured) {
+            logFallbackReason(normalizedTopic, request.difficulty(), geminiConfigured, determineFallbackReason(false, null), null);
+            return createPlaceholderCourse(creator, normalizedTopic, request.difficulty());
+        }
+
+        try {
+            String rawAiResponse = geminiService.generateCourseJson(request);
+            AiCourseResponse aiCourseResponse = responseParser.parseCourseResponse(rawAiResponse);
+            validateRequestedDifficulty(request.difficulty(), aiCourseResponse.difficulty());
+            return createAiCourse(creator, normalizedTopic, request.difficulty(), aiCourseResponse);
+        } catch (RuntimeException ex) {
+            logFallbackReason(
+                    normalizedTopic,
+                    request.difficulty(),
+                    geminiConfigured,
+                    determineFallbackReason(true, ex),
+                    ex
+            );
         }
 
         return createPlaceholderCourse(creator, normalizedTopic, request.difficulty());
@@ -228,6 +232,41 @@ public class CourseService {
         }
     }
 
+    AiFallbackReason determineFallbackReason(boolean geminiConfigured, RuntimeException ex) {
+        if (!geminiConfigured) {
+            return AiFallbackReason.MISSING_GEMINI_CONFIG;
+        }
+        if (ex instanceof GeminiException geminiException) {
+            return switch (geminiException.getCategory()) {
+                case CONFIG_MISSING -> AiFallbackReason.MISSING_GEMINI_CONFIG;
+                case REQUEST_FAILURE -> AiFallbackReason.GEMINI_REQUEST_FAILURE;
+                case EMPTY_RESPONSE_TEXT -> AiFallbackReason.EMPTY_GEMINI_RESPONSE_TEXT;
+                case RESPONSE_EXTRACTION_FAILURE -> AiFallbackReason.RESPONSE_EXTRACTION_FAILURE;
+                case UNEXPECTED_GEMINI_ERROR -> AiFallbackReason.UNEXPECTED_AI_INTEGRATION_ERROR;
+            };
+        }
+        if (ex instanceof AiResponseValidationException) {
+            return AiFallbackReason.PARSER_VALIDATION_FAILURE;
+        }
+        if (ex instanceof IllegalArgumentException) {
+            return AiFallbackReason.REQUESTED_DIFFICULTY_MISMATCH;
+        }
+        return AiFallbackReason.UNEXPECTED_AI_INTEGRATION_ERROR;
+    }
+
+    private void logFallbackReason(String normalizedTopic, CourseDifficulty requestedDifficulty,
+                                   boolean geminiConfigured, AiFallbackReason reason, RuntimeException ex) {
+        String exceptionType = ex == null ? "None" : ex.getClass().getSimpleName();
+        logger.info(
+                "Falling back to placeholder course. reasonCategory={}, topic='{}', requestedDifficulty={}, geminiConfigured={}, exceptionType={}",
+                reason,
+                normalizedTopic,
+                requestedDifficulty,
+                geminiConfigured,
+                exceptionType
+        );
+    }
+
     private String toDisplayTitle(String normalizedTopic) {
         return List.of(normalizedTopic.split(" ")).stream()
                 .filter(part -> !part.isBlank())
@@ -242,4 +281,14 @@ public class CourseService {
 
         return input.substring(0, 1).toUpperCase(Locale.ROOT) + input.substring(1);
     }
+}
+
+enum AiFallbackReason {
+    MISSING_GEMINI_CONFIG,
+    GEMINI_REQUEST_FAILURE,
+    EMPTY_GEMINI_RESPONSE_TEXT,
+    RESPONSE_EXTRACTION_FAILURE,
+    PARSER_VALIDATION_FAILURE,
+    REQUESTED_DIFFICULTY_MISMATCH,
+    UNEXPECTED_AI_INTEGRATION_ERROR
 }

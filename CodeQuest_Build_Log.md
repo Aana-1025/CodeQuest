@@ -5,15 +5,15 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: AI / Gemini Prompt-Response Compatibility Polish
-Current feature: Gemini prompt/response compatibility polish completed, tested, manual fallback verified, pending commit
-Last completed feature: Gemini prompt/response compatibility polish for real Gemini AI-success path
-Next feature: Investigate real Gemini failure reason using safe diagnostics only, because manual real Gemini run still persisted PLACEHOLDER; do not start until git status is clean after this feature commit
+Current module: AI / Gemini Safe Diagnostics
+Current feature: Safe Gemini fallback diagnostics completed, tested, manual diagnostic verified, pending commit
+Last completed feature: Safe Gemini fallback diagnostics for real Gemini request failure investigation
+Next feature: Fix real Gemini request failure using safe root-cause investigation only; do not start until git status is clean after this diagnostics feature commit
 Current branch: main
-Latest commit before current pending feature: 5777c2d feat: wire gemini course generation fallback
-Pending commit message for current feature: fix: improve gemini response compatibility
-Test status: Backend `cd backend && .\mvnw.cmd test` PASS; 74 tests, 0 failures, 0 errors; no frontend changes; no DB migration changes; CourseController unchanged; PromptBuilder stricter parser-aligned schema PASS; GeminiHttpClient fenced/prose JSON sanitization tests PASS; ResponseParser invalid XP rejection PASS; manual browser generation completed for `Dynamic Programming Memoization AI Check`; DB persisted `source_type=PLACEHOLDER`, confirming fallback safety remains but real AI-success persistence is still not manually confirmed
-Git status: pending commit for Gemini prompt/response compatibility polish files plus this Build Log update
+Latest commit before current pending feature: 594636e fix: improve gemini response compatibility
+Pending commit message for current feature: chore: add safe gemini fallback diagnostics
+Test status: Backend `cd backend && .\mvnw.cmd test` PASS; 74 tests, 0 failures, 0 errors; no frontend changes; no DB migration changes; CourseController unchanged; safe fallback categories added and verified; manual browser generation completed for `Recursion Backtracking Safe Diagnostic Test`; DB persisted `source_type=PLACEHOLDER`; backend log showed `reasonCategory=GEMINI_REQUEST_FAILURE`, confirming Gemini config was present and the real Gemini request failed safely without exposing secrets or raw Gemini output
+Git status: pending commit for safe Gemini diagnostics files plus this Build Log update
 
 ## Completed Features
 - [x] Project setup
@@ -39,7 +39,8 @@ Git status: pending commit for Gemini prompt/response compatibility polish files
 - [x] ResponseParser + AI validation
 - [x] GeminiService + ResponseParser course generation wiring with safe fallback
 - [x] Gemini prompt/response compatibility polish
-- [ ] Real Gemini AI-success manual verification / safe diagnostics
+- [x] Safe Gemini fallback diagnostics
+- [ ] Real Gemini request failure fix / sourceType=AI manual verification
 - [ ] Course map
 - [ ] Level unlock logic
 - [ ] Lesson page
@@ -261,12 +262,42 @@ Git status: pending commit for Gemini prompt/response compatibility polish files
 - Manual browser generation for `Dynamic Programming Memoization AI Check` completed successfully with no browser error.
 - Manual DB result for topic `dynamic programming memoization ai check` showed `source_type=PLACEHOLDER` and `total_xp=225`, confirming fallback safety still works after prompt/response polish.
 - Manual real Gemini `source_type=AI` persistence is still not confirmed.
+- Safe Gemini fallback diagnostics are implemented.
+- `GeminiException` now carries safe Gemini error categories so request/config/extraction failures can be classified without exposing payloads or secrets.
+- `GeminiHttpClient` now classifies empty-response and response-extraction failures separately from request failures.
+- `GeminiService` marks missing Gemini config with an explicit safe category.
+- `CourseService` now logs a single safe structured fallback diagnostic line with:
+  - `reasonCategory`
+  - normalized topic
+  - requested difficulty
+  - whether Gemini was configured
+  - exception simple class name
+- Safe fallback diagnostics categories currently include:
+  - `MISSING_GEMINI_CONFIG`
+  - `GEMINI_REQUEST_FAILURE`
+  - `EMPTY_GEMINI_RESPONSE_TEXT`
+  - `RESPONSE_EXTRACTION_FAILURE`
+  - `PARSER_VALIDATION_FAILURE`
+  - `REQUESTED_DIFFICULTY_MISMATCH`
+  - `UNEXPECTED_AI_INTEGRATION_ERROR`
+- Safe fallback diagnostics must never include:
+  - API keys
+  - JWTs or tokens
+  - DB passwords
+  - raw Gemini response
+  - full prompt
+  - secrets
+- Manual browser generation for `Recursion Backtracking Safe Diagnostic Test` completed successfully with no browser error.
+- Manual DB result for topic `recursion backtracking safe diagnostic test` showed `source_type=PLACEHOLDER` and `total_xp=225`.
+- Manual backend log for `recursion backtracking safe diagnostic test` showed `reasonCategory=GEMINI_REQUEST_FAILURE`, `geminiConfigured=true`, and `exceptionType=GeminiException`.
+- Current real Gemini failure reason is now known at the safe category level: `GEMINI_REQUEST_FAILURE`.
+- This means Gemini config is present and CourseService is attempting Gemini, but the real Gemini HTTP request is failing before valid AI JSON can be parsed/persisted.
+- Next AI-related work should investigate/fix the real Gemini request failure safely, likely around model name, URL/path format, request body, API version, key/project access, quota, or GeminiHttpClient request construction.
 - API keys and local DB passwords must never be pasted into chat, Build Log, screenshots, or committed files.
 - If any Gemini API key was accidentally pasted into chat/logs/screenshots, revoke/delete it and create a new key.
 - Real Gemini API key was previously accidentally pasted during manual testing and should be considered exposed. Use only a newly rotated key for future local manual tests.
 - A local PostgreSQL password was also pasted during manual testing. Consider rotating the local DB password later. Do not commit or document the real password.
-- Next AI-related work should investigate why real Gemini manual runs still fall back to placeholder and confirm real `source_type=AI` manually without exposing secrets.
-- Do not combine next AI diagnostics work with frontend course map, quizzes UI, lessons UI, leaderboard, Docker, CI/CD, deployment, code execution, or Phase 2 features unless explicitly scoped.
+- Do not combine next AI request-failure fix work with frontend course map, quizzes UI, lessons UI, leaderboard, Docker, CI/CD, deployment, code execution, or Phase 2 features unless explicitly scoped.
 
 ## Current Source of Truth Files
 - CodeQuest_AI_Control_Master_Blueprint_v3.docx: full master blueprint in ChatGPT Project resources.
@@ -358,6 +389,7 @@ Git status: pending commit for Gemini prompt/response compatibility polish files
 - Gemini course generation wiring note: Mocked automated tests confirm valid AI response can persist an `AI` sourceType course with parsed course/level fields.
 - Gemini course generation wiring note: Manual runtime with Gemini env vars started backend successfully and browser course generation worked.
 - Gemini course generation wiring note: Manual DB check for topic `graph traversal bfs real ai test` returned `source_type=PLACEHOLDER` and `total_xp=225`, confirming fallback safety but not manual AI-success persistence.
+- Gemini prompt/response compatibility polish note: Commit `594636e fix: improve gemini response compatibility` was pushed to `main`, and git status was clean afterward.
 - Gemini prompt/response compatibility polish note: Backend `cd backend && .\mvnw.cmd test` passed with 74 tests, 0 failures, 0 errors.
 - Gemini prompt/response compatibility polish note: This task tightened `PromptBuilder` so Gemini is asked for parser-compatible JSON with exact difficulty, bounded levels, required booleans, XP ranges, explicit arrays, valid quiz answers, and no prose/markdown fences.
 - Gemini prompt/response compatibility polish note: `GeminiHttpClient` now sanitizes common Gemini output formats, including fenced ```json blocks and prose-wrapped JSON, before passing text to `ResponseParser`.
@@ -368,9 +400,23 @@ Git status: pending commit for Gemini prompt/response compatibility polish files
 - Gemini prompt/response compatibility polish note: `CourseController` was not changed.
 - Gemini prompt/response compatibility polish note: Manual browser generation for `Dynamic Programming Memoization AI Check` completed successfully with no browser error.
 - Gemini prompt/response compatibility polish note: Manual DB check for `dynamic programming memoization ai check` returned `source_type=PLACEHOLDER` and `total_xp=225`; fallback safety remains confirmed, but real Gemini `source_type=AI` persistence is still not manually confirmed.
+- Safe Gemini fallback diagnostics note: Backend `cd backend && .\mvnw.cmd test` passed with 74 tests, 0 failures, 0 errors.
+- Safe Gemini fallback diagnostics note: This task added safe fallback categories for Gemini config/request/extraction/parser/difficulty/unexpected failures.
+- Safe Gemini fallback diagnostics note: `GeminiException` now carries safe categories.
+- Safe Gemini fallback diagnostics note: `GeminiHttpClient` classifies empty-response and response-extraction failures separately from request failures.
+- Safe Gemini fallback diagnostics note: `GeminiService` marks missing Gemini config with explicit safe category `MISSING_GEMINI_CONFIG`.
+- Safe Gemini fallback diagnostics note: `CourseService` logs category-only safe fallback diagnostics with normalized topic, requested difficulty, Gemini configured boolean, and exception simple class name.
+- Safe Gemini fallback diagnostics note: Diagnostics do not log API keys, JWTs, tokens, DB passwords, full prompts, raw Gemini responses, or secrets.
+- Safe Gemini fallback diagnostics note: Frontend files were not changed.
+- Safe Gemini fallback diagnostics note: DB migrations were not changed.
+- Safe Gemini fallback diagnostics note: `CourseController` was not changed.
+- Safe Gemini fallback diagnostics note: Manual browser generation for `Recursion Backtracking Safe Diagnostic Test` completed successfully with no browser error.
+- Safe Gemini fallback diagnostics note: Manual DB check for `recursion backtracking safe diagnostic test` returned `source_type=PLACEHOLDER` and `total_xp=225`.
+- Safe Gemini fallback diagnostics note: Manual backend log showed `reasonCategory=GEMINI_REQUEST_FAILURE`, `geminiConfigured=true`, and `exceptionType=GeminiException`.
+- Safe Gemini fallback diagnostics note: Current known real Gemini fallback reason is `GEMINI_REQUEST_FAILURE`; next task should safely investigate/fix Gemini HTTP request failure.
 - Gemini course generation wiring note: Real Gemini API key was accidentally pasted in chat/log context during manual testing. It must be revoked/deleted and replaced with a new key. Do not commit or store the exposed key anywhere.
 - Gemini course generation wiring note: Local PostgreSQL password was also pasted in chat/log context. Consider rotating the local password later. Do not commit or document the real password.
-- Gemini course generation wiring note: Next AI-related work should investigate why the real Gemini manual runs still fall back to placeholder and confirm real `source_type=AI` manually without exposing secrets.
+- Gemini course generation wiring note: Next AI-related work should safely investigate why the real Gemini request fails and confirm real `source_type=AI` manually without exposing secrets.
 
 ## Feature History
 | # | Date | Feature | Module | Files changed | Tests | Commit/Notes |
@@ -402,7 +448,8 @@ Git status: pending commit for Gemini prompt/response compatibility polish files
 | 25 | 2026-05-05 | GeminiService + PromptBuilder foundation | AI / Gemini Foundation | GeminiProperties, PromptBuilder, GeminiService, main application.yml Gemini env placeholders, PromptBuilderTest, GeminiServiceTest, test application.yml Gemini test-safe config | Backend `cd backend && .\mvnw.cmd test` PASS; 57 tests total, 0 failures, 0 errors | `7162e2d feat: add gemini service and prompt builder foundation`. Commit pushed; git status clean. |
 | 26 | 2026-05-05 | ResponseParser + AI validation foundation | AI / Response Parser Foundation | ResponseParser, AiCourseResponse, AiLevelResponse, AiFlashcardResponse, AiQuizQuestionResponse, AiCodingProblemResponse, AiResponseValidationException, ResponseParserTest | Backend `cd backend && .\mvnw.cmd test` PASS; 65 tests total, 0 failures, 0 errors | `dd3bd86 feat: add ai response parser validation foundation`. Commit pushed; git status clean. |
 | 27 | 2026-05-05 | GeminiService + ResponseParser course generation wiring with safe fallback | AI / Course Generation Integration | GeminiClient, GeminiHttpClient, GeminiException, GeminiService, CourseService, GeminiServiceTest, CourseServiceTest | Backend `cd backend && .\mvnw.cmd test` PASS; 71 tests total, 0 failures, 0 errors. Manual backend runtime PASS with Gemini env vars. Manual browser course generation PASS. DB result for test topic persisted `source_type=PLACEHOLDER`, confirming fallback safety. | `5777c2d feat: wire gemini course generation fallback`. Added real Gemini client abstraction/HTTP client and wired AI generation on cache miss behind safe placeholder fallback. No frontend, no DB migration, no CourseController change. Mocked tests confirm AI success path; manual real AI-success persistence not confirmed yet. Commit pushed; git status clean. |
-| 28 | 2026-05-05 | Gemini prompt/response compatibility polish | AI / Gemini Prompt-Response Compatibility | PromptBuilder, GeminiHttpClient, CourseService, PromptBuilderTest, GeminiServiceTest, ResponseParserTest | Backend `cd backend && .\mvnw.cmd test` PASS; 74 tests total, 0 failures, 0 errors. Manual browser generation PASS. DB result for `dynamic programming memoization ai check` persisted `source_type=PLACEHOLDER`, confirming fallback safety but not real AI-success persistence. | Pending commit: `fix: improve gemini response compatibility`. Tightened parser-aligned prompt schema, added Gemini fenced/prose JSON sanitization, and added safe fallback reason logging categories. No frontend, no DB migration, no CourseController change. |
+| 28 | 2026-05-05 | Gemini prompt/response compatibility polish | AI / Gemini Prompt-Response Compatibility | PromptBuilder, GeminiHttpClient, CourseService, PromptBuilderTest, GeminiServiceTest, ResponseParserTest | Backend `cd backend && .\mvnw.cmd test` PASS; 74 tests total, 0 failures, 0 errors. Manual browser generation PASS. DB result for `dynamic programming memoization ai check` persisted `source_type=PLACEHOLDER`, confirming fallback safety but not real AI-success persistence. | `594636e fix: improve gemini response compatibility`. Tightened parser-aligned prompt schema, added Gemini fenced/prose JSON sanitization, and added safe fallback reason logging categories. No frontend, no DB migration, no CourseController change. Commit pushed; git status clean. |
+| 29 | 2026-05-06 | Safe Gemini fallback diagnostics | AI / Gemini Diagnostics | GeminiException, GeminiHttpClient, GeminiService, CourseService, GeminiServiceTest, CourseServiceTest | Backend `cd backend && .\mvnw.cmd test` PASS; 74 tests total, 0 failures, 0 errors. Manual browser generation PASS. DB result for `recursion backtracking safe diagnostic test` persisted `source_type=PLACEHOLDER`. Backend log showed `reasonCategory=GEMINI_REQUEST_FAILURE`. | Pending commit: `chore: add safe gemini fallback diagnostics`. Added safe category-based fallback diagnostics for Gemini config/request/extraction/parser/difficulty/unexpected failures. No frontend, no DB migration, no CourseController change. Real Gemini request failure is now safely identified as `GEMINI_REQUEST_FAILURE`. |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -451,6 +498,9 @@ Git status: pending commit for Gemini prompt/response compatibility polish files
 | 2026-05-05 | Manual browser course generation with Gemini env vars | PASS | Browser generated course for new topic without crashing. DB showed fallback `source_type=PLACEHOLDER`. | Yes |
 | 2026-05-05 | `cd backend && .\mvnw.cmd test` after Gemini prompt/response compatibility polish | PASS | Backend tests passed: 74 tests, 0 failures, 0 errors. Tests cover stricter PromptBuilder schema/output rules, GeminiHttpClient fenced JSON sanitization, prose-wrapped JSON extraction, ResponseParser invalid XP rejection, and existing fallback/AI-success behavior. No real Gemini calls in tests. | Yes |
 | 2026-05-05 | `git diff -- frontend`, `git diff -- backend/src/main/resources/db/migration`, `git diff -- backend/src/main/java/com/codequest/course/CourseController.java` after Gemini prompt/response compatibility polish | PASS | No frontend diff, no DB migration diff, no CourseController diff. | Yes |
+| 2026-05-06 | `cd backend && .\mvnw.cmd test` after safe Gemini fallback diagnostics | PASS | Backend tests passed: 74 tests, 0 failures, 0 errors. Tests verify safe fallback categorization for missing config, Gemini request failure, parser validation failure, difficulty mismatch, valid AI success, and preserved placeholder behavior. No real Gemini calls in tests. | Yes |
+| 2026-05-06 | `git diff -- frontend`, `git diff -- backend/src/main/resources/db/migration`, `git diff -- backend/src/main/java/com/codequest/course/CourseController.java` after safe Gemini fallback diagnostics | PASS | No frontend diff, no DB migration diff, no CourseController diff. | Yes |
+| 2026-05-06 | Manual browser course generation with safe Gemini diagnostics | PASS | Browser generated placeholder course for `Recursion Backtracking Safe Diagnostic Test` without crashing. DB showed `source_type=PLACEHOLDER`; backend log showed safe `reasonCategory=GEMINI_REQUEST_FAILURE`. | Yes |
 
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
@@ -494,6 +544,11 @@ Git status: pending commit for Gemini prompt/response compatibility polish files
 | 2026-05-05 | Gemini prompt/response compatibility scope check | `git diff -- frontend`, `git diff -- db/migration`, `git diff -- CourseController` | No frontend, DB migration, or CourseController changes | Passed |
 | 2026-05-05 | Gemini prompt/response browser check | Generate new uncached topic `Dynamic Programming Memoization AI Check` from DashboardShell with Gemini env vars | Course generation completes without browser error | Passed |
 | 2026-05-05 | Gemini prompt/response DB check | Query `courses` for normalized topic `dynamic programming memoization ai check` | Row exists with `source_type=PLACEHOLDER`, `total_xp=225` | Passed; fallback safety confirmed, real AI-success still not confirmed |
+| 2026-05-06 | Safe Gemini fallback diagnostics tests | `cd backend && .\mvnw.cmd test` | 74 tests pass; safe fallback categories and existing AI/fallback behavior remain stable | Passed |
+| 2026-05-06 | Safe Gemini fallback diagnostics scope check | `git diff -- frontend`, `git diff -- db/migration`, `git diff -- CourseController` | No frontend, DB migration, or CourseController changes | Passed |
+| 2026-05-06 | Safe Gemini fallback diagnostics browser check | Generate new uncached topic `Recursion Backtracking Safe Diagnostic Test` from DashboardShell with Gemini env vars | Course generation completes without browser error | Passed |
+| 2026-05-06 | Safe Gemini fallback diagnostics DB check | Query `courses` for normalized topic `recursion backtracking safe diagnostic test` | Row exists with `source_type=PLACEHOLDER`, `total_xp=225` | Passed; fallback safety confirmed |
+| 2026-05-06 | Safe Gemini fallback diagnostics log check | Inspect backend log after browser generation | Safe log shows `reasonCategory=GEMINI_REQUEST_FAILURE`, `geminiConfigured=true`, `exceptionType=GeminiException`; no raw Gemini output or secrets included | Passed; real Gemini request failure identified safely |
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -647,6 +702,7 @@ Important Auth register boundaries:
 - ResponseParser + AI validation foundation is implemented.
 - Gemini course generation wiring with safe fallback is implemented.
 - Gemini prompt/response compatibility polish is implemented.
+- Safe Gemini fallback diagnostics are implemented.
 
 ## Auth Login Manual Test Commands
 Use these after starting the backend with a configured local datasource/profile.
@@ -948,7 +1004,8 @@ Important Course generation boundaries:
 - Gemini/client failure falls back to placeholder.
 - Parser validation failure falls back to placeholder.
 - Valid parsed AI output can persist supported course/level fields with `sourceType=AI`.
-- Current manual real Gemini checks still persist `sourceType=PLACEHOLDER`, so real AI-success requires future safe diagnostics.
+- Current manual real Gemini checks still persist `sourceType=PLACEHOLDER`.
+- Safe diagnostics currently show real Gemini fallback reason as `GEMINI_REQUEST_FAILURE`.
 - No quiz, flashcard, note, progress, XP/rank/streak, leaderboard, Piston/code execution, Docker, CI/CD, deployment, or Phase 2 features are implemented.
 
 ## GeminiService + PromptBuilder Foundation Manual Test Commands
@@ -1034,7 +1091,7 @@ Errors: 0
 BUILD SUCCESS
 ```
 
-Expected after prompt/response compatibility polish:
+Expected after prompt/response compatibility polish and diagnostics:
 ```text
 Tests run: 74
 Failures: 0
@@ -1074,6 +1131,7 @@ Expected:
 Placeholder course still works.
 3 deterministic levels appear.
 No frontend crash.
+Safe fallback category should be MISSING_GEMINI_CONFIG if diagnostics are active.
 ```
 
 ### Real Gemini runtime check
@@ -1094,31 +1152,36 @@ cd backend
 
 Generate a new uncached topic from frontend/API:
 ```text
-Topic: Dynamic Programming Memoization AI Check
+Topic: Recursion Backtracking Safe Diagnostic Test
 Difficulty: BEGINNER
-Goal: Learn DP memoization for Java DSA interviews
+Goal: Learn recursion and backtracking for Java interviews
 ```
 
 Check DB source type:
 ```powershell
 $env:Path += ";C:\Program Files\PostgreSQL\17\bin"
-psql -U postgres -W -d codequest -c "select title, difficulty, source_type, total_xp, created_at from courses where normalized_topic='dynamic programming memoization ai check' order by created_at desc limit 1;"
+psql -U postgres -W -d codequest -c "select title, difficulty, source_type, total_xp, created_at from courses where normalized_topic='recursion backtracking safe diagnostic test' order by created_at desc limit 1;"
 ```
 
 Observed latest manual result:
 ```text
-title: Dynamic Programming Memoization Ai Check
+title: Recursion Backtracking Safe Diagnostic Test
 difficulty: BEGINNER
 source_type: PLACEHOLDER
 total_xp: 225
+reasonCategory: GEMINI_REQUEST_FAILURE
+geminiConfigured: true
+exceptionType: GeminiException
 ```
 
 Meaning:
 ```text
 Manual fallback safety confirmed.
 Manual real AI-success persistence not confirmed yet.
-Mocked automated tests confirm valid AI-success path.
-Next AI task should diagnose real Gemini failure reason safely.
+Gemini configuration is present.
+CourseService attempted real Gemini.
+Real Gemini HTTP request failed before valid AI JSON could be parsed/persisted.
+Next task should safely investigate and fix GEMINI_REQUEST_FAILURE.
 ```
 
 Important Gemini wiring boundaries:
@@ -1201,7 +1264,7 @@ Meaning:
 Prompt/response compatibility polish did not break the app.
 Fallback safety is still confirmed.
 Manual real source_type=AI persistence is still not confirmed.
-Next task should use safe diagnostics to determine why real Gemini run falls back.
+Safe diagnostics later identified real Gemini fallback reason as GEMINI_REQUEST_FAILURE.
 ```
 
 Important boundaries:
@@ -1209,6 +1272,95 @@ Important boundaries:
 - No API key should be pasted, logged, committed, or stored in Build Log.
 - No DB migration should be added for this diagnostic step unless explicitly scoped.
 - No frontend changes should be made unless explicitly scoped.
+
+## Safe Gemini Fallback Diagnostics Manual Test Commands
+Use this after the safe diagnostics task.
+
+### Automated verification
+```powershell
+cd backend
+.\mvnw.cmd test
+cd ..
+```
+
+Expected:
+```text
+Tests run: 74
+Failures: 0
+Errors: 0
+BUILD SUCCESS
+```
+
+### Scope checks
+```powershell
+git diff -- frontend
+git diff -- backend/src/main/resources/db/migration
+git diff -- backend/src/main/java/com/codequest/course/CourseController.java
+```
+
+Expected:
+```text
+No output for all unrelated diff checks.
+```
+
+### Real Gemini diagnostic check
+Start backend with DB/JWT/Gemini env vars using a rotated key only:
+```powershell
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
+$env:DATABASE_USERNAME="postgres"
+$env:DATABASE_PASSWORD="<your-local-postgres-password>"
+$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
+
+$env:GEMINI_API_KEY="<your-new-rotated-gemini-key>"
+$env:GEMINI_MODEL="gemini-1.5-flash"
+$env:GEMINI_BASE_URL="https://generativelanguage.googleapis.com"
+
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+Generate a new uncached topic from DashboardShell:
+```text
+Topic: Recursion Backtracking Safe Diagnostic Test
+Difficulty: BEGINNER
+Goal: Learn recursion and backtracking for Java interviews
+```
+
+Check backend log for safe diagnostic line:
+```text
+Falling back to placeholder course. reasonCategory=GEMINI_REQUEST_FAILURE, topic='recursion backtracking safe diagnostic test', requestedDifficulty=BEGINNER, geminiConfigured=true, exceptionType=GeminiException
+```
+
+Check DB:
+```powershell
+$env:Path += ";C:\Program Files\PostgreSQL\17\bin"
+psql -U postgres -W -d codequest -c "select title, difficulty, source_type, total_xp, created_at from courses where normalized_topic='recursion backtracking safe diagnostic test' order by created_at desc limit 1;"
+```
+
+Observed result:
+```text
+source_type=PLACEHOLDER
+total_xp=225
+reasonCategory=GEMINI_REQUEST_FAILURE
+```
+
+Meaning:
+```text
+Diagnostics are working.
+Gemini config is present.
+Request reaches Gemini integration path.
+Fallback occurs because the Gemini request itself fails.
+No raw Gemini output or secrets were logged.
+Next task should safely inspect/fix GeminiHttpClient request URL/body/model/API version/key access without exposing secrets.
+```
+
+Important boundaries:
+- No raw Gemini response should be logged.
+- No API key should be pasted, logged, committed, or stored in Build Log.
+- No full prompt should be logged.
+- No DB migration should be added for this diagnostic step unless explicitly scoped.
+- No frontend changes should be made unless explicitly scoped.
+- Placeholder fallback must remain.
 
 ## Frontend Course Generation UI Manual Test Commands
 Use these after starting backend and frontend.
@@ -1410,12 +1562,12 @@ Continue CodeQuest from the current status.
 Do not redesign anything.
 Do not implement Phase 2 features.
 
-Current module: AI / Gemini Prompt-Response Compatibility Polish.
-Last completed feature: Gemini prompt/response compatibility polish for real Gemini AI-success path.
-Current feature status: Gemini prompt/response compatibility polish completed, backend tests passed, manual fallback verified; commit may still be pending if this Build Log update has not been committed.
-Latest completed commit before current pending feature: 5777c2d feat: wire gemini course generation fallback.
-Pending commit for current feature: fix: improve gemini response compatibility.
-Git status: should be clean only after committing PromptBuilder, GeminiHttpClient, CourseService, GeminiServiceTest, PromptBuilderTest, ResponseParserTest, and this Build Log update.
+Current module: AI / Gemini Safe Diagnostics.
+Last completed feature: Safe Gemini fallback diagnostics for real Gemini request failure investigation.
+Current feature status: Safe Gemini fallback diagnostics completed, backend tests passed, manual diagnostic verified; commit may still be pending if this Build Log update has not been committed.
+Latest completed commit before current pending feature: 594636e fix: improve gemini response compatibility.
+Pending commit for current feature: chore: add safe gemini fallback diagnostics.
+Git status: should be clean only after committing GeminiException, GeminiHttpClient, GeminiService, CourseService, GeminiServiceTest, CourseServiceTest, and this Build Log update.
 
 Important completed local runtime details:
 - PostgreSQL 17 installed locally.
@@ -1445,14 +1597,22 @@ Important completed AI details:
 - ResponseParser validates Gemini JSON and throws safe AiResponseValidationException.
 - GeminiClient abstraction implemented.
 - GeminiHttpClient implemented using Spring RestClient.
-- GeminiException implemented for safe Gemini failures.
-- GeminiService delegates to GeminiClient only when Gemini config is present.
+- GeminiException implemented for safe Gemini failures and now carries safe error categories.
+- GeminiService delegates to GeminiClient only when config is present.
 - CourseService attempts Gemini + ResponseParser only on cache miss when config is present.
 - Missing config/client failure/parser failure falls back to placeholder.
 - Valid AI response can persist supported course/level fields with sourceType=AI.
 - Flashcards, quizzes, and codingProblems are parsed/validated but not persisted.
 - PromptBuilder has been tightened to request exact parser-compatible JSON.
-- GeminiHttpClient now sanitizes fenced ```json blocks and common prose-wrapped JSON before parser validation.
+- GeminiHttpClient sanitizes fenced ```json blocks and common prose-wrapped JSON before parser validation.
+- Safe diagnostics categories implemented:
+  MISSING_GEMINI_CONFIG,
+  GEMINI_REQUEST_FAILURE,
+  EMPTY_GEMINI_RESPONSE_TEXT,
+  RESPONSE_EXTRACTION_FAILURE,
+  PARSER_VALIDATION_FAILURE,
+  REQUESTED_DIFFICULTY_MISMATCH,
+  UNEXPECTED_AI_INTEGRATION_ERROR.
 - CourseService logs safe fallback reason categories only.
 - No raw Gemini output, prompt, API key, JWT, token, password, or secret should be logged.
 - No frontend changes.
@@ -1463,12 +1623,13 @@ Testing completed:
 - Backend test command:
   cd backend
   .\mvnw.cmd test
-- Result after latest polish: 74 tests, 0 failures, 0 errors.
-- Tests cover stricter PromptBuilder schema/output rules, GeminiHttpClient fenced JSON sanitization, prose-wrapped JSON extraction, ResponseParser invalid XP rejection, cache hit no Gemini call, missing config fallback, Gemini/client failure fallback, parser failure fallback, valid mocked AI response persistence, and preserved placeholder compatibility.
+- Result after latest diagnostics: 74 tests, 0 failures, 0 errors.
+- Tests cover safe fallback categorization for missing config, Gemini request failure, parser validation failure, difficulty mismatch, valid mocked AI response persistence, and preserved placeholder compatibility.
 - Scope checks showed no frontend diff, no DB migration diff, and no CourseController diff.
-- Manual browser course generation for `Dynamic Programming Memoization AI Check` worked.
-- Manual DB check for normalized topic `dynamic programming memoization ai check` returned source_type=PLACEHOLDER and total_xp=225.
-- This confirms fallback safety after prompt/response polish.
+- Manual browser course generation for `Recursion Backtracking Safe Diagnostic Test` worked.
+- Manual DB check for normalized topic `recursion backtracking safe diagnostic test` returned source_type=PLACEHOLDER and total_xp=225.
+- Manual backend log showed reasonCategory=GEMINI_REQUEST_FAILURE, geminiConfigured=true, exceptionType=GeminiException.
+- This confirms fallback safety and identifies real Gemini request failure at safe category level.
 - Manual real AI-success persistence with source_type=AI is still not confirmed.
 - Mocked automated tests confirm valid AI success path.
 
@@ -1478,10 +1639,11 @@ Security notes:
 - A local DB password was also pasted during manual testing. Consider rotating local DB password later.
 - Never hardcode API keys.
 - Never commit real secrets.
+- Do not log raw Gemini output, full prompts, API keys, JWTs, tokens, passwords, or secrets.
 
 Not implemented yet:
+- Fix for real Gemini request failure
 - Confirmed real Gemini AI-success manual persistence
-- Safe diagnostics for real Gemini fallback reason
 - Real Course map navigation
 - Lesson page
 - Flashcards UI
@@ -1497,9 +1659,9 @@ Not implemented yet:
 - Phase 2 features
 
 Next safest step:
-First confirm git status is clean after committing Gemini prompt/response compatibility polish.
-Then investigate why real Gemini manual run still falls back to PLACEHOLDER using safe diagnostics only.
-Goal: identify whether fallback is caused by Gemini request failure, response extraction, parser validation, difficulty mismatch, quota/model/API version, or other safe reason.
+First confirm git status is clean after committing safe Gemini fallback diagnostics.
+Then investigate and fix GEMINI_REQUEST_FAILURE safely.
+Goal: identify whether request failure is caused by model name, endpoint URL/path, API version, request JSON shape, missing query parameter/key handling, Google AI Studio key/project access, quota, or unsupported model.
 Do not remove placeholder fallback.
 Do not touch frontend unless explicitly scoped.
 Do not add DB migrations unless explicitly scoped.
@@ -1508,6 +1670,7 @@ Do not call Gemini in automated tests.
 Keep tests deterministic.
 Do not persist unsafe/unvalidated AI output.
 Do not log raw Gemini response, full prompt, API key, JWTs, tokens, passwords, or secrets.
+If logging request diagnostics, log only safe categories, model name, base URL host/path without API key, and response status class/code if available.
 ```
 
 ## Update Protocol After Every Feature
@@ -1551,15 +1714,15 @@ Database: PostgreSQL + Flyway
 AI: Gemini API
 Code execution: Piston API
 
-Current module: AI / Gemini Prompt-Response Compatibility Polish
-Last completed feature: Gemini prompt/response compatibility polish for real Gemini AI-success path
-Current feature status: Gemini prompt/response compatibility polish completed, backend tests passed, manual fallback verified; commit may still be pending if Build Log update has not been committed yet
-Next task: Investigate real Gemini fallback reason using safe diagnostics only
-Latest completed commit before current pending feature: 5777c2d feat: wire gemini course generation fallback
-Pending commit: fix: improve gemini response compatibility
-Git status: should be clean only after committing PromptBuilder, GeminiHttpClient, CourseService, GeminiServiceTest, PromptBuilderTest, ResponseParserTest, and this Build Log update
+Current module: AI / Gemini Safe Diagnostics
+Last completed feature: Safe Gemini fallback diagnostics for real Gemini request failure investigation
+Current feature status: Safe Gemini fallback diagnostics completed, backend tests passed, manual diagnostic verified; commit may still be pending if Build Log update has not been committed yet
+Next task: Fix real Gemini request failure safely
+Latest completed commit before current pending feature: 594636e fix: improve gemini response compatibility
+Pending commit: chore: add safe gemini fallback diagnostics
+Git status: should be clean only after committing GeminiException, GeminiHttpClient, GeminiService, CourseService, GeminiServiceTest, CourseServiceTest, and this Build Log update
 Tests passed: Backend .\mvnw.cmd test PASS with 74 tests, 0 failures, 0 errors
-Known bugs/blockers: Manual real Gemini run still fell back to PLACEHOLDER; source_type=AI not manually confirmed yet. Mocked automated tests cover AI success path.
+Known bugs/blockers: Manual real Gemini run still fell back to PLACEHOLDER. Safe diagnostic category is GEMINI_REQUEST_FAILURE with geminiConfigured=true. source_type=AI not manually confirmed yet. Mocked automated tests cover AI success path.
 
 Important completed Auth details:
 - Register implemented.
@@ -1617,12 +1780,22 @@ Important completed AI details:
 - AI response DTO records implemented.
 - GeminiClient abstraction implemented.
 - GeminiHttpClient implemented using Spring RestClient.
-- GeminiHttpClient now sanitizes fenced/prose-wrapped JSON.
-- GeminiException implemented.
+- GeminiHttpClient sanitizes fenced/prose-wrapped JSON.
+- GeminiException implemented and now carries safe categories.
 - GeminiService delegates to GeminiClient only when config is present.
 - CourseService attempts Gemini + ResponseParser only on cache miss when config is present.
 - Missing config/client failure/parser failure falls back to placeholder.
 - Valid mocked AI response can persist supported course/level fields with sourceType=AI.
+- Safe diagnostics categories implemented:
+  MISSING_GEMINI_CONFIG,
+  GEMINI_REQUEST_FAILURE,
+  EMPTY_GEMINI_RESPONSE_TEXT,
+  RESPONSE_EXTRACTION_FAILURE,
+  PARSER_VALIDATION_FAILURE,
+  REQUESTED_DIFFICULTY_MISMATCH,
+  UNEXPECTED_AI_INTEGRATION_ERROR.
+- Manual real Gemini request currently falls back with GEMINI_REQUEST_FAILURE.
+- geminiConfigured=true in manual diagnostic, so env config is present.
 - Flashcards, quizzes, and codingProblems are parsed/validated but not persisted.
 - No frontend changes.
 - No DB migration changes.

@@ -39,12 +39,21 @@ public class GeminiHttpClient implements GeminiClient {
                     .retrieve()
                     .body(GenerateContentResponse.class);
         } catch (RestClientException ex) {
-            throw new GeminiException("Gemini request failed.", ex);
+            throw new GeminiException(GeminiException.Category.REQUEST_FAILURE, "Gemini request failed.", ex);
         }
 
         String responseText = extractText(response);
         if (responseText.isBlank()) {
-            throw new GeminiException("Gemini response did not contain usable text.");
+            throw new GeminiException(
+                    GeminiException.Category.EMPTY_RESPONSE_TEXT,
+                    "Gemini response did not contain usable text."
+            );
+        }
+        if (!looksLikeJsonObject(responseText)) {
+            throw new GeminiException(
+                    GeminiException.Category.RESPONSE_EXTRACTION_FAILURE,
+                    "Gemini response did not contain a parsable JSON object."
+            );
         }
 
         return responseText;
@@ -74,6 +83,10 @@ public class GeminiHttpClient implements GeminiClient {
         }
 
         return trimmed;
+    }
+
+    private boolean looksLikeJsonObject(String text) {
+        return text.startsWith("{") && text.endsWith("}");
     }
 
     private String extractText(GenerateContentResponse response) {

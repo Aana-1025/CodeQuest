@@ -89,10 +89,12 @@ class GeminiServiceTest {
         PromptBuilder promptBuilder = new PromptBuilder();
         GeminiService geminiService = new GeminiService(properties, promptBuilder, geminiClient);
 
-        assertThrows(
+        GeminiException exception = assertThrows(
                 GeminiException.class,
                 () -> geminiService.generateCourseJson(new GenerateCourseRequest("Binary Search", CourseDifficulty.BEGINNER, null))
         );
+
+        assertEquals(GeminiException.Category.CONFIG_MISSING, exception.getCategory());
     }
 
     @Test

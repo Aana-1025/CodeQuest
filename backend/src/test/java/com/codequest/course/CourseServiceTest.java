@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -82,6 +81,7 @@ class CourseServiceTest {
         assertEquals(2, response.levels().get(1).orderNumber());
         assertEquals(3, response.levels().get(2).orderNumber());
         assertTrue(response.levels().get(2).isBoss());
+        assertEquals(AiFallbackReason.MISSING_GEMINI_CONFIG, courseService.determineFallbackReason(false, null));
 
         verify(courseRepository).findByNormalizedTopicAndDifficulty("binary search", CourseDifficulty.BEGINNER);
         verify(courseRepository).save(any(Course.class));
@@ -156,7 +156,8 @@ class CourseServiceTest {
         when(courseRepository.findByNormalizedTopicAndDifficulty("binary search", CourseDifficulty.BEGINNER))
                 .thenReturn(Optional.empty());
         when(geminiService.isConfigured()).thenReturn(true);
-        when(geminiService.generateCourseJson(request)).thenThrow(new GeminiException("Gemini request failed."));
+        when(geminiService.generateCourseJson(request))
+                .thenThrow(new GeminiException(GeminiException.Category.REQUEST_FAILURE, "Gemini request failed."));
 
         ArgumentCaptor<Course> courseCaptor = ArgumentCaptor.forClass(Course.class);
         when(courseRepository.save(courseCaptor.capture()))
@@ -168,6 +169,10 @@ class CourseServiceTest {
         assertEquals("Binary Search", response.title());
         assertEquals(CourseSourceType.PLACEHOLDER, courseCaptor.getValue().getSourceType());
         assertEquals(3, response.levels().size());
+        assertEquals(
+                AiFallbackReason.GEMINI_REQUEST_FAILURE,
+                courseService.determineFallbackReason(true, new GeminiException(GeminiException.Category.REQUEST_FAILURE, "Gemini request failed."))
+        );
 
         verify(responseParser, never()).parseCourseResponse(any());
     }
@@ -193,6 +198,10 @@ class CourseServiceTest {
         assertFalse(response.cacheHit());
         assertEquals(CourseSourceType.PLACEHOLDER, courseCaptor.getValue().getSourceType());
         assertEquals(3, response.levels().size());
+        assertEquals(
+                AiFallbackReason.PARSER_VALIDATION_FAILURE,
+                courseService.determineFallbackReason(true, new AiResponseValidationException("title is required."))
+        );
     }
 
     @Test
@@ -300,6 +309,10 @@ class CourseServiceTest {
         assertFalse(response.cacheHit());
         assertEquals(CourseSourceType.PLACEHOLDER, courseCaptor.getValue().getSourceType());
         assertEquals(3, response.levels().size());
+        assertEquals(
+                AiFallbackReason.REQUESTED_DIFFICULTY_MISMATCH,
+                courseService.determineFallbackReason(true, new IllegalArgumentException("AI difficulty did not match the requested difficulty."))
+        );
     }
 
     private User createUser() {

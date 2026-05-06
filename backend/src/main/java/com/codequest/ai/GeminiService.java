@@ -30,7 +30,7 @@ public class GeminiService {
 
     public String generateCourseJson(GenerateCourseRequest request) {
         if (!isConfigured()) {
-            throw new GeminiException("Gemini is not configured.");
+            throw new GeminiException(GeminiException.Category.CONFIG_MISSING, "Gemini is not configured.");
         }
 
         String prompt = promptBuilder.buildCourseGenerationPrompt(
