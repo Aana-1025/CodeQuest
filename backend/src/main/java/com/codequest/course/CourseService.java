@@ -32,6 +32,8 @@ import com.codequest.user.UserRepository;
 public class CourseService {
 
     private static final Logger logger = LoggerFactory.getLogger(CourseService.class);
+    private static final int INITIAL_GEMINI_ATTEMPT = 1;
+    private static final int MAX_GEMINI_ATTEMPTS = 2;
 
     private final CourseRepository courseRepository;
     private final LevelRepository levelRepository;
@@ -73,7 +75,7 @@ public class CourseService {
         }
 
         try {
-            String rawAiResponse = geminiService.generateCourseJson(request);
+            String rawAiResponse = generateCourseJsonWithRetry(request);
             AiCourseResponse aiCourseResponse = responseParser.parseCourseResponse(rawAiResponse);
             validateRequestedDifficulty(request.difficulty(), aiCourseResponse.difficulty());
             return createAiCourse(creator, normalizedTopic, request.difficulty(), aiCourseResponse);
@@ -88,6 +90,27 @@ public class CourseService {
         }
 
         return createPlaceholderCourse(creator, normalizedTopic, request.difficulty());
+    }
+
+    private String generateCourseJsonWithRetry(GenerateCourseRequest request) {
+        RuntimeException lastFailure = null;
+
+        for (int attempt = INITIAL_GEMINI_ATTEMPT; attempt <= MAX_GEMINI_ATTEMPTS; attempt++) {
+            try {
+                return geminiService.generateCourseJson(request);
+            } catch (RuntimeException ex) {
+                lastFailure = ex;
+                if (!shouldRetryGeminiRequest(ex) || attempt == MAX_GEMINI_ATTEMPTS) {
+                    throw ex;
+                }
+
+                logger.info(buildRetryDiagnosticMessage(request.topic(), request.difficulty(), ex, attempt));
+            }
+        }
+
+        throw lastFailure == null
+                ? new GeminiException(GeminiException.Category.UNEXPECTED_GEMINI_ERROR, "Gemini retry failed unexpectedly.")
+                : lastFailure;
     }
 
     private GenerateCourseResponse createPlaceholderCourse(User creator, String normalizedTopic, CourseDifficulty difficulty) {
@@ -263,6 +286,33 @@ public class CourseService {
                 reason,
                 ex
         ));
+    }
+
+    String buildRetryDiagnosticMessage(String topic, CourseDifficulty requestedDifficulty, RuntimeException ex, int attempt) {
+        String normalizedTopic = normalizeTopic(topic);
+        String exceptionType = ex == null ? "None" : ex.getClass().getSimpleName();
+        Integer httpStatusCode = extractHttpStatusCode(ex);
+        String httpStatusFamily = extractHttpStatusFamily(ex);
+
+        return "Retrying Gemini course generation after transient failure. topic='" + normalizedTopic + "'"
+                + ", requestedDifficulty=" + requestedDifficulty
+                + ", attempt=" + attempt
+                + ", exceptionType=" + exceptionType
+                + ", httpStatusCode=" + (httpStatusCode == null ? "None" : httpStatusCode)
+                + ", httpStatusFamily=" + (httpStatusFamily == null ? "None" : httpStatusFamily);
+    }
+
+    private boolean shouldRetryGeminiRequest(RuntimeException ex) {
+        if (!(ex instanceof GeminiException geminiException)) {
+            return false;
+        }
+
+        return geminiException.getCategory() == GeminiException.Category.REQUEST_FAILURE
+                && isServerError(geminiException.getHttpStatusCode());
+    }
+
+    private boolean isServerError(Integer httpStatusCode) {
+        return httpStatusCode != null && httpStatusCode >= 500 && httpStatusCode < 600;
     }
 
     String buildFallbackDiagnosticMessage(String normalizedTopic, CourseDifficulty requestedDifficulty,

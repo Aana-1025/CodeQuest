@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -188,6 +189,118 @@ class CourseServiceTest {
     }
 
     @Test
+    void generateCourse_shouldRetryOnceWhenFirstGeminiAttemptReturns503AndSecondSucceeds() {
+        User creator = createUser();
+        GenerateCourseRequest request = new GenerateCourseRequest("Graph DFS Gemini Retry Test", CourseDifficulty.BEGINNER, "Learn DFS");
+
+        when(courseRepository.findByNormalizedTopicAndDifficulty("graph dfs gemini retry test", CourseDifficulty.BEGINNER))
+                .thenReturn(Optional.empty());
+        when(geminiService.isConfigured()).thenReturn(true);
+        when(geminiService.generateCourseJson(request))
+                .thenThrow(new GeminiException(GeminiException.Category.REQUEST_FAILURE, "Gemini request failed.", 503, null))
+                .thenReturn("{\"title\":\"Graph DFS\"}");
+        when(responseParser.parseCourseResponse("{\"title\":\"Graph DFS\"}"))
+                .thenReturn(new AiCourseResponse(
+                        "Graph DFS",
+                        "A structured DFS course for Java interview practice.",
+                        "BEGINNER",
+                        List.of(
+                                new AiLevelResponse(
+                                        "DFS Basics",
+                                        "# DFS Basics\n\nUnderstand recursion, stacks, and traversal order.",
+                                        1,
+                                        false,
+                                        70,
+                                        List.of(),
+                                        List.of(),
+                                        List.of()
+                                )
+                        )
+                ));
+
+        ArgumentCaptor<Course> courseCaptor = ArgumentCaptor.forClass(Course.class);
+        when(courseRepository.save(courseCaptor.capture()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        GenerateCourseResponse response = courseService.generateCourse(creator, request);
+
+        assertFalse(response.cacheHit());
+        assertEquals(CourseSourceType.AI, courseCaptor.getValue().getSourceType());
+        verify(geminiService, times(2)).generateCourseJson(request);
+        verify(responseParser).parseCourseResponse("{\"title\":\"Graph DFS\"}");
+    }
+
+    @Test
+    void generateCourse_shouldFallbackToPlaceholderAfterTwoGemini5xxFailures() {
+        User creator = createUser();
+        GenerateCourseRequest request = new GenerateCourseRequest("Binary Search", CourseDifficulty.BEGINNER, "DSA");
+
+        when(courseRepository.findByNormalizedTopicAndDifficulty("binary search", CourseDifficulty.BEGINNER))
+                .thenReturn(Optional.empty());
+        when(geminiService.isConfigured()).thenReturn(true);
+        when(geminiService.generateCourseJson(request))
+                .thenThrow(new GeminiException(GeminiException.Category.REQUEST_FAILURE, "Gemini request failed.", 503, null))
+                .thenThrow(new GeminiException(GeminiException.Category.REQUEST_FAILURE, "Gemini request failed.", 502, null));
+
+        ArgumentCaptor<Course> courseCaptor = ArgumentCaptor.forClass(Course.class);
+        when(courseRepository.save(courseCaptor.capture()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        GenerateCourseResponse response = courseService.generateCourse(creator, request);
+
+        assertFalse(response.cacheHit());
+        assertEquals(CourseSourceType.PLACEHOLDER, courseCaptor.getValue().getSourceType());
+        verify(geminiService, times(2)).generateCourseJson(request);
+        verify(responseParser, never()).parseCourseResponse(any());
+    }
+
+    @Test
+    void generateCourse_shouldNotRetryWhenGeminiReturns403() {
+        User creator = createUser();
+        GenerateCourseRequest request = new GenerateCourseRequest("Binary Search", CourseDifficulty.BEGINNER, "DSA");
+
+        when(courseRepository.findByNormalizedTopicAndDifficulty("binary search", CourseDifficulty.BEGINNER))
+                .thenReturn(Optional.empty());
+        when(geminiService.isConfigured()).thenReturn(true);
+        when(geminiService.generateCourseJson(request))
+                .thenThrow(new GeminiException(GeminiException.Category.REQUEST_FAILURE, "Gemini request failed.", 403, null));
+
+        ArgumentCaptor<Course> courseCaptor = ArgumentCaptor.forClass(Course.class);
+        when(courseRepository.save(courseCaptor.capture()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        GenerateCourseResponse response = courseService.generateCourse(creator, request);
+
+        assertFalse(response.cacheHit());
+        assertEquals(CourseSourceType.PLACEHOLDER, courseCaptor.getValue().getSourceType());
+        verify(geminiService, times(1)).generateCourseJson(request);
+        verify(responseParser, never()).parseCourseResponse(any());
+    }
+
+    @Test
+    void generateCourse_shouldNotRetryWhenGeminiReturns429() {
+        User creator = createUser();
+        GenerateCourseRequest request = new GenerateCourseRequest("Binary Search", CourseDifficulty.BEGINNER, "DSA");
+
+        when(courseRepository.findByNormalizedTopicAndDifficulty("binary search", CourseDifficulty.BEGINNER))
+                .thenReturn(Optional.empty());
+        when(geminiService.isConfigured()).thenReturn(true);
+        when(geminiService.generateCourseJson(request))
+                .thenThrow(new GeminiException(GeminiException.Category.REQUEST_FAILURE, "Gemini request failed.", 429, null));
+
+        ArgumentCaptor<Course> courseCaptor = ArgumentCaptor.forClass(Course.class);
+        when(courseRepository.save(courseCaptor.capture()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        GenerateCourseResponse response = courseService.generateCourse(creator, request);
+
+        assertFalse(response.cacheHit());
+        assertEquals(CourseSourceType.PLACEHOLDER, courseCaptor.getValue().getSourceType());
+        verify(geminiService, times(1)).generateCourseJson(request);
+        verify(responseParser, never()).parseCourseResponse(any());
+    }
+
+    @Test
     void buildFallbackDiagnosticMessage_shouldUseNoneWhenHttpStatusIsUnavailable() {
         assertEquals(
                 "Falling back to placeholder course. reasonCategory=EMPTY_GEMINI_RESPONSE_TEXT, topic='hashmap', requestedDifficulty=BEGINNER, geminiConfigured=true, exceptionType=GeminiException, httpStatusCode=None, httpStatusFamily=None",
@@ -226,6 +339,7 @@ class CourseServiceTest {
                 AiFallbackReason.PARSER_VALIDATION_FAILURE,
                 courseService.determineFallbackReason(true, new AiResponseValidationException("title is required."))
         );
+        verify(geminiService, times(1)).generateCourseJson(request);
     }
 
     @Test
@@ -294,6 +408,19 @@ class CourseServiceTest {
         assertEquals(2, response.levels().get(1).orderNumber());
         assertEquals(3, response.levels().get(2).orderNumber());
         assertTrue(response.levels().get(2).isBoss());
+    }
+
+    @Test
+    void buildRetryDiagnosticMessage_shouldIncludeSafeAttemptMetadata() {
+        assertEquals(
+                "Retrying Gemini course generation after transient failure. topic='binary search', requestedDifficulty=BEGINNER, attempt=1, exceptionType=GeminiException, httpStatusCode=503, httpStatusFamily=5xx",
+                courseService.buildRetryDiagnosticMessage(
+                        " Binary Search ",
+                        CourseDifficulty.BEGINNER,
+                        new GeminiException(GeminiException.Category.REQUEST_FAILURE, "Gemini request failed.", 503, null),
+                        1
+                )
+        );
     }
 
     @Test
