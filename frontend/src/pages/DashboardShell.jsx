@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { generateCourse, getCourseById, saveNoteForLevel } from "../services/courseApi";
+import { generateCourse, getCourseById, getNoteForLevel, saveNoteForLevel } from "../services/courseApi";
 import { getAccessToken } from "../utils/tokenStorage";
 
 const INITIAL_FORM = {
@@ -175,16 +175,75 @@ export default function DashboardShell({ profile, onBackHome }) {
   const [noteError, setNoteError] = useState("");
   const [noteSuccess, setNoteSuccess] = useState("");
   const [savedNoteMeta, setSavedNoteMeta] = useState(null);
+  const [noteLoading, setNoteLoading] = useState(false);
+  const [noteInfo, setNoteInfo] = useState("");
 
   useEffect(() => {
     setQuizSelections({});
     setRevealedFlashcards({});
     setNoteContent("");
     setNoteSaving(false);
+    setNoteLoading(false);
     setNoteError("");
     setNoteSuccess("");
+    setNoteInfo("");
     setSavedNoteMeta(null);
   }, [selectedLevel?.levelId, selectedLevel?.orderNumber, selectedLevel?.title]);
+
+  useEffect(() => {
+    const levelId = selectedLevel?.levelId;
+
+    if (!levelId) {
+      return undefined;
+    }
+
+    let ignore = false;
+
+    setNoteLoading(true);
+    setNoteError("");
+    setNoteSuccess("");
+    setNoteInfo("");
+    setNoteContent("");
+    setSavedNoteMeta(null);
+
+    getNoteForLevel(levelId)
+      .then((note) => {
+        if (ignore) {
+          return;
+        }
+
+        if (!note) {
+          setNoteInfo("No saved note yet.");
+          return;
+        }
+
+        setNoteContent(note.content ?? "");
+        setSavedNoteMeta({
+          noteId: note.noteId ?? null,
+          updatedAt: note.updatedAt ?? null,
+        });
+      })
+      .catch((error) => {
+        if (ignore) {
+          return;
+        }
+
+        if (error?.status === 401) {
+          setNoteError("Please log in again to load saved notes.");
+        } else {
+          setNoteError("Could not load saved note right now.");
+        }
+      })
+      .finally(() => {
+        if (!ignore) {
+          setNoteLoading(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [selectedLevel?.levelId]);
 
   const handleGenerateCourse = async (event) => {
     event.preventDefault();
@@ -282,6 +341,7 @@ export default function DashboardShell({ profile, onBackHome }) {
     setNoteContent(event.target.value);
     setNoteError("");
     setNoteSuccess("");
+    setNoteInfo("");
   };
 
   const handleSaveNote = async () => {
@@ -321,6 +381,7 @@ export default function DashboardShell({ profile, onBackHome }) {
         noteId: response?.noteId ?? null,
         updatedAt: response?.updatedAt ?? null,
       });
+      setNoteInfo("");
       setNoteSuccess("Note saved.");
     } catch (error) {
       if (error?.status === 400) {
@@ -422,9 +483,18 @@ export default function DashboardShell({ profile, onBackHome }) {
                   onChange={handleNoteContentChange}
                   rows={6}
                   placeholder="Write your note for this lesson here."
+                  disabled={noteLoading}
                   className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                 />
               </div>
+
+              {noteLoading && (
+                <p className="mt-3 text-sm text-slate-500">Loading saved note...</p>
+              )}
+
+              {noteInfo && !noteLoading && (
+                <p className="mt-3 text-sm text-slate-500">{noteInfo}</p>
+              )}
 
               {savedNoteMeta?.updatedAt && (
                 <p className="mt-3 text-xs text-slate-500">
@@ -452,7 +522,7 @@ export default function DashboardShell({ profile, onBackHome }) {
                 <button
                   type="button"
                   onClick={handleSaveNote}
-                  disabled={noteSaving || !selectedLevel?.levelId}
+                  disabled={noteSaving || noteLoading || !selectedLevel?.levelId}
                   className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
                 >
                   {noteSaving ? "Saving..." : "Save Note"}

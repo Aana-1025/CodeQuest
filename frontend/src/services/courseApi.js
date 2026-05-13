@@ -95,4 +95,31 @@ async function saveNoteForLevel({ levelId, content }) {
   return handleResponse(response);
 }
 
-export { generateCourse, getCourseById, saveNoteForLevel };
+async function getNoteForLevel(levelId) {
+  const accessToken = getAccessToken();
+
+  if (!accessToken) {
+    const error = new Error("Access token is missing.");
+    error.status = 401;
+    throw error;
+  }
+
+  if (!levelId) {
+    throw new Error("Level ID is missing.");
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/notes/levels/${levelId}`, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+    },
+  });
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  return handleResponse(response);
+}
+
+export { generateCourse, getCourseById, saveNoteForLevel, getNoteForLevel };
