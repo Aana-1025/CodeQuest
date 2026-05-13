@@ -5,13 +5,13 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Frontend / Lesson quiz and flashcards foundation
-Current feature: Frontend Quiz Panel Foundation and Frontend Flashcards Panel Foundation completed, tested, manually verified, committed, and pushed
-Latest commit: `5c6cb42 feat: add lesson quiz and flashcards panels`
-Previous commit: `7800cb9 docs: record lesson page foundation completion`
+Current module: Backend / Quiz persistence and fetch foundation
+Current feature: Backend Quiz Persistence/Fetch Foundation completed, tested, manually verified, committed, and pushed
+Latest commit: `4fff8e6 feat: persist and fetch course quiz questions`
+Previous commit: `9ba369d n`
 Current branch: main
-Test status: Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: Login -> generate/reuse course -> Open Course Map -> Open Lesson -> Quiz empty state -> Flashcards empty state -> Back to Course Map -> Back to dashboard/generated result. Lesson content still appears, Quiz and Flashcards panels appear with safe empty states, no backend quiz/flashcard call is needed, and no secrets/tokens are visible. Backend, DB migrations, AI, backend course, backend quiz, and backend flashcard files unchanged. Backend tests were not rerun for this frontend-only feature.
-Git status: clean after lesson quiz and flashcards panels commit
+Test status: Backend `cd backend && .\mvnw.cmd test` PASS with 100 tests, 0 failures, 0 errors. Manual API verification PASS: local backend started with Flyway V4 quiz migration active, register/login/generate/fetch flow worked, GET `/api/courses/{courseId}` returns safe `quizQuestions` arrays on each level, placeholder courses return empty `quizQuestions`, `correctAnswer` is not exposed, random valid UUID returns 404, and no-token request returns 401. Frontend and AI PromptBuilder/GeminiHttpClient/GeminiService/ResponseParser files unchanged.
+Git status: clean after backend quiz persistence/fetch feature commit; Build Log docs update pending
 
 ## Completed Features
 - [x] Project setup
@@ -47,6 +47,7 @@ Git status: clean after lesson quiz and flashcards panels commit
 - [x] Lesson page
 - [x] Frontend Quiz Panel Foundation
 - [x] Frontend Flashcards Panel Foundation
+- [x] Backend Quiz Persistence/Fetch Foundation
 - [ ] Flashcards
 - [ ] Notes
 - [ ] Quiz submit
@@ -230,6 +231,15 @@ Git status: clean after lesson quiz and flashcards panels commit
 - When flashcard data is missing, the Lesson view shows the safe empty state: `Flashcards are not available for this level yet.`
 - Quiz selections and flashcard reveal state are local UI-only state and reset when the selected lesson changes.
 - Current real quiz submit, scoring, persisted flashcards, notes saving, XP/progress persistence, level unlock logic, Piston/code execution, leaderboard, Docker, CI/CD, deployment, and Phase 2 features remain unimplemented.
+- Backend Quiz Persistence/Fetch Foundation is implemented.
+- V4 Flyway migration creates the `quizzes` table.
+- Quiz questions are persisted only from already parsed and validated AI output on successful AI course generation.
+- Placeholder courses create no quiz rows.
+- Cache hits do not call Gemini and must not duplicate quiz rows.
+- GET `/api/courses/{courseId}` now returns safe `quizQuestions` arrays on each level.
+- GET course responses intentionally do not expose `correctAnswer`; correct answers remain backend-only for future quiz submit/scoring.
+- Backend quiz persistence/fetch did not change frontend files or AI PromptBuilder/GeminiHttpClient/GeminiService/ResponseParser.
+- Quiz submit, scoring, answer persistence, XP/progress, weak concept detection, and level unlock logic remain unimplemented.
 - GeminiService + PromptBuilder foundation is implemented in the isolated backend `ai` module.
 - GeminiService + PromptBuilder foundation originally did not call Gemini over network and did not wire into `CourseService` or `CourseController`.
 - GeminiService + PromptBuilder foundation uses env-backed Gemini placeholders:
@@ -273,7 +283,7 @@ Git status: clean after lesson quiz and flashcards panels commit
 - If Gemini call fails, `CourseService` uses existing placeholder generation.
 - If Gemini output is malformed or rejected by ResponseParser, `CourseService` uses existing placeholder generation.
 - If Gemini output parses successfully and matches requested difficulty, `CourseService` persists supported course/level fields with `sourceType=AI`.
-- Current persistence boundary for AI-generated output is only:
+- Current persistence boundary for AI-generated output includes:
   - course title
   - course description
   - difficulty
@@ -282,7 +292,8 @@ Git status: clean after lesson quiz and flashcards panels commit
   - level orderNumber
   - level isBoss
   - level xpReward
-- Flashcards, quizzes, and coding problems from parsed AI output are not persisted yet because their DB tables/features are not implemented.
+  - validated quiz questions from AI success responses
+- Flashcards and coding problems from parsed AI output are still not persisted yet because their DB tables/features are not implemented.
 - Placeholder fallback courses keep `sourceType=PLACEHOLDER`.
 - Existing deterministic placeholder levels must remain compatible with frontend.
 - `CourseController` remains unchanged.
@@ -391,6 +402,7 @@ Git status: clean after lesson quiz and flashcards panels commit
 
 ## Bugs / Issues
 - None blocking currently.
+- Backend Quiz Persistence/Fetch Foundation note: No blocking issue. Manual verification confirmed placeholder courses return empty `quizQuestions`, `correctAnswer` is hidden from GET course responses, random valid UUID returns 404, and unauthenticated course fetch returns 401.
 - Frontend Quiz/Flashcards foundation note: No blocking issue. Quiz and flashcards currently show safe empty states until persisted quiz/flashcard data is available.
 - Resolved: Frontend course generation badge issue. UI previously showed `New Placeholder Course` even when DB confirmed `source_type=AI`. Fixed in commit `08fe631 fix: show course source badge` by exposing `sourceType` in `GenerateCourseResponse`, mapping it from `CourseService`, and updating DashboardShell badge logic. Manual browser verification confirmed `AI Generated Course` displays for a real AI-generated course.
 - Note from Global ErrorDTO task: Codex initially looped and produced a broken test. The test was manually corrected to a stable standalone MockMvcBuilders test. Final backend test passed before commit.
@@ -595,6 +607,8 @@ Git status: clean after lesson quiz and flashcards panels commit
 | 35 | 2026-05-13 | Lesson Page Foundation | Frontend | frontend/src/pages/DashboardShell.jsx; CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: Login -> generate/reuse course -> Open Course Map -> Open Lesson -> Back to Course Map -> Back to dashboard/generated result. | `2bc37dc feat: add lesson page foundation`. Added frontend-only Lesson view using existing fetched Course Map data, local selectedLevel state, Open Lesson action, readable plain-text lesson content, and Back to Course Map. Backend, DB migrations, AI, and backend course files unchanged. |
 | 36 | 2026-05-13 | Frontend Quiz Panel Foundation and Frontend Flashcards Panel Foundation | Frontend | frontend/src/pages/DashboardShell.jsx; CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: Login -> generate/reuse course -> Open Course Map -> Open Lesson -> verify Quiz empty state -> verify Flashcards empty state -> Back to Course Map -> Back to dashboard/generated result. | `5c6cb42 feat: add lesson quiz and flashcards panels`. Added frontend-only Quiz and Flashcards panels inside Lesson view with safe empty states, future-compatible quiz/flashcard data normalization, local-only quiz selection state, local-only flashcard reveal state, and reset-on-lesson-change behavior. No backend quiz/flashcard calls, no DB migration, no scoring, no XP/progress, no persistence. |
 
+| 37 | 2026-05-13 | Backend Quiz Persistence/Fetch Foundation | Backend / Quiz | backend/src/main/resources/db/migration/V4__create_quizzes_table.sql; backend/src/main/java/com/codequest/quiz/Quiz.java; backend/src/main/java/com/codequest/quiz/QuizRepository.java; backend/src/main/java/com/codequest/quiz/dto/QuizOptionsResponse.java; backend/src/main/java/com/codequest/quiz/dto/QuizQuestionResponse.java; backend/src/main/java/com/codequest/course/CourseService.java; backend/src/main/java/com/codequest/course/dto/CourseLevelResponse.java; backend/src/test/java/com/codequest/course/CourseServiceTest.java; backend/src/test/java/com/codequest/course/CourseControllerTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 100 tests, 0 failures, 0 errors. Manual API verification PASS: register/login/generate/fetch, `quizQuestions` present as empty arrays for placeholder levels, `correctAnswer` not exposed, random valid UUID returned 404, and no-token request returned 401. | `4fff8e6 feat: persist and fetch course quiz questions`. Added V4 quizzes table, quiz entity/repository/safe DTOs, AI-success quiz persistence, and safe quizQuestions in GET `/api/courses/{courseId}`. Frontend unchanged. AI PromptBuilder/GeminiHttpClient/GeminiService/ResponseParser unchanged. No quiz submit, scoring, XP/progress, weak concept detection, or unlock logic. |
+
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
 |---|---|---|---|---|
@@ -666,6 +680,8 @@ Git status: clean after lesson quiz and flashcards panels commit
 | 2026-05-13 | Manual API: GET `/api/courses/{courseId}` without token | PASS | Returned 401 for unauthenticated request. | Yes |
 | 2026-05-13 | Scope checks after backend course fetch endpoint | PASS | `git diff -- backend/src/main/resources/db/migration`, `git diff -- backend/src/main/java/com/codequest/ai`, and `git diff -- frontend` were empty. | Yes |
 | 2026-05-13 | `cd frontend && npm run build` after Frontend Quiz/Flashcards panels | PASS | Frontend build passed after adding frontend-only Quiz and Flashcards panels to Lesson view. | Yes |
+
+| 2026-05-13 | `cd backend && .\mvnw.cmd test` after Backend Quiz Persistence/Fetch Foundation | PASS | Backend tests passed with 100 tests, 0 failures, 0 errors after adding quiz persistence/fetch foundation. | Yes |
 
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
@@ -740,6 +756,8 @@ Git status: clean after lesson quiz and flashcards panels commit
 | 2026-05-13 | Frontend Course Map foundation browser verification | Login -> generate/reuse course -> Open Course Map -> Back | Course Map loads from GET `/api/courses/{courseId}` and shows title, description, difficulty, sourceType, totalXp, ordered levels, XP reward, Boss/Standard badge, content preview, working Back button, and no visible secrets/tokens | Passed |
 | 2026-05-13 | Lesson Page Foundation | Login -> generate/reuse course -> Open Course Map -> Open Lesson -> Back to Course Map -> Back to dashboard/generated result | Lesson view shows course title, level number, level title, XP reward, Boss/Standard badge, and readable plain-text `contentMarkdown`; no secrets/tokens visible | Passed |
 | 2026-05-13 | Frontend Quiz Panel Foundation and Frontend Flashcards Panel Foundation | Login -> generate/reuse course -> Open Course Map -> Open Lesson -> verify Quiz empty state -> verify Flashcards empty state -> Back to Course Map -> Back to dashboard/generated result | Quiz and Flashcards sections appeared with safe empty states; lesson content and back flow still worked; no secrets/tokens visible; no backend quiz/flashcard call needed; no blocking issue known | Passed |
+
+| 2026-05-13 | Backend Quiz Persistence/Fetch Foundation | Register/login -> POST `/api/courses/generate` -> GET `/api/courses/{courseId}` -> inspect `quizQuestions` -> check hidden `correctAnswer` -> random UUID 404 -> no-token 401 | GET course response included safe `quizQuestions` arrays on levels; placeholder levels returned empty arrays; `correctAnswer` was not exposed; missing course returned 404; unauthenticated fetch returned 401; no secrets/tokens visible | Passed |
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -818,11 +836,13 @@ Tomcat started on port 8080
 Started CodeQuestApplication
 ```
 
-Expected Flyway behavior after Course generation foundation:
+Expected Flyway behavior after Backend Quiz Persistence/Fetch Foundation:
 ```text
-Successfully validated 3 migrations
+Successfully validated 4 migrations
 Schema "public" is up to date. No migration necessary.
 ```
+
+If V4 has not yet been applied to a local database, startup should apply `V4__create_quizzes_table.sql` successfully.
 
 Health check from another PowerShell:
 ```powershell
@@ -2262,6 +2282,199 @@ Important CORS boundaries:
 - Protected endpoints remain protected.
 - POST `/api/courses/generate` is protected and works from frontend with Bearer token.
 
+
+## Backend Quiz Persistence/Fetch Foundation Manual Test Commands
+Use these after the backend quiz persistence/fetch foundation task.
+
+### Automated verification
+```powershell
+cd backend
+.\mvnw.cmd test
+cd ..
+```
+
+Expected after this feature:
+```text
+Tests run: 100
+Failures: 0
+Errors: 0
+BUILD SUCCESS
+```
+
+### Scope checks
+```powershell
+git diff -- frontend
+git diff -- backend/src/main/java/com/codequest/ai/PromptBuilder.java
+git diff -- backend/src/main/java/com/codequest/ai/GeminiHttpClient.java
+git diff -- backend/src/main/java/com/codequest/ai/GeminiService.java
+git diff -- backend/src/main/java/com/codequest/ai/ResponseParser.java
+git diff -- backend/src/main/resources/db/migration
+```
+
+Expected:
+```text
+Frontend diff is empty.
+AI PromptBuilder/GeminiHttpClient/GeminiService/ResponseParser diffs are empty.
+DB migration diff contains only the new V4 quizzes migration before commit.
+Backend course/quiz/test changes are expected.
+```
+
+### Backend env/run
+Start backend with local PostgreSQL/JWT env vars:
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject
+
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
+$env:DATABASE_USERNAME="postgres"
+$env:DATABASE_PASSWORD="<your-local-postgres-password>"
+$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
+
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+Expected:
+```text
+Flyway validates/applies V4__create_quizzes_table.sql successfully.
+Tomcat started on port 8080.
+Started CodeQuestApplication.
+```
+
+### Manual placeholder/safe fetch check
+From another PowerShell:
+```powershell
+$baseUrl = "http://localhost:8080"
+$email = "quizmanual$(Get-Random)@example.com"
+$password = "QuizManual123"
+
+$registerBody = @{
+  name = "Quiz Manual"
+  email = $email
+  password = $password
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/register" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body $registerBody
+
+$loginBody = @{
+  email = $email
+  password = $password
+} | ConvertTo-Json
+
+$loginResponse = Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/login" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body $loginBody
+
+$token = $loginResponse.accessToken
+
+$courseBody = @{
+  topic = "Quiz Persistence Manual Test"
+  difficulty = "BEGINNER"
+  goal = "Verify safe quiz fetch"
+} | ConvertTo-Json
+
+$generatedCourse = Invoke-RestMethod `
+  -Uri "$baseUrl/api/courses/generate" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Headers @{ Authorization = "Bearer $token" } `
+  -Body $courseBody
+
+$courseId = $generatedCourse.courseId
+
+$fetchedCourse = Invoke-RestMethod `
+  -Uri "$baseUrl/api/courses/$courseId" `
+  -Method GET `
+  -Headers @{ Authorization = "Bearer $token" }
+
+$fetchedCourse
+$fetchedCourse.levels | Format-List
+$fetchedCourse.levels | Select-Object orderNumber,title,quizQuestions
+```
+
+Expected placeholder response:
+```text
+sourceType=PLACEHOLDER
+totalXp=225
+3 ordered levels
+each level includes quizQuestions
+placeholder levels have quizQuestions: []
+```
+
+### Correct answer exposure check
+```powershell
+$json = $fetchedCourse | ConvertTo-Json -Depth 20
+$json
+$json.Contains("correctAnswer")
+```
+
+Expected:
+```text
+False
+```
+
+### Manual 404 check
+```powershell
+$missingCourseId = [guid]::NewGuid().ToString()
+
+try {
+  Invoke-RestMethod `
+    -Uri "$baseUrl/api/courses/$missingCourseId" `
+    -Method GET `
+    -Headers @{ Authorization = "Bearer $token" }
+} catch {
+  $_.Exception.Response.StatusCode.value__
+}
+```
+
+Expected:
+```text
+404
+```
+
+### Manual 401 check
+```powershell
+try {
+  Invoke-RestMethod `
+    -Uri "$baseUrl/api/courses/$courseId" `
+    -Method GET
+} catch {
+  $_.Exception.Response.StatusCode.value__
+}
+```
+
+Expected:
+```text
+401
+```
+
+Observed latest manual result:
+```text
+Register/login passed.
+POST /api/courses/generate returned a PLACEHOLDER course for Quiz Persistence Manual Test.
+GET /api/courses/{courseId} returned course fields and ordered levels.
+Each level included quizQuestions: [].
+$json.Contains("correctAnswer") returned False.
+Random valid UUID returned 404.
+No-token request returned 401.
+```
+
+Important boundaries:
+- V4 adds `quizzes` table only.
+- Existing migrations V1/V2/V3 must not be edited.
+- GET `/api/courses/{courseId}` returns safe `quizQuestions` but not `correctAnswer`.
+- Placeholder courses create no quiz rows.
+- AI-success course generation can persist validated quiz rows linked to levels.
+- Cache hits must not call Gemini and must not duplicate quiz rows.
+- Frontend was not changed in this feature.
+- AI PromptBuilder, GeminiHttpClient, GeminiService, and ResponseParser were not changed in this feature.
+- Quiz submit, scoring, answer persistence, XP/progress, weak concept detection, and level unlock logic are still not implemented.
+
 ## Next Chat Prompt
 Paste this into a fresh ChatGPT Project chat whenever the current chat becomes slow or confusing:
 
@@ -2271,8 +2484,8 @@ Read all CodeQuest project resources and the current CodeQuest_Build_Log.md befo
 Project: CodeQuest — AI-assisted Java learning platform MVP
 Repo: Aana-1025/CodeQuest
 Branch: main
-Latest pushed commit: 5c6cb42 feat: add lesson quiz and flashcards panels
-Previous pushed commit: 7800cb9 docs: record lesson page foundation completion
+Latest pushed feature commit: 4fff8e6 feat: persist and fetch course quiz questions
+Previous pushed commit: 9ba369d n
 
 Very important workflow rule:
 We use Maven Wrapper, not plain Maven.
@@ -2320,6 +2533,7 @@ Completed backend features:
 - GenerateCourseResponse now exposes sourceType
 - CourseService maps sourceType in course generation response
 - Backend course fetch endpoint GET /api/courses/{courseId}
+- Backend Quiz Persistence/Fetch Foundation
 
 Completed frontend features:
 - Login page
@@ -2336,45 +2550,48 @@ Completed frontend features:
 - Frontend Flashcards Panel Foundation
 
 Latest completed feature:
-Frontend Quiz Panel Foundation and Frontend Flashcards Panel Foundation.
+Backend Quiz Persistence/Fetch Foundation.
 
 What was done:
-- Lesson view now includes a frontend-only `Quiz` panel.
-- Lesson view now includes a frontend-only `Flashcards` panel.
-- Both panels use local UI state only.
-- Quiz selections are local-only, have no submit button, no score, no XP award, and no persistence.
-- Flashcard answer reveal state is local-only, has no progress calculation, no XP award, and no persistence.
-- Both panels safely support future quiz/flashcard-like arrays if those fields appear on selected level data later.
-- Current default behavior is safe empty states because persisted level data does not yet include quiz/flashcards.
-- Empty quiz state: `Quiz questions are not available for this level yet.`
-- Empty flashcards state: `Flashcards are not available for this level yet.`
-- Lesson content, Course Map flow, Generate Course flow, and source badge behavior remain unchanged.
-- Backend, DB migrations, AI files, backend course files, backend quiz files, and backend flashcard files were not changed.
-- Frontend file changed:
-  - `frontend/src/pages/DashboardShell.jsx`
+- Added V4 Flyway migration for `quizzes` table.
+- Added backend quiz module foundation:
+  - `Quiz`
+  - `QuizRepository`
+  - `QuizOptionsResponse`
+  - `QuizQuestionResponse`
+- AI-success course generation now persists validated quiz questions linked to saved levels.
+- Placeholder courses create no quiz rows.
+- Cache hits do not call Gemini and do not duplicate quiz rows.
+- GET `/api/courses/{courseId}` now returns safe `quizQuestions` on each level.
+- `quizQuestions` is empty when no quiz rows exist.
+- `correctAnswer` is intentionally hidden from GET course responses.
+- Frontend was unchanged.
+- AI PromptBuilder, GeminiHttpClient, GeminiService, and ResponseParser were unchanged.
+- Quiz submit, scoring, answer persistence, XP/progress, weak concept detection, and level unlock logic were not implemented.
 
 Latest test results:
-cd frontend && npm run build
+cd backend && .\mvnw.cmd test
 PASS
-Backend tests were not rerun for the Quiz/Flashcards panel feature because backend files were not touched.
+100 tests, 0 failures, 0 errors
 
 Latest manual verification:
-- Login succeeded.
-- Generate/reuse course succeeded from DashboardShell.
-- Clicking `Open Course Map` loaded the Course Map from GET `/api/courses/{courseId}`.
-- Clicking `Open Lesson` opened the Lesson view using existing fetched Course Map data.
-- Lesson content still appeared.
-- Quiz section appeared with safe empty state.
-- Flashcards section appeared with safe empty state.
-- Back to Course Map worked.
-- Back to dashboard/generated result worked.
-- No backend quiz/flashcard call was needed.
-- No secrets or tokens were visible.
+- Backend started locally with PostgreSQL/JWT env vars.
+- Flyway V4 quiz migration was active/applied.
+- Register/login succeeded.
+- POST `/api/courses/generate` succeeded for `Quiz Persistence Manual Test`.
+- GET `/api/courses/{courseId}` returned `courseId`, `title`, `description`, `difficulty`, `sourceType`, `totalXp`, and `levels`.
+- Each level returned `levelId`, `orderNumber`, `title`, `contentMarkdown`, `xpReward`, `isBoss`, and `quizQuestions`.
+- Placeholder levels returned `quizQuestions: []`.
+- `correctAnswer` was not present in the GET course response.
+- Random valid UUID returned 404.
+- No-token request returned 401.
+- Frontend diff was empty.
+- AI PromptBuilder/GeminiHttpClient/GeminiService/ResponseParser diffs were empty.
 
 Latest git log should include:
+4fff8e6 feat: persist and fetch course quiz questions
+9ba369d n
 5c6cb42 feat: add lesson quiz and flashcards panels
-7800cb9 docs: record lesson page foundation completion
-2bc37dc feat: add lesson page foundation
 
 Current known blockers:
 None blocking.
@@ -2387,19 +2604,19 @@ Current important known notes:
 - Tests must stay deterministic and must not call real Gemini even when Gemini env vars are present locally.
 
 Next safest MVP task:
-Backend quiz persistence/fetch foundation or the next safest MVP task.
+Backend Flashcards Persistence/Fetch Foundation or the next safest MVP task.
 
 Reason:
-- Frontend lesson UI now has Quiz and Flashcards foundation panels.
-- Current persisted level data still does not include quiz or flashcard payloads.
-- The next backend step can add quiz persistence/fetch foundation only if scoped carefully with a new Flyway migration and tests.
-- Quiz submit, scoring, XP/progress persistence, unlock logic, and Phase 2 features must stay out of scope unless explicitly selected.
+- Frontend lesson UI already has a Flashcards panel foundation.
+- Current persisted level data still does not include flashcard payloads.
+- Backend quiz persistence/fetch is now complete, so the next parallel learning-content persistence task can add flashcards safely.
+- Quiz submit/scoring/XP/progress/unlock logic is larger and should come after persisted quiz/flashcard content foundations are stable.
 
 Important next-task boundaries:
-- Implement only Backend Quiz Persistence/Fetch Foundation if selected.
+- Prefer Backend Flashcards Persistence/Fetch Foundation if selected.
 - Do not implement quiz submit, scoring, answer persistence, XP/progress, unlock logic, Piston/code execution, leaderboard, Docker, CI/CD, deployment, or Phase 2.
 - Do not implement notes saving, weak concept detection, XP/rank/streak progress, leaderboard, Piston, Docker, CI/CD, deployment, or Phase 2 features.
-- Do not touch Gemini/AI retry logic unless the selected backend persistence task explicitly requires mapping already-parsed AI quiz DTOs and does not change prompt/retry behavior.
+- Do not touch Gemini/AI retry logic unless the selected backend persistence task explicitly requires mapping already-parsed AI flashcard DTOs and does not change prompt/retry behavior.
 - Do not touch auth/user unless strictly necessary.
 - Do not change existing Flyway migrations; add a new migration only if the selected backend persistence task requires it.
 - Keep tests deterministic and do not call real Gemini.
@@ -2410,7 +2627,7 @@ Important next-task boundaries:
   cd backend
   .\mvnw.cmd test
 
-Give me one strict Codex prompt for only the next safest MVP task, preferably Backend Quiz Persistence/Fetch Foundation if selected.
+Give me one strict Codex prompt for only the next safest MVP task, preferably Backend Flashcards Persistence/Fetch Foundation if selected.
 Do not implement quiz submit, scoring, notes saving, XP/progress, unlock logic, Piston, leaderboard, deployment, or Phase 2.
 Include exact files to inspect/touch, files not to touch, commands to run, manual/API/browser verification steps, diff checks, and Build Log update instructions.
 ```
@@ -2456,31 +2673,34 @@ Database: PostgreSQL + Flyway
 AI: Gemini API
 Code execution: Piston API
 
-Current module: Frontend / Lesson quiz and flashcards foundation
-Last completed feature: Frontend Quiz Panel Foundation and Frontend Flashcards Panel Foundation
-Latest commit: 5c6cb42 feat: add lesson quiz and flashcards panels
-Previous commit: 7800cb9 docs: record lesson page foundation completion
-Git status: clean after lesson quiz and flashcards panels commit
+Current module: Backend / Quiz persistence and fetch foundation
+Last completed feature: Backend Quiz Persistence/Fetch Foundation
+Latest feature commit: 4fff8e6 feat: persist and fetch course quiz questions
+Previous commit: 9ba369d n
+Git status: clean after backend quiz persistence/fetch feature commit; Build Log docs update pending until this file is committed
 Tests passed:
-- Frontend cd frontend && npm run build PASS
-- Backend tests were not rerun for the Quiz/Flashcards panel feature because backend files were not touched
+- Backend cd backend && .\mvnw.cmd test PASS with 100 tests, 0 failures, 0 errors
 
 Manual verification passed:
-- Login, generate/reuse course, Open Course Map, Open Lesson, Quiz empty state, Flashcards empty state, Back to Course Map, and Back to dashboard/generated result all worked in the browser.
-- Course Map loaded from GET /api/courses/{courseId}.
-- Lesson view used existing fetched Course Map data without a backend refetch requirement.
-- Lesson content still appeared.
-- Quiz section appeared with safe empty state: Quiz questions are not available for this level yet.
-- Flashcards section appeared with safe empty state: Flashcards are not available for this level yet.
-- No backend quiz/flashcard call was needed.
-- No secrets or tokens were visible.
+- Backend started locally with PostgreSQL/JWT env vars.
+- Flyway V4 quiz migration was active/applied.
+- Register/login worked.
+- POST /api/courses/generate worked for Quiz Persistence Manual Test.
+- GET /api/courses/{courseId} returned course fields and ordered levels.
+- Each level included quizQuestions.
+- Placeholder levels returned quizQuestions: [].
+- correctAnswer was not exposed in the GET course response.
+- Random valid UUID returned 404.
+- No-token request returned 401.
+- Frontend diff was empty.
+- AI PromptBuilder/GeminiHttpClient/GeminiService/ResponseParser diffs were empty.
 
 Known bugs/blockers:
 - None blocking currently.
 - No blocking issue is currently known.
 
 Next task:
-Backend quiz persistence/fetch foundation or the next safest MVP task.
+Backend Flashcards Persistence/Fetch Foundation or the next safest MVP task.
 
 Important completed Auth details:
 - Register implemented.
@@ -2524,22 +2744,27 @@ Important completed Local runtime / CORS details:
 - PostgreSQL 17 installed locally.
 - Local database codequest created.
 - Backend starts with DATABASE_URL, DATABASE_USERNAME, DATABASE_PASSWORD, JWT_SECRET.
-- Flyway applied V1, V2, V3.
+- Flyway applied V1, V2, V3, and V4.
 - CORS allows localhost/127.0.0.1 ports 5173 and 5174.
 - Browser register/login/profile/course-generation smoke tests pass.
 
-Important completed Course generation details:
+Important completed Course generation/details:
 - V3 migration creates courses and levels tables.
+- V4 migration creates quizzes table.
 - CourseService implements normalized topic/difficulty cache behavior.
 - CourseController exposes authenticated POST /api/courses/generate.
 - Cache hit returns same courseId with cacheHit=true.
 - Cache hit does not call Gemini.
 - Placeholder fallback creates exactly 3 levels and totalXp 225.
-- GenerateCourseResponse now includes sourceType.
+- Placeholder courses create no quiz rows.
+- AI-success course generation can persist validated quiz rows linked to levels.
+- GenerateCourseResponse includes sourceType.
 - Frontend DashboardShell displays returned course and levels.
 - Authenticated GET /api/courses/{courseId} is implemented.
 - GET /api/courses/{courseId} returns courseId, title, description, difficulty, sourceType, totalXp, and ordered levels.
-- Level response returns levelId, orderNumber, title, contentMarkdown, xpReward, and isBoss.
+- Level response returns levelId, orderNumber, title, contentMarkdown, xpReward, isBoss, and quizQuestions.
+- quizQuestions is empty when no quiz rows exist.
+- correctAnswer is intentionally hidden from GET /api/courses/{courseId} responses.
 - GET /api/courses/{courseId} returns 404 for missing course and 401 without token.
 - GET /api/courses/{courseId} does not call Gemini or generation flow.
 - Frontend Course Map uses GET /api/courses/{courseId}.
@@ -2560,13 +2785,14 @@ Important completed AI details:
 - CourseService attempts Gemini + ResponseParser only on cache miss when config is present.
 - Missing config/client failure/parser failure falls back to placeholder.
 - Valid mocked AI response can persist supported course/level fields with sourceType=AI.
+- Valid AI quiz questions are now persisted on AI success.
 - CourseService retries exactly once for transient Gemini request failures with HTTP status family 5xx.
 - CourseService does not retry 400, 401, 403, 404, 429, missing config, parser validation failure, requested difficulty mismatch, or unexpected non-transient failures.
 - Safe diagnostics categories implemented: MISSING_GEMINI_CONFIG, GEMINI_REQUEST_FAILURE, EMPTY_GEMINI_RESPONSE_TEXT, RESPONSE_EXTRACTION_FAILURE, PARSER_VALIDATION_FAILURE, REQUESTED_DIFFICULTY_MISMATCH, UNEXPECTED_AI_INTEGRATION_ERROR.
 - Earlier manual Gemini diagnostics showed GEMINI_REQUEST_FAILURE with HTTP 429 / 4xx for one key/model/project.
 - Latest manual verification confirmed real Gemini success for graph dfs gemini retry test with source_type=AI, total_xp=375, level_count=4, and total_level_xp=375.
 - Latest browser verification confirmed source badge displays AI Generated Course.
-- Flashcards, quizzes, and codingProblems are parsed/validated but not persisted.
+- Flashcards and codingProblems are parsed/validated but not persisted yet.
 
 Testing notes:
 - Always use Maven Wrapper only for backend:
