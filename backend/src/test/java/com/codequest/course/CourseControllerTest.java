@@ -22,6 +22,8 @@ import com.codequest.auth.dto.RegisterRequest;
 import com.codequest.course.Course;
 import com.codequest.course.dto.GenerateCourseRequest;
 import com.codequest.course.dto.GenerateCourseResponse;
+import com.codequest.flashcard.Flashcard;
+import com.codequest.flashcard.FlashcardRepository;
 import com.codequest.level.Level;
 import com.codequest.level.LevelRepository;
 import com.codequest.quiz.Quiz;
@@ -47,6 +49,9 @@ class CourseControllerTest {
 
     @Autowired
     private QuizRepository quizRepository;
+
+    @Autowired
+    private FlashcardRepository flashcardRepository;
 
     @Test
     void shouldGenerateCourseForAuthenticatedUser() throws Exception {
@@ -176,7 +181,9 @@ class CourseControllerTest {
                 .andExpect(jsonPath("$.levels[0].xpReward").isNumber())
                 .andExpect(jsonPath("$.levels[0].isBoss").exists())
                 .andExpect(jsonPath("$.levels[0].quizQuestions").isArray())
-                .andExpect(jsonPath("$.levels[0].quizQuestions.length()").value(0));
+                .andExpect(jsonPath("$.levels[0].quizQuestions.length()").value(0))
+                .andExpect(jsonPath("$.levels[0].flashcards").isArray())
+                .andExpect(jsonPath("$.levels[0].flashcards.length()").value(0));
     }
 
     @Test
@@ -224,6 +231,46 @@ class CourseControllerTest {
                 .andExpect(jsonPath("$.levels[0].quizQuestions[0].options.B").value("HashMap"))
                 .andExpect(jsonPath("$.levels[0].quizQuestions[0].xpReward").value(20))
                 .andExpect(jsonPath("$.levels[0].quizQuestions[0].correctAnswer").doesNotExist());
+    }
+
+    @Test
+    void shouldFetchPersistedFlashcards() throws Exception {
+        String accessToken = registerAndLogin("fetchflashcards-" + System.currentTimeMillis() + "@example.com");
+
+        GenerateCourseRequest request = new GenerateCourseRequest("Trees", CourseDifficulty.BEGINNER, "Interview prep");
+        String generateResponseBody = mockMvc.perform(post("/api/courses/generate")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        GenerateCourseResponse generatedCourse = objectMapper.readValue(generateResponseBody, GenerateCourseResponse.class);
+        Course course = courseRepository.findById(generatedCourse.courseId()).orElseThrow();
+        Level firstLevel = levelRepository.findByCourseIdOrderByOrderNumberAsc(course.getId()).get(0);
+        flashcardRepository.save(new Flashcard(
+                UUID.randomUUID(),
+                firstLevel,
+                1,
+                "Binary tree",
+                "A hierarchical structure where each node has at most two children.",
+                "trees",
+                java.time.Instant.now(),
+                java.time.Instant.now()
+        ));
+
+        mockMvc.perform(get("/api/courses/{courseId}", generatedCourse.courseId())
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.levels[0].flashcards").isArray())
+                .andExpect(jsonPath("$.levels[0].flashcards[0].flashcardId").exists())
+                .andExpect(jsonPath("$.levels[0].flashcards[0].orderNumber").value(1))
+                .andExpect(jsonPath("$.levels[0].flashcards[0].front").value("Binary tree"))
+                .andExpect(jsonPath("$.levels[0].flashcards[0].back").value("A hierarchical structure where each node has at most two children."))
+                .andExpect(jsonPath("$.levels[0].flashcards[0].conceptTag").value("trees"))
+                .andExpect(jsonPath("$.levels[0].quizQuestions").isArray());
     }
 
     @Test

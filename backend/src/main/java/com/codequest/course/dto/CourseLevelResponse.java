@@ -3,6 +3,7 @@ package com.codequest.course.dto;
 import java.util.List;
 import java.util.UUID;
 
+import com.codequest.flashcard.dto.FlashcardResponse;
 import com.codequest.quiz.dto.QuizQuestionResponse;
 
 public record CourseLevelResponse(
@@ -12,6 +13,7 @@ public record CourseLevelResponse(
         String contentMarkdown,
         int xpReward,
         boolean isBoss,
-        List<QuizQuestionResponse> quizQuestions
+        List<QuizQuestionResponse> quizQuestions,
+        List<FlashcardResponse> flashcards
 ) {
 }

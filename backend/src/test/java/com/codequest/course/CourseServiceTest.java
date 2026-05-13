@@ -23,6 +23,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.codequest.ai.AiCourseResponse;
+import com.codequest.ai.AiFlashcardResponse;
 import com.codequest.ai.AiLevelResponse;
 import com.codequest.ai.AiResponseValidationException;
 import com.codequest.ai.GeminiException;
@@ -33,6 +34,8 @@ import com.codequest.common.exception.ErrorCode;
 import com.codequest.course.dto.CourseResponse;
 import com.codequest.course.dto.GenerateCourseRequest;
 import com.codequest.course.dto.GenerateCourseResponse;
+import com.codequest.flashcard.Flashcard;
+import com.codequest.flashcard.FlashcardRepository;
 import com.codequest.level.Level;
 import com.codequest.level.LevelRepository;
 import com.codequest.quiz.Quiz;
@@ -52,6 +55,9 @@ class CourseServiceTest {
 
     @Mock
     private QuizRepository quizRepository;
+
+    @Mock
+    private FlashcardRepository flashcardRepository;
 
     @Mock
     private GeminiService geminiService;
@@ -100,6 +106,7 @@ class CourseServiceTest {
         verify(geminiService, never()).generateCourseJson(any());
         verify(responseParser, never()).parseCourseResponse(any());
         verify(quizRepository, never()).saveAll(any());
+        verify(flashcardRepository, never()).saveAll(any());
         verify(levelRepository).findByCourseIdOrderByOrderNumberAsc(savedCourse.getId());
     }
 
@@ -131,6 +138,7 @@ class CourseServiceTest {
         verify(geminiService, never()).generateCourseJson(any());
         verify(responseParser, never()).parseCourseResponse(any());
         verify(quizRepository, never()).saveAll(any());
+        verify(flashcardRepository, never()).saveAll(any());
         verify(levelRepository).findByCourseIdOrderByOrderNumberAsc(existingCourse.getId());
     }
 
@@ -224,7 +232,12 @@ class CourseServiceTest {
                                         1,
                                         false,
                                         70,
-                                        List.of(),
+                                        List.of(
+                                                new AiFlashcardResponse(
+                                                        "DFS uses which core data structure idea?",
+                                                        "A stack, either explicit or recursive."
+                                                )
+                                        ),
                                         List.of(
                                                 new com.codequest.ai.AiQuizQuestionResponse(
                                                         "Which traversal uses a stack-friendly approach?",
@@ -245,9 +258,12 @@ class CourseServiceTest {
 
         ArgumentCaptor<Course> courseCaptor = ArgumentCaptor.forClass(Course.class);
         ArgumentCaptor<List<Quiz>> quizCaptor = ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<List<Flashcard>> flashcardCaptor = ArgumentCaptor.forClass(List.class);
         when(courseRepository.save(courseCaptor.capture()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(quizRepository.saveAll(quizCaptor.capture()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(flashcardRepository.saveAll(flashcardCaptor.capture()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         GenerateCourseResponse response = courseService.generateCourse(creator, request);
@@ -256,8 +272,11 @@ class CourseServiceTest {
         assertEquals(CourseSourceType.AI, response.sourceType());
         assertEquals(CourseSourceType.AI, courseCaptor.getValue().getSourceType());
         assertEquals(1, quizCaptor.getValue().size());
+        assertEquals(1, flashcardCaptor.getValue().size());
         assertEquals("Which traversal uses a stack-friendly approach?", quizCaptor.getValue().get(0).getQuestion());
         assertEquals(courseCaptor.getValue().getLevels().get(0).getId(), quizCaptor.getValue().get(0).getLevel().getId());
+        assertEquals("DFS uses which core data structure idea?", flashcardCaptor.getValue().get(0).getFront());
+        assertEquals(courseCaptor.getValue().getLevels().get(0).getId(), flashcardCaptor.getValue().get(0).getLevel().getId());
         verify(geminiService, times(2)).generateCourseJson(request);
         verify(responseParser).parseCourseResponse("{\"title\":\"Graph DFS\"}");
     }
@@ -285,6 +304,7 @@ class CourseServiceTest {
         verify(geminiService, times(2)).generateCourseJson(request);
         verify(responseParser, never()).parseCourseResponse(any());
         verify(quizRepository, never()).saveAll(any());
+        verify(flashcardRepository, never()).saveAll(any());
     }
 
     @Test
@@ -309,6 +329,7 @@ class CourseServiceTest {
         verify(geminiService, times(1)).generateCourseJson(request);
         verify(responseParser, never()).parseCourseResponse(any());
         verify(quizRepository, never()).saveAll(any());
+        verify(flashcardRepository, never()).saveAll(any());
     }
 
     @Test
@@ -333,6 +354,7 @@ class CourseServiceTest {
         verify(geminiService, times(1)).generateCourseJson(request);
         verify(responseParser, never()).parseCourseResponse(any());
         verify(quizRepository, never()).saveAll(any());
+        verify(flashcardRepository, never()).saveAll(any());
     }
 
     @Test
@@ -376,6 +398,7 @@ class CourseServiceTest {
         );
         verify(geminiService, times(1)).generateCourseJson(request);
         verify(quizRepository, never()).saveAll(any());
+        verify(flashcardRepository, never()).saveAll(any());
     }
 
     @Test
@@ -399,7 +422,12 @@ class CourseServiceTest {
                                         2,
                                         false,
                                         80,
-                                        List.of(),
+                                        List.of(
+                                                new AiFlashcardResponse(
+                                                        "Graph edge",
+                                                        "A connection between two vertices."
+                                                )
+                                        ),
                                         List.of(
                                                 new com.codequest.ai.AiQuizQuestionResponse(
                                                         "What best describes a graph edge?",
@@ -443,6 +471,8 @@ class CourseServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(quizRepository.saveAll(any()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+        when(flashcardRepository.saveAll(any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         GenerateCourseResponse response = courseService.generateCourse(creator, request);
         Course savedCourse = courseCaptor.getValue();
@@ -460,6 +490,7 @@ class CourseServiceTest {
         assertEquals(3, response.levels().get(2).orderNumber());
         assertTrue(response.levels().get(2).isBoss());
         verify(quizRepository).saveAll(any());
+        verify(flashcardRepository).saveAll(any());
     }
 
     @Test
@@ -517,6 +548,7 @@ class CourseServiceTest {
                 courseService.determineFallbackReason(true, new IllegalArgumentException("AI difficulty did not match the requested difficulty."))
         );
         verify(quizRepository, never()).saveAll(any());
+        verify(flashcardRepository, never()).saveAll(any());
     }
 
     @Test
@@ -542,11 +574,15 @@ class CourseServiceTest {
 
         Quiz secondLevelQuiz = createQuiz(second, 1, "What is an adjacency list?", "A queue", "A graph representation", "A hash collision", "A binary tree", "B");
         Quiz thirdLevelQuiz = createQuiz(third, 1, "Which traversal can use a queue?", "DFS", "BFS", "Merge sort", "Heapify", "B");
+        Flashcard firstLevelFlashcard = createFlashcard(first, 2, "Graph traversal start", "Choose a node and mark it visited.");
+        Flashcard secondLevelFlashcard = createFlashcard(second, 1, "Adjacency list", "Stores each vertex with its connected neighbors.");
 
         when(courseRepository.findById(course.getId())).thenReturn(Optional.of(course));
         when(levelRepository.findByCourseIdOrderByOrderNumberAsc(course.getId())).thenReturn(List.of(first, second, third));
         when(quizRepository.findByLevelIdInOrderByLevelIdAscOrderNumberAsc(List.of(first.getId(), second.getId(), third.getId())))
                 .thenReturn(List.of(secondLevelQuiz, thirdLevelQuiz));
+        when(flashcardRepository.findByLevelIdInOrderByLevelIdAscOrderNumberAsc(List.of(first.getId(), second.getId(), third.getId())))
+                .thenReturn(List.of(firstLevelFlashcard, secondLevelFlashcard));
 
         CourseResponse response = courseService.getCourseById(course.getId());
 
@@ -560,10 +596,14 @@ class CourseServiceTest {
         assertEquals("Introduction to Graphs", response.levels().get(0).title());
         assertEquals("# Introduction to Graphs", response.levels().get(0).contentMarkdown());
         assertEquals(0, response.levels().get(0).quizQuestions().size());
+        assertEquals(1, response.levels().get(0).flashcards().size());
+        assertEquals("Graph traversal start", response.levels().get(0).flashcards().get(0).front());
         assertEquals(1, response.levels().get(1).quizQuestions().size());
         assertEquals("What is an adjacency list?", response.levels().get(1).quizQuestions().get(0).question());
         assertEquals("A graph representation", response.levels().get(1).quizQuestions().get(0).options().b());
         assertEquals("graph-basics", response.levels().get(1).quizQuestions().get(0).conceptTag());
+        assertEquals(1, response.levels().get(1).flashcards().size());
+        assertEquals("Adjacency list", response.levels().get(1).flashcards().get(0).front());
         assertEquals(3, response.levels().get(2).orderNumber());
         assertTrue(response.levels().get(2).isBoss());
 
@@ -585,11 +625,17 @@ class CourseServiceTest {
                 levels.get(1).getId(),
                 levels.get(2).getId()
         ))).thenReturn(List.of());
+        when(flashcardRepository.findByLevelIdInOrderByLevelIdAscOrderNumberAsc(List.of(
+                levels.get(0).getId(),
+                levels.get(1).getId(),
+                levels.get(2).getId()
+        ))).thenReturn(List.of());
 
         CourseResponse response = courseService.getCourseById(course.getId());
 
         assertEquals(3, response.levels().size());
         assertTrue(response.levels().stream().allMatch(level -> level.quizQuestions().isEmpty()));
+        assertTrue(response.levels().stream().allMatch(level -> level.flashcards().isEmpty()));
         verify(geminiService, never()).generateCourseJson(any());
     }
 
@@ -604,6 +650,7 @@ class CourseServiceTest {
         assertEquals("Course not found.", exception.getMessage());
         verify(levelRepository, never()).findByCourseIdOrderByOrderNumberAsc(any());
         verify(quizRepository, never()).findByLevelIdInOrderByLevelIdAscOrderNumberAsc(any());
+        verify(flashcardRepository, never()).findByLevelIdInOrderByLevelIdAscOrderNumberAsc(any());
         verify(geminiService, never()).generateCourseJson(any());
     }
 
@@ -675,6 +722,20 @@ class CourseServiceTest {
                 "Explanation for " + question,
                 "graph-basics",
                 20,
+                now,
+                now
+        );
+    }
+
+    private Flashcard createFlashcard(Level level, int orderNumber, String front, String back) {
+        Instant now = Instant.now();
+        return new Flashcard(
+                UUID.randomUUID(),
+                level,
+                orderNumber,
+                front,
+                back,
+                "graph-basics",
                 now,
                 now
         );

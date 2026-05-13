@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.codequest.ai.AiCourseResponse;
+import com.codequest.ai.AiFlashcardResponse;
 import com.codequest.ai.AiResponseValidationException;
 import com.codequest.ai.GeminiException;
 import com.codequest.ai.AiLevelResponse;
@@ -29,6 +30,9 @@ import com.codequest.course.dto.CourseResponse;
 import com.codequest.course.dto.CourseLevelSummaryResponse;
 import com.codequest.course.dto.GenerateCourseRequest;
 import com.codequest.course.dto.GenerateCourseResponse;
+import com.codequest.flashcard.Flashcard;
+import com.codequest.flashcard.FlashcardRepository;
+import com.codequest.flashcard.dto.FlashcardResponse;
 import com.codequest.level.Level;
 import com.codequest.level.LevelRepository;
 import com.codequest.quiz.Quiz;
@@ -48,15 +52,18 @@ public class CourseService {
     private final CourseRepository courseRepository;
     private final LevelRepository levelRepository;
     private final QuizRepository quizRepository;
+    private final FlashcardRepository flashcardRepository;
     private final UserRepository userRepository;
     private final GeminiService geminiService;
     private final ResponseParser responseParser;
 
     public CourseService(CourseRepository courseRepository, LevelRepository levelRepository, QuizRepository quizRepository,
-                         UserRepository userRepository, GeminiService geminiService, ResponseParser responseParser) {
+                         FlashcardRepository flashcardRepository, UserRepository userRepository,
+                         GeminiService geminiService, ResponseParser responseParser) {
         this.courseRepository = courseRepository;
         this.levelRepository = levelRepository;
         this.quizRepository = quizRepository;
+        this.flashcardRepository = flashcardRepository;
         this.userRepository = userRepository;
         this.geminiService = geminiService;
         this.responseParser = responseParser;
@@ -92,8 +99,13 @@ public class CourseService {
         }
 
         Map<UUID, List<QuizQuestionResponse>> quizQuestionsByLevelId = getQuizQuestionsByLevelId(orderedLevels);
+        Map<UUID, List<FlashcardResponse>> flashcardsByLevelId = getFlashcardsByLevelId(orderedLevels);
         List<CourseLevelResponse> levels = orderedLevels.stream()
-                .map(level -> toCourseLevelResponse(level, quizQuestionsByLevelId.getOrDefault(level.getId(), List.of())))
+                .map(level -> toCourseLevelResponse(
+                        level,
+                        quizQuestionsByLevelId.getOrDefault(level.getId(), List.of()),
+                        flashcardsByLevelId.getOrDefault(level.getId(), List.of())
+                ))
                 .collect(Collectors.toList());
 
         return new CourseResponse(
@@ -250,6 +262,7 @@ public class CourseService {
 
         Course savedCourse = courseRepository.save(course);
         persistAiQuizzes(savedCourse.getLevels(), orderedAiLevels, now);
+        persistAiFlashcards(savedCourse.getLevels(), orderedAiLevels, now);
         return toGenerateCourseResponse(savedCourse, false);
     }
 
@@ -285,7 +298,8 @@ public class CourseService {
         );
     }
 
-    private CourseLevelResponse toCourseLevelResponse(Level level, List<QuizQuestionResponse> quizQuestions) {
+    private CourseLevelResponse toCourseLevelResponse(Level level, List<QuizQuestionResponse> quizQuestions,
+                                                      List<FlashcardResponse> flashcards) {
         return new CourseLevelResponse(
                 level.getId(),
                 level.getOrderNumber(),
@@ -293,7 +307,8 @@ public class CourseService {
                 level.getContentMarkdown(),
                 level.getXpReward(),
                 level.isBoss(),
-                quizQuestions
+                quizQuestions,
+                flashcards
         );
     }
 
@@ -314,6 +329,23 @@ public class CourseService {
         }
     }
 
+    private void persistAiFlashcards(List<Level> savedLevels, List<AiLevelResponse> orderedAiLevels, Instant now) {
+        if (savedLevels.isEmpty() || orderedAiLevels.isEmpty()) {
+            return;
+        }
+
+        Map<Integer, Level> levelsByOrderNumber = savedLevels.stream()
+                .collect(Collectors.toMap(Level::getOrderNumber, level -> level));
+
+        List<Flashcard> flashcardsToPersist = orderedAiLevels.stream()
+                .flatMap(aiLevel -> buildFlashcardEntitiesForLevel(aiLevel, levelsByOrderNumber.get(aiLevel.orderNumber()), now).stream())
+                .toList();
+
+        if (!flashcardsToPersist.isEmpty()) {
+            flashcardRepository.saveAll(flashcardsToPersist);
+        }
+    }
+
     private List<Quiz> buildQuizEntitiesForLevel(AiLevelResponse aiLevel, Level savedLevel, Instant now) {
         if (savedLevel == null || aiLevel.quiz() == null || aiLevel.quiz().isEmpty()) {
             return List.of();
@@ -322,6 +354,17 @@ public class CourseService {
         List<AiQuizQuestionResponse> quizQuestions = aiLevel.quiz();
         return java.util.stream.IntStream.range(0, quizQuestions.size())
                 .mapToObj(index -> toQuizEntity(savedLevel, quizQuestions.get(index), index + 1, now))
+                .toList();
+    }
+
+    private List<Flashcard> buildFlashcardEntitiesForLevel(AiLevelResponse aiLevel, Level savedLevel, Instant now) {
+        if (savedLevel == null || aiLevel.flashcards() == null || aiLevel.flashcards().isEmpty()) {
+            return List.of();
+        }
+
+        List<AiFlashcardResponse> flashcards = aiLevel.flashcards();
+        return java.util.stream.IntStream.range(0, flashcards.size())
+                .mapToObj(index -> toFlashcardEntity(savedLevel, flashcards.get(index), index + 1, now))
                 .toList();
     }
 
@@ -339,6 +382,19 @@ public class CourseService {
                 trimToNull(question.explanation()),
                 trimToNull(question.conceptTag()),
                 question.xpReward(),
+                now,
+                now
+        );
+    }
+
+    private Flashcard toFlashcardEntity(Level savedLevel, AiFlashcardResponse flashcard, int orderNumber, Instant now) {
+        return new Flashcard(
+                UUID.randomUUID(),
+                savedLevel,
+                orderNumber,
+                flashcard.front().trim(),
+                flashcard.back().trim(),
+                null,
                 now,
                 now
         );
@@ -366,6 +422,28 @@ public class CourseService {
                 ));
     }
 
+    private Map<UUID, List<FlashcardResponse>> getFlashcardsByLevelId(List<Level> orderedLevels) {
+        if (orderedLevels.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        List<UUID> levelIds = orderedLevels.stream()
+                .map(Level::getId)
+                .toList();
+
+        List<Flashcard> flashcards = flashcardRepository.findByLevelIdInOrderByLevelIdAscOrderNumberAsc(levelIds);
+        if (flashcards.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        return flashcards.stream()
+                .collect(Collectors.groupingBy(
+                        flashcard -> flashcard.getLevel().getId(),
+                        LinkedHashMap::new,
+                        Collectors.mapping(this::toFlashcardResponse, Collectors.toList())
+                ));
+    }
+
     private QuizQuestionResponse toQuizQuestionResponse(Quiz quiz) {
         return new QuizQuestionResponse(
                 quiz.getId(),
@@ -380,6 +458,16 @@ public class CourseService {
                 quiz.getExplanation(),
                 quiz.getConceptTag(),
                 quiz.getXpReward()
+        );
+    }
+
+    private FlashcardResponse toFlashcardResponse(Flashcard flashcard) {
+        return new FlashcardResponse(
+                flashcard.getId(),
+                flashcard.getOrderNumber(),
+                flashcard.getFront(),
+                flashcard.getBack(),
+                flashcard.getConceptTag()
         );
     }
 
