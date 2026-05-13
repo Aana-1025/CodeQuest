@@ -36,17 +36,25 @@ function getContentPreview(contentMarkdown) {
     return "No lesson preview available yet.";
   }
 
-  const plainText = contentMarkdown
-    .replace(/[#*_`>-]/g, " ")
-    .replace(/\[(.*?)\]\((.*?)\)/g, "$1")
-    .replace(/\s+/g, " ")
-    .trim();
+  const plainText = toPlainText(contentMarkdown);
 
   if (!plainText) {
     return "No lesson preview available yet.";
   }
 
   return plainText.length <= 140 ? plainText : `${plainText.slice(0, 140).trim()}...`;
+}
+
+function toPlainText(contentMarkdown) {
+  if (!contentMarkdown) {
+    return "";
+  }
+
+  return contentMarkdown
+    .replace(/\[(.*?)\]\((.*?)\)/g, "$1")
+    .replace(/[#*_`>-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export default function DashboardShell({ profile, onBackHome }) {
@@ -57,6 +65,7 @@ export default function DashboardShell({ profile, onBackHome }) {
   const [courseMapLoading, setCourseMapLoading] = useState(false);
   const [courseMapError, setCourseMapError] = useState("");
   const [courseMap, setCourseMap] = useState(null);
+  const [selectedLevel, setSelectedLevel] = useState(null);
 
   const handleGenerateCourse = async (event) => {
     event.preventDefault();
@@ -86,6 +95,7 @@ export default function DashboardShell({ profile, onBackHome }) {
       setGeneratedCourse(response);
       setCourseMap(null);
       setCourseMapError("");
+      setSelectedLevel(null);
     } catch (error) {
       setGenerationError(error.message || "Failed to generate course.");
     } finally {
@@ -113,6 +123,7 @@ export default function DashboardShell({ profile, onBackHome }) {
         courseId: generatedCourse.courseId,
       });
       setCourseMap(response);
+      setSelectedLevel(null);
     } catch (error) {
       setCourseMapError(error.message || "Failed to load course map.");
     } finally {
@@ -123,7 +134,84 @@ export default function DashboardShell({ profile, onBackHome }) {
   const handleBackToDashboard = () => {
     setCourseMapError("");
     setCourseMap(null);
+    setSelectedLevel(null);
   };
+
+  const handleOpenLesson = (level) => {
+    setSelectedLevel(level);
+  };
+
+  const handleBackToCourseMap = () => {
+    setSelectedLevel(null);
+  };
+
+  if (courseMap && selectedLevel) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <div className="border-b border-slate-200 bg-white px-4 py-6 sm:px-8">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-semibold text-slate-900">Lesson</h1>
+              <p className="mt-1 text-sm text-slate-600">Read through the selected level and prepare for the next step.</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleBackToCourseMap}
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
+              >
+                Back to Course Map
+              </button>
+              {typeof onBackHome === "function" && (
+                <button
+                  onClick={onBackHome}
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
+                >
+                  Back to Home
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="px-4 py-8 sm:px-8">
+          <div className="mx-auto max-w-4xl space-y-6">
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-sm text-slate-500">{courseMap.title}</p>
+              <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-slate-500">Level {selectedLevel.orderNumber}</p>
+                  <h2 className="mt-1 text-2xl font-semibold text-slate-900">{selectedLevel.title}</h2>
+                </div>
+                <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold ${getLevelTypeBadgeClass(selectedLevel)}`}>
+                  {selectedLevel.isBoss ? "Boss" : "Standard"}
+                </span>
+              </div>
+
+              <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="rounded-xl bg-slate-50 p-4">
+                  <p className="text-sm text-slate-500">XP Reward</p>
+                  <p className="mt-1 text-base font-semibold text-slate-900">{selectedLevel.xpReward}</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-4">
+                  <p className="text-sm text-slate-500">Level Type</p>
+                  <p className="mt-1 text-base font-semibold text-slate-900">{selectedLevel.isBoss ? "Boss" : "Standard"}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h3 className="text-xl font-semibold text-slate-900">Lesson Content</h3>
+              <div className="mt-4 rounded-xl bg-slate-50 p-5">
+                <p className="whitespace-pre-wrap text-sm leading-7 text-slate-700">
+                  {toPlainText(selectedLevel.contentMarkdown) || "Lesson content is not available yet."}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (courseMap) {
     return (
@@ -197,6 +285,13 @@ export default function DashboardShell({ profile, onBackHome }) {
                     <h4 className="mt-3 text-lg font-semibold text-slate-900">{level.title}</h4>
                     <p className="mt-2 text-sm text-slate-600">XP Reward: {level.xpReward}</p>
                     <p className="mt-3 text-sm leading-6 text-slate-600">{getContentPreview(level.contentMarkdown)}</p>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenLesson(level)}
+                      className="mt-4 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
+                    >
+                      Open Lesson
+                    </button>
                   </div>
                 ))}
               </div>
