@@ -5,13 +5,13 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Frontend / Lesson quiz and flashcards compatibility
-Current feature: Frontend Real Quiz/Flashcards Display Compatibility Check/Fix completed, tested, manually verified, committed, and pushed
-Latest commit: `eb46a9e fix: support backend quiz options shape`
-Previous commit: `edd941b docs: record backend flashcards persistence completion`
+Current module: Backend / Notes foundation
+Current feature: Backend Notes Foundation completed, tested, manually verified, committed, and pushed
+Latest commit: `58abd4d feat: add backend notes foundation`
+Previous commit: `007dada docs: record quiz options compatibility fix`
 Current branch: main
-Test status: Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: placeholder/cached lesson still shows safe empty states, real Gemini BEGINNER AI course displayed persisted `quizQuestions` and `flashcards` in Lesson view, quiz options A/B/C/D rendered correctly from backend `quizQuestions[].options` object shape, local quiz option selection/lesson flow remained safe, flashcard Show/Hide Answer worked, `correctAnswer` was not visible, and no token/password/secret was visible. Backend, DB migrations, AI PromptBuilder/GeminiHttpClient/GeminiService/ResponseParser, backend course, backend quiz, and backend flashcard files unchanged.
-Git status: clean after frontend quiz/flashcards compatibility fix feature commit; Build Log docs update pending
+Test status: Backend `cd backend && .\mvnw.cmd test` PASS with 113 tests, 0 failures, 0 errors. Manual API verification PASS: Flyway V6 notes migration active, authenticated POST `/api/notes` created a note for the current user and level, repeated POST for the same user/level updated the same noteId without duplicate notes, a second user saved a separate note for the same level, missing level returned 404, blank content returned 400, no-token request returned 401, and no token/password/secret was visible. Frontend, AI, backend course, backend quiz, and backend flashcard files unchanged.
+Git status: clean after backend notes foundation feature commit; Build Log docs update pending
 
 ## Completed Features
 - [x] Project setup
@@ -50,6 +50,7 @@ Git status: clean after frontend quiz/flashcards compatibility fix feature commi
 - [x] Backend Quiz Persistence/Fetch Foundation
 - [x] Backend Flashcards Persistence/Fetch Foundation
 - [x] Frontend Real Quiz/Flashcards Display Compatibility Check/Fix
+- [x] Backend Notes Foundation
 - [ ] Flashcards
 - [ ] Notes
 - [ ] Quiz submit
@@ -163,7 +164,7 @@ Git status: clean after frontend quiz/flashcards compatibility fix feature commi
   - `DATABASE_USERNAME=postgres`
   - `DATABASE_PASSWORD=<local postgres password>`
   - `JWT_SECRET=dev-only-change-this-secret-dev-only-change-this-secret`
-- Flyway successfully applies/validates V1, V2, V3, V4, and V5 migrations against local PostgreSQL.
+- Flyway successfully applies/validates V1, V2, V3, V4, V5, and V6 migrations against local PostgreSQL.
 - Running `.\mvnw.cmd spring-boot:run` without configured datasource environment variables still fails because the default profile has no datasource URL. This is expected and not a feature bug.
 - Local frontend-backend CORS is configured in Spring Security.
 - CORS allows only local Vite development origins:
@@ -239,7 +240,7 @@ Git status: clean after frontend quiz/flashcards compatibility fix feature commi
 - Lesson Flashcards panel was already compatible with backend `flashcards` shape using `front` and `back`; no backend change was needed for the compatibility fix.
 - Real Gemini BEGINNER AI course manual verification confirmed persisted quiz questions and flashcards render in the Lesson view.
 - Manual ADVANCED `Greedy Algorithm` test fell back to placeholder with safe `PARSER_VALIDATION_FAILURE`; this is not an API key/frontend issue and can be investigated later through safe parser diagnostics if needed.
-- Current real quiz submit, scoring, notes saving, XP/progress persistence, level unlock logic, Piston/code execution, leaderboard, Docker, CI/CD, deployment, and Phase 2 features remain unimplemented.
+- Current real quiz submit, scoring, frontend notes UI/rendering, XP/progress persistence, level unlock logic, Piston/code execution, leaderboard, Docker, CI/CD, deployment, and Phase 2 features remain unimplemented.
 - Backend Quiz Persistence/Fetch Foundation is implemented.
 - V4 Flyway migration creates the `quizzes` table.
 - Quiz questions are persisted only from already parsed and validated AI output on successful AI course generation.
@@ -257,6 +258,19 @@ Git status: clean after frontend quiz/flashcards compatibility fix feature commi
 - Existing `quizQuestions` behavior remains unchanged after flashcard persistence/fetch.
 - Current AI flashcard DTO exposes `front` and `back`; `conceptTag` is currently stored as `null` for AI-created rows unless the AI DTO/parser is expanded later.
 - Backend flashcards persistence/fetch did not change frontend files or AI PromptBuilder/GeminiHttpClient/GeminiService/ResponseParser.
+- Backend Notes Foundation is implemented.
+- V6 Flyway migration creates the `notes` table.
+- Notes are stored per authenticated user and level using unique `(user_id, level_id)` ownership.
+- `POST /api/notes` is authenticated and upserts one note for the current user per level.
+- `POST /api/notes` request uses only `levelId` and `content`; it does not accept `userId`, `noteId`, role, token, or ownership fields from the request body.
+- Note ownership is derived only from JWT/SecurityContext through `CurrentUserPrincipal`.
+- Same authenticated user saving again for the same level updates the same note instead of creating a duplicate row.
+- Different users can save separate notes for the same level.
+- Note content is validated as required, non-blank, and capped at 5000 characters.
+- Missing level IDs return standard 404 behavior.
+- Blank note content returns 400 validation error.
+- Backend Notes Foundation did not change frontend files, AI files, backend course, backend quiz, or backend flashcard files.
+- Frontend notes editor/rendering is not implemented yet.
 - Quiz submit, scoring, answer persistence, XP/progress, weak concept detection, and level unlock logic remain unimplemented.
 - GeminiService + PromptBuilder foundation is implemented in the isolated backend `ai` module.
 - GeminiService + PromptBuilder foundation originally did not call Gemini over network and did not wire into `CourseService` or `CourseController`.
@@ -421,6 +435,7 @@ Git status: clean after frontend quiz/flashcards compatibility fix feature commi
 
 ## Bugs / Issues
 - None blocking currently.
+- Backend Notes Foundation note: No blocking issue. Manual verification confirmed authenticated POST `/api/notes` creates and updates a note for the same user/level, preserves separate notes for different users on the same level, returns 404 for missing level, 400 for blank content, and 401 without token. Frontend notes UI is still out of scope and not implemented yet.
 - Backend Quiz Persistence/Fetch Foundation note: No blocking issue. Manual verification confirmed placeholder courses return empty `quizQuestions`, `correctAnswer` is hidden from GET course responses, random valid UUID returns 404, and unauthenticated course fetch returns 401.
 - Backend Flashcards Persistence/Fetch Foundation note: No blocking issue. Manual verification confirmed placeholder courses return empty `flashcards`, existing `quizQuestions` arrays remain present/stable, random valid UUID returns 404, and unauthenticated course fetch returns 401. Persisted AI flashcards currently do not carry `conceptTag` because the existing AI flashcard DTO exposes only `front` and `back`.
 - Frontend Quiz/Flashcards foundation note: No blocking issue. Quiz and flashcards currently show safe empty states until persisted quiz/flashcard data is available.
@@ -631,6 +646,7 @@ Git status: clean after frontend quiz/flashcards compatibility fix feature commi
 | 37 | 2026-05-13 | Backend Quiz Persistence/Fetch Foundation | Backend / Quiz | backend/src/main/resources/db/migration/V4__create_quizzes_table.sql; backend/src/main/java/com/codequest/quiz/Quiz.java; backend/src/main/java/com/codequest/quiz/QuizRepository.java; backend/src/main/java/com/codequest/quiz/dto/QuizOptionsResponse.java; backend/src/main/java/com/codequest/quiz/dto/QuizQuestionResponse.java; backend/src/main/java/com/codequest/course/CourseService.java; backend/src/main/java/com/codequest/course/dto/CourseLevelResponse.java; backend/src/test/java/com/codequest/course/CourseServiceTest.java; backend/src/test/java/com/codequest/course/CourseControllerTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 100 tests, 0 failures, 0 errors. Manual API verification PASS: register/login/generate/fetch, `quizQuestions` present as empty arrays for placeholder levels, `correctAnswer` not exposed, random valid UUID returned 404, and no-token request returned 401. | `4fff8e6 feat: persist and fetch course quiz questions`. Added V4 quizzes table, quiz entity/repository/safe DTOs, AI-success quiz persistence, and safe quizQuestions in GET `/api/courses/{courseId}`. Frontend unchanged. AI PromptBuilder/GeminiHttpClient/GeminiService/ResponseParser unchanged. No quiz submit, scoring, XP/progress, weak concept detection, or unlock logic. |
 | 38 | 2026-05-13 | Backend Flashcards Persistence/Fetch Foundation | Backend / Flashcard | backend/src/main/resources/db/migration/V5__create_flashcards_table.sql; backend/src/main/java/com/codequest/flashcard/Flashcard.java; backend/src/main/java/com/codequest/flashcard/FlashcardRepository.java; backend/src/main/java/com/codequest/flashcard/dto/FlashcardResponse.java; backend/src/main/java/com/codequest/course/CourseService.java; backend/src/main/java/com/codequest/course/dto/CourseLevelResponse.java; backend/src/test/java/com/codequest/course/CourseServiceTest.java; backend/src/test/java/com/codequest/course/CourseControllerTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 101 tests, 0 failures, 0 errors. Manual API verification PASS: Flyway V5 validated, register/login/generate/fetch, `flashcards` present as empty arrays for placeholder levels, existing `quizQuestions` present/stable, random valid UUID returned 404, and no-token request returned 401. | `8c3b44e feat: persist and fetch course flashcards`. Added V5 flashcards table, flashcard entity/repository/safe DTO, AI-success flashcard persistence, and safe flashcards in GET `/api/courses/{courseId}`. Frontend unchanged. AI PromptBuilder/GeminiHttpClient/GeminiService/ResponseParser unchanged. Existing quizQuestions behavior unchanged. No notes, progress, XP/rank/streak, quiz submit, unlock logic, Piston, or Phase 2 work. |
 | 39 | 2026-05-14 | Frontend Real Quiz/Flashcards Display Compatibility Check/Fix | Frontend | frontend/src/pages/DashboardShell.jsx | Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: placeholder/cached lesson showed safe empty states; real Gemini BEGINNER AI course `Trie Data Structure Quiz Flashcards AI Test` displayed AI lesson content, real `quizQuestions`, options A/B/C/D, explanation, real `flashcards`, and Show/Hide Answer behavior. `correctAnswer` was not visible. Scope checks clean: backend migrations, AI, backend course, backend quiz, and backend flashcard diffs empty. | `eb46a9e fix: support backend quiz options shape`. Added small quiz options normalizer so backend `quizQuestions[].options` object shape `{A, B, C, D}` renders in the existing Lesson Quiz panel. Flashcards were already compatible with backend `flashcards` shape. No backend, DB migration, AI, package, submit/scoring/progress, notes, unlock, Piston, or Phase 2 work. |
+| 40 | 2026-05-14 | Backend Notes Foundation | Backend / Note | backend/src/main/resources/db/migration/V6__create_notes_table.sql; backend/src/main/java/com/codequest/note/Note.java; backend/src/main/java/com/codequest/note/NoteRepository.java; backend/src/main/java/com/codequest/note/NoteService.java; backend/src/main/java/com/codequest/note/NoteController.java; backend/src/main/java/com/codequest/note/NoteMapper.java; backend/src/main/java/com/codequest/note/dto/SaveNoteRequest.java; backend/src/main/java/com/codequest/note/dto/NoteResponse.java; backend/src/test/java/com/codequest/note/NoteServiceTest.java; backend/src/test/java/com/codequest/note/NoteControllerTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 113 tests, 0 failures, 0 errors. Manual API verification PASS: note create, same-user/same-level update with same noteId, second user separate note, missing level 404, blank content 400, no-token 401. Scope checks clean: frontend, AI, backend course, backend quiz, and backend flashcard diffs empty. | `58abd4d feat: add backend notes foundation`. Added V6 notes table, Note entity/repository/service/controller/mapper, validated request DTO, safe response DTO, authenticated POST `/api/notes` upsert per user/level, and focused note service/controller tests. No frontend, AI, quiz, flashcard, course, quiz submit, scoring, XP/progress, unlock, Piston, deployment, or Phase 2 work. |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -706,6 +722,7 @@ Git status: clean after frontend quiz/flashcards compatibility fix feature commi
 | 2026-05-13 | `cd backend && .\mvnw.cmd test` after Backend Quiz Persistence/Fetch Foundation | PASS | Backend tests passed with 100 tests, 0 failures, 0 errors after adding quiz persistence/fetch foundation. | Yes |
 | 2026-05-13 | `cd backend && .\mvnw.cmd test` after Backend Flashcards Persistence/Fetch Foundation | PASS | Backend tests passed with 101 tests, 0 failures, 0 errors after adding flashcards persistence/fetch foundation. | Yes |
 | 2026-05-14 | `cd frontend && npm run build` after Frontend Real Quiz/Flashcards Display Compatibility Check/Fix | PASS | Frontend build passed after adding quiz option normalization for backend `quizQuestions[].options` object shape. | Yes |
+| 2026-05-14 | `cd backend && .\mvnw.cmd test` after Backend Notes Foundation | PASS | Backend tests passed with 113 tests, 0 failures, 0 errors after adding notes persistence/upsert foundation. | Yes |
 
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
@@ -783,6 +800,7 @@ Git status: clean after frontend quiz/flashcards compatibility fix feature commi
 | 2026-05-13 | Backend Quiz Persistence/Fetch Foundation | Register/login -> POST `/api/courses/generate` -> GET `/api/courses/{courseId}` -> inspect `quizQuestions` -> check hidden `correctAnswer` -> random UUID 404 -> no-token 401 | GET course response included safe `quizQuestions` arrays on levels; placeholder levels returned empty arrays; `correctAnswer` was not exposed; missing course returned 404; unauthenticated fetch returned 401; no secrets/tokens visible | Passed |
 | 2026-05-13 | Backend Flashcards Persistence/Fetch Foundation | Flyway V5 validated -> register/login -> POST `/api/courses/generate` -> GET `/api/courses/{courseId}` -> inspect `flashcards` and `quizQuestions` -> random UUID 404 -> no-token 401 | GET course response included safe `flashcards` arrays on levels; placeholder levels returned empty arrays; existing `quizQuestions` arrays were still present/stable; missing course returned 404; unauthenticated fetch returned 401; no secrets/tokens visible | Passed |
 | 2026-05-14 | Frontend Real Quiz/Flashcards Display Compatibility Check/Fix | Login -> generate/reuse course -> Open Course Map -> Open Lesson -> verify placeholder/cached empty states -> start backend with Gemini env vars -> generate new BEGINNER AI course `Trie Data Structure Quiz Flashcards AI Test` -> Open Course Map -> Open Lesson -> inspect Quiz and Flashcards | Placeholder/cached lesson still showed safe empty states. Real AI lesson displayed persisted quiz question, options A/B/C/D, concept/explanation, and flashcards with Show/Hide Answer. `correctAnswer` was not visible; no secrets/tokens visible; lesson/course map/back flow still worked. | Passed |
+| 2026-05-14 | Backend Notes Foundation | Flyway V6 active -> register/login user 1 -> generate/reuse course -> GET course levelId -> POST `/api/notes` create -> POST `/api/notes` update same user/level -> register/login user 2 -> POST `/api/notes` same level -> missing level -> blank content -> no-token request -> diff safety checks | User 1 note create returned noteId, levelId, content, createdAt, updatedAt; same user/level update returned same noteId and updated content; user 2 got a different noteId for the same level; missing level returned 404; blank content returned 400; no-token request returned 401; frontend/AI/course/quiz/flashcard diffs empty; no secrets/tokens visible. | Passed |
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -861,13 +879,13 @@ Tomcat started on port 8080
 Started CodeQuestApplication
 ```
 
-Expected Flyway behavior after Backend Flashcards Persistence/Fetch Foundation:
+Expected Flyway behavior after Backend Notes Foundation:
 ```text
-Successfully validated 5 migrations
+Successfully validated 6 migrations
 Schema "public" is up to date. No migration necessary.
 ```
 
-If V5 has not yet been applied to a local database, startup should apply `V5__create_flashcards_table.sql` successfully.
+If V6 has not yet been applied to a local database, startup should apply `V6__create_notes_table.sql` successfully.
 
 Health check from another PowerShell:
 ```powershell
@@ -2837,6 +2855,312 @@ Important boundaries:
 - AI PromptBuilder, GeminiHttpClient, GeminiService, and ResponseParser were not changed.
 - Quiz submit, scoring, answer persistence, XP/progress, weak concept detection, notes saving, level unlock logic, Piston/code execution, Docker, CI/CD, deployment, and Phase 2 features are still not implemented.
 
+## Backend Notes Foundation Manual Test Commands
+Use these after the backend notes foundation task.
+
+### Automated verification
+```powershell
+cd backend
+.\mvnw.cmd test
+cd ..
+```
+
+Expected after this feature:
+```text
+Tests run: 113
+Failures: 0
+Errors: 0
+BUILD SUCCESS
+```
+
+### Scope checks
+```powershell
+git diff -- frontend
+git diff -- backend/src/main/java/com/codequest/ai
+git diff -- backend/src/main/java/com/codequest/quiz
+git diff -- backend/src/main/java/com/codequest/flashcard
+git diff -- backend/src/main/java/com/codequest/course
+git diff -- backend/src/main/resources/db/migration
+```
+
+Expected:
+```text
+Frontend diff is empty.
+AI diff is empty.
+Backend quiz diff is empty.
+Backend flashcard diff is empty.
+Backend course diff is empty.
+DB migration diff contains only the new V6 notes migration before commit.
+Backend note package and note tests are expected.
+```
+
+### Backend env/run
+Start backend with local PostgreSQL/JWT env vars. Gemini key is not required for notes testing.
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject
+
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
+$env:DATABASE_USERNAME="postgres"
+$env:DATABASE_PASSWORD="<your-local-postgres-password>"
+$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
+
+Remove-Item Env:GEMINI_API_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:GEMINI_MODEL -ErrorAction SilentlyContinue
+Remove-Item Env:GEMINI_BASE_URL -ErrorAction SilentlyContinue
+
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+Expected:
+```text
+Flyway validates/applies V6__create_notes_table.sql successfully.
+Tomcat started on port 8080.
+Started CodeQuestApplication.
+```
+
+### Manual notes create/update check
+From another PowerShell:
+```powershell
+$baseUrl = "http://localhost:8080"
+
+$email1 = "notesmanual1$(Get-Random)@example.com"
+$password = "NotesManual123"
+
+$registerBody1 = @{
+  name = "Notes Manual One"
+  email = $email1
+  password = $password
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/register" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body $registerBody1
+
+$loginBody1 = @{
+  email = $email1
+  password = $password
+} | ConvertTo-Json
+
+$loginResponse1 = Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/login" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body $loginBody1
+
+$token1 = $loginResponse1.accessToken
+
+$courseBody = @{
+  topic = "Notes Foundation Manual Test"
+  difficulty = "BEGINNER"
+  goal = "Verify notes save update"
+} | ConvertTo-Json
+
+$generatedCourse = Invoke-RestMethod `
+  -Uri "$baseUrl/api/courses/generate" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Headers @{ Authorization = "Bearer $token1" } `
+  -Body $courseBody
+
+$courseId = $generatedCourse.courseId
+
+$fetchedCourse = Invoke-RestMethod `
+  -Uri "$baseUrl/api/courses/$courseId" `
+  -Method GET `
+  -Headers @{ Authorization = "Bearer $token1" }
+
+$levelId = $fetchedCourse.levels[0].levelId
+
+$noteBody1 = @{
+  levelId = $levelId
+  content = "My first note for this level"
+} | ConvertTo-Json
+
+$noteCreate = Invoke-RestMethod `
+  -Uri "$baseUrl/api/notes" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Headers @{ Authorization = "Bearer $token1" } `
+  -Body $noteBody1
+
+$noteCreate
+
+$noteBodyUpdate = @{
+  levelId = $levelId
+  content = "My updated note for this level"
+} | ConvertTo-Json
+
+$noteUpdate = Invoke-RestMethod `
+  -Uri "$baseUrl/api/notes" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Headers @{ Authorization = "Bearer $token1" } `
+  -Body $noteBodyUpdate
+
+$noteUpdate
+$noteCreate.noteId -eq $noteUpdate.noteId
+```
+
+Expected:
+```text
+First request creates a note and returns noteId, levelId, content, createdAt, updatedAt.
+Second request updates the same note for the same user/level.
+Last equality check returns True.
+```
+
+### Manual second user separate note check
+```powershell
+$email2 = "notesmanual2$(Get-Random)@example.com"
+
+$registerBody2 = @{
+  name = "Notes Manual Two"
+  email = $email2
+  password = $password
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/register" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body $registerBody2
+
+$loginBody2 = @{
+  email = $email2
+  password = $password
+} | ConvertTo-Json
+
+$loginResponse2 = Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/login" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body $loginBody2
+
+$token2 = $loginResponse2.accessToken
+
+$noteBodySecondUser = @{
+  levelId = $levelId
+  content = "Second user's separate note"
+} | ConvertTo-Json
+
+$noteSecondUser = Invoke-RestMethod `
+  -Uri "$baseUrl/api/notes" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Headers @{ Authorization = "Bearer $token2" } `
+  -Body $noteBodySecondUser
+
+$noteSecondUser
+$noteUpdate.noteId -ne $noteSecondUser.noteId
+```
+
+Expected:
+```text
+Second user gets a different noteId for the same level.
+Last inequality check returns True.
+```
+
+### Manual error checks
+Missing level:
+```powershell
+$missingLevelId = [guid]::NewGuid().ToString()
+
+$missingLevelBody = @{
+  levelId = $missingLevelId
+  content = "Note for missing level"
+} | ConvertTo-Json
+
+try {
+  Invoke-RestMethod `
+    -Uri "$baseUrl/api/notes" `
+    -Method POST `
+    -ContentType "application/json" `
+    -Headers @{ Authorization = "Bearer $token1" } `
+    -Body $missingLevelBody
+} catch {
+  $_.Exception.Response.StatusCode.value__
+}
+```
+
+Expected:
+```text
+404
+```
+
+Blank content:
+```powershell
+$blankContentBody = @{
+  levelId = $levelId
+  content = "   "
+} | ConvertTo-Json
+
+try {
+  Invoke-RestMethod `
+    -Uri "$baseUrl/api/notes" `
+    -Method POST `
+    -ContentType "application/json" `
+    -Headers @{ Authorization = "Bearer $token1" } `
+    -Body $blankContentBody
+} catch {
+  $_.Exception.Response.StatusCode.value__
+}
+```
+
+Expected:
+```text
+400
+```
+
+No token:
+```powershell
+$noteNoTokenBody = @{
+  levelId = $levelId
+  content = "No token note"
+} | ConvertTo-Json
+
+try {
+  Invoke-RestMethod `
+    -Uri "$baseUrl/api/notes" `
+    -Method POST `
+    -ContentType "application/json" `
+    -Body $noteNoTokenBody
+} catch {
+  $_.Exception.Response.StatusCode.value__
+}
+```
+
+Expected:
+```text
+401
+```
+
+Observed latest manual result:
+```text
+User 1 created a note successfully.
+User 1 updated the same note successfully.
+Same user + same level returned the same noteId.
+User 2 saved a separate note for the same level.
+User 2 got a different noteId.
+Missing level returned 404.
+Blank content returned 400.
+No-token request returned 401.
+Scope checks showed no frontend, AI, course, quiz, or flashcard diffs.
+```
+
+Important boundaries:
+- V6 adds `notes` table only.
+- Existing migrations V1/V2/V3/V4/V5 must not be edited.
+- POST `/api/notes` is authenticated.
+- POST `/api/notes` accepts only `levelId` and `content`.
+- User identity comes from JWT / `CurrentUserPrincipal`, not the request body.
+- One note is stored per `(user_id, level_id)`.
+- Same user saving the same level updates the same note.
+- Different users can have separate notes for the same level.
+- Frontend notes editor/rendering is not implemented yet.
+- Quiz submit, scoring, XP/progress, unlock logic, Piston/code execution, deployment, and Phase 2 remain unimplemented.
+
 ## Next Chat Prompt
 Paste this into a fresh ChatGPT Project chat whenever the current chat becomes slow or confusing:
 
@@ -2846,8 +3170,8 @@ Read all CodeQuest project resources and the current CodeQuest_Build_Log.md befo
 Project: CodeQuest — AI-assisted Java learning platform MVP
 Repo: Aana-1025/CodeQuest
 Branch: main
-Latest pushed feature commit: eb46a9e fix: support backend quiz options shape
-Previous pushed commit: edd941b docs: record backend flashcards persistence completion
+Latest pushed feature commit: 58abd4d feat: add backend notes foundation
+Previous pushed commit: 007dada docs: record quiz options compatibility fix
 
 Very important workflow rule:
 We use Maven Wrapper, not plain Maven.
@@ -2897,6 +3221,7 @@ Completed backend features:
 - Backend course fetch endpoint GET /api/courses/{courseId}
 - Backend Quiz Persistence/Fetch Foundation
 - Backend Flashcards Persistence/Fetch Foundation
+- Backend Notes Foundation
 
 Completed frontend features:
 - Login page
@@ -2914,45 +3239,51 @@ Completed frontend features:
 - Frontend Real Quiz/Flashcards Display Compatibility Check/Fix
 
 Latest completed feature:
-Frontend Real Quiz/Flashcards Display Compatibility Check/Fix.
+Backend Notes Foundation.
 
 What was done:
-- Added a small frontend quiz options normalizer in `frontend/src/pages/DashboardShell.jsx`.
-- Lesson Quiz panel now supports backend `quizQuestions[].options` object shape `{A, B, C, D}`.
-- Existing array-shaped options remain supported for compatibility.
-- Lesson Flashcards panel was already compatible with backend `flashcards` shape using `front` and `back`.
-- Placeholder/cached lessons still show safe Quiz and Flashcards empty states when arrays are empty.
-- Real Gemini BEGINNER AI course manual verification confirmed persisted quiz questions and flashcards render in Lesson view.
-- `correctAnswer` is not displayed in UI.
-- No backend changes were made.
-- No DB migration was added.
-- AI PromptBuilder, GeminiHttpClient, GeminiService, and ResponseParser were unchanged.
-- Notes saving, quiz submit, scoring, answer persistence, XP/progress, weak concept detection, and level unlock logic were not implemented.
+- Added V6 Flyway migration for the `notes` table.
+- Added backend note module foundation:
+  - `Note`
+  - `NoteRepository`
+  - `NoteService`
+  - `NoteController`
+  - `NoteMapper`
+  - `SaveNoteRequest`
+  - `NoteResponse`
+- Implemented authenticated POST `/api/notes`.
+- Request accepts `levelId` and `content` only.
+- User identity is derived only from JWT / `CurrentUserPrincipal`, never request body.
+- POST `/api/notes` upserts one note per authenticated user per level.
+- Same user + same level updates the same noteId.
+- Different users can save separate notes for the same level.
+- Missing level returns 404.
+- Blank content returns 400.
+- No-token request returns 401.
+- Frontend notes UI was not implemented.
+- No frontend, AI, course, quiz, or flashcard files were changed.
+- Quiz submit, scoring, answer persistence, XP/progress, weak concept detection, and level unlock logic were not implemented.
 
 Latest test results:
-cd frontend && npm run build
-PASS
+cd backend && .\mvnw.cmd test
+PASS with 113 tests, 0 failures, 0 errors
 
 Latest manual verification:
-- Placeholder/cached Lesson flow still works.
-- Quiz section appears and shows safe empty state when `quizQuestions` is empty.
-- Flashcards section appears and shows safe empty state when `flashcards` is empty.
-- Backend was started with PostgreSQL/JWT/Gemini env vars for real AI check.
-- Generated new BEGINNER AI course: `Trie Data Structure Quiz Flashcards AI Test`.
-- Lesson page displayed AI lesson content.
-- Quiz section displayed real backend `quizQuestions`.
-- Options A/B/C/D rendered correctly from backend `quizQuestions[].options` object shape.
-- Explanation/concept text rendered.
-- Flashcards displayed real backend `flashcards`.
-- Show Answer / Hide Answer worked.
-- `correctAnswer` was not visible.
+- Backend was started with PostgreSQL/JWT env vars and no Gemini key required.
+- Flyway V6 notes migration was active.
+- User 1 created a note for a level through POST `/api/notes`.
+- User 1 updated the same note for the same level and received the same noteId.
+- User 2 saved a separate note for the same level and received a different noteId.
+- Missing level returned 404.
+- Blank content returned 400.
+- No-token POST `/api/notes` returned 401.
+- Scope checks confirmed no frontend, AI, backend course, backend quiz, or backend flashcard diffs.
 - No secrets/tokens visible.
-- Backend, DB migrations, AI, backend course, backend quiz, and backend flashcard files were unchanged.
 
 Latest git log should include:
+58abd4d feat: add backend notes foundation
+007dada docs: record quiz options compatibility fix
 eb46a9e fix: support backend quiz options shape
-edd941b docs: record backend flashcards persistence completion
-8c3b44e feat: persist and fetch course flashcards
 
 Current known blockers:
 None blocking.
@@ -2965,13 +3296,13 @@ Current important known notes:
 - Tests must stay deterministic and must not call real Gemini even when Gemini env vars are present locally.
 
 Next safest MVP task:
-Backend Notes Foundation or next safest MVP task.
+Frontend Notes Editor Foundation or GET notes foundation / next safest MVP notes follow-up.
 
 Recommended next task:
-Backend Notes Foundation, because course, levels, quizQuestions, and flashcards are now persisted/fetched and frontend compatibility has been verified.
+Frontend Notes Editor Foundation, because backend POST `/api/notes` now exists and frontend Lesson view can add a small notes editor that saves notes for the selected level.
 
 Alternative next task:
-Safe parser diagnostics/prompt compatibility for occasional `PARSER_VALIDATION_FAILURE` on harder/advanced Gemini outputs can come later if it becomes a recurring blocker. Do not combine that with notes, quiz submit, XP/progress, unlock logic, Piston, deployment, or Phase 2.
+GET notes foundation can be done before the frontend editor if we want the frontend to load previously saved notes from backend first. Safe parser diagnostics/prompt compatibility for occasional `PARSER_VALIDATION_FAILURE` on harder/advanced Gemini outputs can come later if it becomes a recurring blocker. Do not combine that with notes UI, quiz submit, XP/progress, unlock logic, Piston, deployment, or Phase 2.
 
 Important next-task boundaries:
 - Do not implement quiz submit, scoring, answer persistence, XP/progress, unlock logic, Piston/code execution, leaderboard, Docker, CI/CD, deployment, or Phase 2.
@@ -2988,7 +3319,7 @@ Important next-task boundaries:
   .\mvnw.cmd test
 
 Give me one strict Codex prompt for only the next safest MVP task.
-Do not implement quiz submit, scoring, notes saving, XP/progress, unlock logic, Piston, leaderboard, deployment, or Phase 2.
+Do not implement quiz submit, scoring, XP/progress, unlock logic, Piston, leaderboard, deployment, or Phase 2.
 Include exact files to inspect/touch, files not to touch, commands to run, manual/API/browser verification steps, diff checks, and Build Log update instructions.
 ```
 
@@ -3033,36 +3364,32 @@ Database: PostgreSQL + Flyway
 AI: Gemini API
 Code execution: Piston API
 
-Current module: Frontend / Lesson quiz and flashcards compatibility
-Last completed feature: Frontend Real Quiz/Flashcards Display Compatibility Check/Fix
-Latest feature commit: eb46a9e fix: support backend quiz options shape
-Previous commit: edd941b docs: record backend flashcards persistence completion
-Git status: clean after frontend quiz/flashcards compatibility fix feature commit; Build Log docs update pending until this file is committed
+Current module: Backend / Notes foundation
+Last completed feature: Backend Notes Foundation
+Latest feature commit: 58abd4d feat: add backend notes foundation
+Previous commit: 007dada docs: record quiz options compatibility fix
+Git status: clean after backend notes foundation feature commit; Build Log docs update pending until this file is committed
 Tests passed:
-- Frontend cd frontend && npm run build PASS
+- Backend cd backend && .\mvnw.cmd test PASS with 113 tests, 0 failures, 0 errors
 
 Manual verification passed:
-- Placeholder/cached Lesson flow still works.
-- Quiz section appears and shows safe empty state when quizQuestions is empty.
-- Flashcards section appears and shows safe empty state when flashcards is empty.
-- Backend was started with PostgreSQL/JWT/Gemini env vars for real AI check.
-- Generated new BEGINNER AI course: Trie Data Structure Quiz Flashcards AI Test.
-- Lesson page displayed AI lesson content.
-- Quiz section displayed real backend quizQuestions.
-- Options A/B/C/D rendered correctly from backend quizQuestions[].options object shape.
-- Explanation/concept text rendered.
-- Flashcards displayed real backend flashcards.
-- Show Answer / Hide Answer worked.
-- correctAnswer was not visible.
+- Backend was started with PostgreSQL/JWT env vars.
+- Flyway V6 notes migration was active.
+- User 1 created a note for a level through POST /api/notes.
+- User 1 updated the same note for the same level and received the same noteId.
+- User 2 saved a separate note for the same level and received a different noteId.
+- Missing level returned 404.
+- Blank content returned 400.
+- No-token POST /api/notes returned 401.
 - No secrets/tokens visible.
-- Backend, DB migrations, AI, backend course, backend quiz, and backend flashcard files were unchanged.
+- Frontend, AI, backend course, backend quiz, and backend flashcard files were unchanged.
 
 Known bugs/blockers:
 - None blocking currently.
 - No blocking issue is currently known.
 
 Next task:
-Backend Notes Foundation or next safest MVP task.
+Frontend Notes Editor Foundation or GET notes foundation / next safest MVP notes follow-up.
 
 Important completed Auth details:
 - Register implemented.
@@ -3109,7 +3436,7 @@ Important completed Local runtime / CORS details:
 - PostgreSQL 17 installed locally.
 - Local database codequest created.
 - Backend starts with DATABASE_URL, DATABASE_USERNAME, DATABASE_PASSWORD, JWT_SECRET.
-- Flyway applied V1, V2, V3, V4, and V5.
+- Flyway applied V1, V2, V3, V4, V5, and V6.
 - CORS allows localhost/127.0.0.1 ports 5173 and 5174.
 - Browser register/login/profile/course-generation smoke tests pass.
 
@@ -3117,6 +3444,7 @@ Important completed Course generation/details:
 - V3 migration creates courses and levels tables.
 - V4 migration creates quizzes table.
 - V5 migration creates flashcards table.
+- V6 migration creates notes table.
 - CourseService implements normalized topic/difficulty cache behavior.
 - CourseController exposes authenticated POST /api/courses/generate.
 - Cache hit returns same courseId with cacheHit=true.
@@ -3138,6 +3466,12 @@ Important completed Course generation/details:
 - GET /api/courses/{courseId} does not call Gemini or generation flow.
 - Frontend Course Map uses GET /api/courses/{courseId}.
 - Frontend Lesson view uses existing fetched Course Map/level data and does not require a new backend endpoint.
+- Authenticated POST /api/notes is implemented.
+- POST /api/notes accepts levelId and content only.
+- User identity comes from JWT / CurrentUserPrincipal.
+- Same user/level note saves update the existing note.
+- Different users can save separate notes for the same level.
+- Frontend notes editor/rendering is not implemented yet.
 
 Important completed AI details:
 - GeminiProperties implemented.
