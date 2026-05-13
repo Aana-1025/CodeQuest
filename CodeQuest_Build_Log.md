@@ -7,8 +7,8 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 Phase: MVP
 Current module: Course Generation / Frontend course map foundation
 Current feature: Frontend Course Map foundation completed, tested, manually verified, committed, and pushed
-Latest commit: `4d02ef9 docs: update build log after course fetch endpoint`
-Previous commit: `9e9ed01 feat: add course fetch endpoint`
+Latest commit: `427f9da feat: add frontend course map foundation`
+Previous commit: `4d02ef9 docs: update build log after course fetch endpoint`
 Current branch: main
 Test status: Frontend `cd frontend && npm run build` PASS. Backend `cd backend && .\mvnw.cmd test` PASS with 98 tests, 0 failures, 0 errors. Manual browser verification PASS: Login -> generate/reuse course -> Open Course Map -> Course Map loaded from GET `/api/courses/{courseId}` with title, description, difficulty, sourceType, totalXp, ordered levels, XP reward, Boss/Standard badge, content preview, working Back button, and no visible secrets/tokens. Backend, DB migrations, AI, and backend course files unchanged.
 Git status: clean after frontend course map foundation commit
