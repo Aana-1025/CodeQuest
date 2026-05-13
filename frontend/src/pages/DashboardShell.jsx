@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { generateCourse, getCourseById } from "../services/courseApi";
 import { getAccessToken } from "../utils/tokenStorage";
@@ -57,6 +57,76 @@ function toPlainText(contentMarkdown) {
     .trim();
 }
 
+function normalizeQuizQuestions(level) {
+  const quizCandidates = [level?.quiz, level?.quizzes, level?.quizQuestions];
+  const quizSource = quizCandidates.find(Array.isArray);
+
+  if (!quizSource) {
+    return [];
+  }
+
+  return quizSource.filter((question) => question && typeof question === "object");
+}
+
+function normalizeFlashcards(level) {
+  const flashcardCandidates = [level?.flashcards, level?.cards, level?.reviewCards];
+  const flashcardSource = flashcardCandidates.find(Array.isArray);
+
+  if (!flashcardSource) {
+    return [];
+  }
+
+  return flashcardSource.filter((card) => card && typeof card === "object");
+}
+
+function getOptionLabel(index) {
+  return ["A", "B", "C", "D"][index] || String(index + 1);
+}
+
+function getQuestionText(question) {
+  if (!question || typeof question !== "object") {
+    return "Question text is not available yet.";
+  }
+
+  const text = question.question ?? question.prompt;
+
+  return typeof text === "string" && text.trim() ? text.trim() : "Question text is not available yet.";
+}
+
+function getOptionText(option) {
+  if (typeof option === "string" || typeof option === "number") {
+    return String(option);
+  }
+
+  if (!option || typeof option !== "object") {
+    return "Option not available";
+  }
+
+  const text = option.text ?? option.label ?? option.value ?? option.content;
+
+  return typeof text === "string" && text.trim() ? text.trim() : "Option not available";
+}
+
+function getFlashcardFront(card) {
+  if (!card || typeof card !== "object") {
+    return "Flashcard front is not available yet.";
+  }
+
+  const front = card.front ?? card.question ?? card.term;
+
+  return typeof front === "string" && front.trim() ? front.trim() : "Flashcard front is not available yet.";
+}
+
+function getFlashcardBack(card) {
+  if (!card || typeof card !== "object") {
+    return "Flashcard answer is not available yet.";
+  }
+
+  const back = card.back ?? card.answer ?? card.definition;
+
+  return typeof back === "string" && back.trim() ? back.trim() : "Flashcard answer is not available yet.";
+}
+
 export default function DashboardShell({ profile, onBackHome }) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [generationLoading, setGenerationLoading] = useState(false);
@@ -66,6 +136,13 @@ export default function DashboardShell({ profile, onBackHome }) {
   const [courseMapError, setCourseMapError] = useState("");
   const [courseMap, setCourseMap] = useState(null);
   const [selectedLevel, setSelectedLevel] = useState(null);
+  const [quizSelections, setQuizSelections] = useState({});
+  const [revealedFlashcards, setRevealedFlashcards] = useState({});
+
+  useEffect(() => {
+    setQuizSelections({});
+    setRevealedFlashcards({});
+  }, [selectedLevel?.levelId, selectedLevel?.orderNumber, selectedLevel?.title]);
 
   const handleGenerateCourse = async (event) => {
     event.preventDefault();
@@ -145,7 +222,24 @@ export default function DashboardShell({ profile, onBackHome }) {
     setSelectedLevel(null);
   };
 
+  const handleQuizOptionSelect = (questionIndex, optionIndex) => {
+    setQuizSelections((current) => ({
+      ...current,
+      [questionIndex]: optionIndex,
+    }));
+  };
+
+  const handleFlashcardToggle = (cardIndex) => {
+    setRevealedFlashcards((current) => ({
+      ...current,
+      [cardIndex]: !current[cardIndex],
+    }));
+  };
+
   if (courseMap && selectedLevel) {
+    const quizQuestions = normalizeQuizQuestions(selectedLevel);
+    const flashcards = normalizeFlashcards(selectedLevel);
+
     return (
       <div className="min-h-screen bg-slate-50">
         <div className="border-b border-slate-200 bg-white px-4 py-6 sm:px-8">
@@ -206,6 +300,134 @@ export default function DashboardShell({ profile, onBackHome }) {
                   {toPlainText(selectedLevel.contentMarkdown) || "Lesson content is not available yet."}
                 </p>
               </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="text-xl font-semibold text-slate-900">Quiz</h3>
+                  <p className="mt-1 text-sm text-slate-600">Practice quiz foundation for this lesson. Question review will expand as quiz persistence is added later.</p>
+                </div>
+              </div>
+
+              {quizQuestions.length === 0 ? (
+                <div className="mt-4 rounded-xl bg-slate-50 p-5">
+                  <p className="text-sm text-slate-600">Quiz questions are not available for this level yet.</p>
+                </div>
+              ) : (
+                <div className="mt-5 space-y-4">
+                  {quizQuestions.map((question, questionIndex) => {
+                    const options = Array.isArray(question.options) ? question.options : [];
+                    const selectedOptionIndex = quizSelections[questionIndex];
+
+                    return (
+                      <div
+                        key={`quiz-question-${questionIndex}`}
+                        className="rounded-xl border border-slate-200 bg-slate-50 p-5"
+                      >
+                        <p className="text-sm font-semibold text-slate-500">Question {questionIndex + 1}</p>
+                        <h4 className="mt-2 text-base font-semibold text-slate-900">{getQuestionText(question)}</h4>
+                        {question.conceptTag && (
+                          <p className="mt-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+                            Concept: {question.conceptTag}
+                          </p>
+                        )}
+
+                        {options.length > 0 ? (
+                          <div className="mt-4 grid grid-cols-1 gap-3">
+                            {options.map((option, optionIndex) => {
+                              const isSelected = selectedOptionIndex === optionIndex;
+
+                              return (
+                                <button
+                                  key={`quiz-option-${questionIndex}-${optionIndex}`}
+                                  type="button"
+                                  onClick={() => handleQuizOptionSelect(questionIndex, optionIndex)}
+                                  className={`rounded-xl border px-4 py-3 text-left text-sm transition ${
+                                    isSelected
+                                      ? "border-slate-900 bg-white text-slate-900"
+                                      : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
+                                  }`}
+                                >
+                                  <span className="font-semibold">{getOptionLabel(optionIndex)}.</span>{" "}
+                                  {getOptionText(option)}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="mt-4 text-sm text-slate-600">Options are not available for this question yet.</p>
+                        )}
+
+                        {selectedOptionIndex !== undefined && question.explanation && (
+                          <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
+                            <p className="text-sm font-semibold text-slate-700">Explanation</p>
+                            <p className="mt-2 text-sm leading-6 text-slate-600">{question.explanation}</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="text-xl font-semibold text-slate-900">Flashcards</h3>
+                  <p className="mt-1 text-sm text-slate-600">Quick review foundation for this lesson. Flashcard study flow will expand when persistence is available.</p>
+                </div>
+              </div>
+
+              {flashcards.length === 0 ? (
+                <div className="mt-4 rounded-xl bg-slate-50 p-5">
+                  <p className="text-sm text-slate-600">Flashcards are not available for this level yet.</p>
+                </div>
+              ) : (
+                <div className="mt-5 grid grid-cols-1 gap-4">
+                  {flashcards.map((card, cardIndex) => {
+                    const isRevealed = Boolean(revealedFlashcards[cardIndex]);
+
+                    return (
+                      <div
+                        key={`flashcard-${cardIndex}`}
+                        className="rounded-xl border border-slate-200 bg-slate-50 p-5"
+                      >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-500">Card {cardIndex + 1}</p>
+                            {card.conceptTag && (
+                              <p className="mt-1 text-xs font-medium uppercase tracking-wide text-slate-500">
+                                Concept: {card.conceptTag}
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleFlashcardToggle(cardIndex)}
+                            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
+                          >
+                            {isRevealed ? "Hide Answer" : "Show Answer"}
+                          </button>
+                        </div>
+
+                        <div className="mt-4 rounded-xl bg-white p-4">
+                          <p className="text-sm font-semibold text-slate-500">Front</p>
+                          <p className="mt-2 text-sm leading-6 text-slate-700">{getFlashcardFront(card)}</p>
+                        </div>
+
+                        {isRevealed && (
+                          <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
+                            <p className="text-sm font-semibold text-slate-500">Answer</p>
+                            <p className="mt-2 text-sm leading-6 text-slate-700">{getFlashcardBack(card)}</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>
