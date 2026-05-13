@@ -5,13 +5,13 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Backend / Quiz submit and scoring foundation
-Current feature: Backend Quiz Submit/Scoring Foundation completed, tested, manually verified, committed, and pushed
-Latest commit: `a8a0f79 feat: add quiz submit scoring endpoint`
-Previous commit: `a75c02c docs: record frontend note preload completion`
+Current module: Frontend / Quiz submit integration
+Current feature: Frontend Quiz Submit Integration completed, tested, manually verified, committed, and pushed
+Latest commit: `f6fa55d feat: integrate frontend quiz submit`
+Previous commit: `cc66880 docs: record quiz submit scoring completion`
 Current branch: main
-Test status: Backend `cd backend && .\mvnw.cmd test` PASS with 131 tests, 0 failures, 0 errors. Manual API verification PASS: authenticated POST `/api/quizzes/{quizQuestionId}/submit` returns safe quiz submit response with `quizQuestionId`, `selectedAnswer`, `isCorrect`, `explanation`, and `concept`; response does not expose `correctAnswer`; invalid selectedAnswer `Z` returns 400; random valid quiz UUID returns 404; no-token request returns 401. Scope checks PASS: only backend quiz files changed; frontend, DB migrations, AI, backend course, backend flashcard, and backend note diffs were empty.
-Git status: clean after backend quiz submit/scoring feature commit; Build Log docs update pending
+Test status: Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: Lesson Quiz panel renders quiz questions/options, Submit Answer stays disabled until an option is selected, selected answer submits to backend POST `/api/quizzes/{quizQuestionId}/submit`, safe scoring result displays Correct/Incorrect, selected answer, explanation, and concept; changing answer clears previous result; `correctAnswer` is not visible; backend was run with Gemini key only to generate AI quiz data for manual testing; backend files, DB migrations, AI, course, flashcard, and note files remained unchanged.
+Git status: clean after frontend quiz submit integration feature commit; Build Log docs update pending
 
 ## Completed Features
 - [x] Project setup
@@ -55,10 +55,11 @@ Git status: clean after backend quiz submit/scoring feature commit; Build Log do
 - [x] Backend GET Notes Foundation
 - [x] Frontend Note Preload Foundation
 - [x] Backend Quiz Submit/Scoring Foundation
+- [x] Frontend Quiz Submit Integration
 - [ ] Flashcards
 - [x] Notes
 - [x] Backend Quiz submit/scoring endpoint
-- [ ] Frontend Quiz submit UI
+- [x] Frontend Quiz submit UI
 - [ ] Weak concept detection
 - [ ] XP/rank system
 - [ ] Streak system
@@ -319,7 +320,19 @@ Git status: clean after backend quiz submit/scoring feature commit; Build Log do
 - Missing quiz question IDs return standard 404 ErrorDTO behavior.
 - No-token quiz submit requests return 401 through the existing security flow.
 - Quiz submit currently does not persist attempts, score history, selected answers, XP, progress, rank, streak, weak concepts, or unlock state.
-- Frontend Quiz Submit UI is not implemented yet.
+- Frontend Quiz Submit Integration is implemented in the Lesson Quiz panel.
+- Frontend quiz submit uses `submitQuizAnswer(quizQuestionId, selectedAnswer)` from `frontend/src/services/courseApi.js`.
+- Frontend quiz submit sends authenticated POST `/api/quizzes/{quizQuestionId}/submit` only after explicit `Submit Answer` click.
+- Frontend quiz submit sends only `selectedAnswer` in the request body.
+- Frontend quiz submit uses the backend quiz identity field `quizId` from fetched course data, with `quizQuestionId` fallback for compatibility.
+- Frontend quiz submit tracks selection, loading, error, and result state per question.
+- Frontend quiz submit keeps the Submit Answer button disabled until an option is selected and while that question is submitting.
+- Frontend quiz submit displays only safe backend result fields: selected answer, Correct/Incorrect state, explanation, and concept.
+- Frontend quiz submit clears the previous result when the selected option changes so stale scoring feedback is not misleading.
+- Frontend quiz submit resets question selection/result state when the selected lesson changes so results do not leak between lessons.
+- Frontend quiz submit never displays `correctAnswer` and does not read, store, or render it.
+- Frontend quiz submit stores no quiz answers or results in localStorage/sessionStorage.
+- Frontend quiz submit does not implement answer persistence, attempts, XP/progress/rank/streak, weak concept detection, or level unlock logic.
 - Answer persistence, XP/progress, weak concept detection, and level unlock logic remain unimplemented.
 - GeminiService + PromptBuilder foundation is implemented in the isolated backend `ai` module.
 - GeminiService + PromptBuilder foundation originally did not call Gemini over network and did not wire into `CourseService` or `CourseController`.
@@ -484,6 +497,7 @@ Git status: clean after backend quiz submit/scoring feature commit; Build Log do
 
 ## Bugs / Issues
 - None blocking currently.
+- Frontend Quiz Submit Integration note: No blocking issue. Manual browser verification confirmed quiz questions/options render, Submit Answer is disabled until an option is selected, selected answers submit to backend scoring endpoint, safe Correct/Incorrect result plus selected answer, explanation, and concept displays, changing the selected answer clears the previous result, different lessons do not leak quiz state, and `correctAnswer`/tokens/secrets are not visible. Backend, DB migrations, AI, course, quiz backend, flashcard, and note files were unchanged. Attempts, XP/progress, weak concept detection, and unlock logic remain unimplemented.
 - Backend Quiz Submit/Scoring Foundation note: No blocking issue. Manual verification confirmed authenticated POST `/api/quizzes/{quizQuestionId}/submit` returns safe scoring response with `quizQuestionId`, `selectedAnswer`, `isCorrect`, `explanation`, and `concept`; `correctAnswer` is not exposed; invalid selectedAnswer `Z` returns 400; random valid quiz UUID returns 404; no-token request returns 401. No migration, frontend, AI, course, flashcard, note, XP/progress, unlock, or attempt-persistence changes were made.
 - Frontend Note Preload Foundation note: No blocking issue. Manual browser verification confirmed saved notes preload when reopening a lesson, edited note content preloads after resave, different lessons keep separate note state, no-note 404 is handled quietly, Quiz/Flashcards still render, back navigation works, no runtime errors were visible, and no token/password/secret was shown. Backend, DB migrations, AI, backend course, backend quiz, backend flashcard, and backend note files were unchanged.
 - Backend GET Notes Foundation note: No blocking issue. Manual verification confirmed authenticated GET `/api/notes/levels/{levelId}` returns only the current user's saved note, preserves same noteId after update, prevents user 2 from fetching user 1's note before creating their own note, returns user 2's separate note after creation, returns 404 for random valid level UUID, and returns 401 without token. Frontend note preload is still not implemented yet.
@@ -706,6 +720,8 @@ Git status: clean after backend quiz submit/scoring feature commit; Build Log do
 | 43 | 2026-05-14 | Frontend Note Preload Foundation | Frontend / Notes | frontend/src/services/courseApi.js; frontend/src/pages/DashboardShell.jsx | Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: saved notes preload on reopening the same lesson, edited note content preloads after resave, different lessons keep separate notes with no leakage, quiet no-note 404 state works, Quiz/Flashcards still render, back navigation works, no console runtime errors, and no secrets/tokens visible. Scope checks clean: backend migrations, AI, backend course, backend quiz, backend flashcard, and backend note diffs empty. | `e7ca3b7 feat: preload lesson notes`. Added authenticated `getNoteForLevel(levelId)` helper and lesson-scoped note preload flow using GET `/api/notes/levels/{levelId}`. 404 is treated as no saved note, save still uses POST `/api/notes`, stale-response protection prevents cross-lesson note leakage, and no backend/DB/AI changes were made. |
 
 | 44 | 2026-05-14 | Backend Quiz Submit/Scoring Foundation | Backend / Quiz | backend/src/main/java/com/codequest/quiz/QuizController.java; backend/src/main/java/com/codequest/quiz/QuizService.java; backend/src/main/java/com/codequest/quiz/dto/SubmitQuizAnswerRequest.java; backend/src/main/java/com/codequest/quiz/dto/SubmitQuizAnswerResponse.java; backend/src/test/java/com/codequest/quiz/QuizControllerTest.java; backend/src/test/java/com/codequest/quiz/QuizServiceTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 131 tests, 0 failures, 0 errors. Manual API verification PASS: valid quiz submit returned safe response without `correctAnswer`, invalid answer returned 400, random quiz UUID returned 404, no-token submit returned 401. Scope checks clean: frontend, DB migrations, AI, backend course, backend flashcard, and backend note diffs empty. | `a8a0f79 feat: add quiz submit scoring endpoint`. Added authenticated POST `/api/quizzes/{quizQuestionId}/submit`, request DTO, safe response DTO, service scoring logic against backend-only `correctAnswer`, and focused quiz controller/service tests. No migration, frontend, Gemini, course fetch, quiz fetch, flashcard, note, attempt persistence, XP/progress, unlock, Piston, deployment, or Phase 2 work. |
+| 45 | 2026-05-14 | Frontend Quiz Submit Integration | Frontend / Quiz | frontend/src/services/courseApi.js; frontend/src/pages/DashboardShell.jsx | Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: quiz options render, Submit Answer enables only after selection, selected answer submits to backend, scoring result displays safe Correct/Incorrect state with selected answer, explanation, and concept, previous result clears on answer change, no lesson-to-lesson quiz state leakage, Flashcards and Notes still work, back navigation works, and `correctAnswer`/tokens/secrets are not visible. Scope checks clean: backend migrations, AI, backend course, backend quiz, backend flashcard, and backend note diffs empty. | `f6fa55d feat: integrate frontend quiz submit`. Added authenticated `submitQuizAnswer` helper and per-question frontend submit/loading/error/result state in Lesson Quiz panel. Uses `quizId` with `quizQuestionId` fallback, calls POST `/api/quizzes/{quizQuestionId}/submit` only on explicit button click, and keeps `correctAnswer` hidden. No backend, DB migration, Gemini, attempt persistence, XP/progress, unlock, Piston, deployment, or Phase 2 work. |
+
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -788,6 +804,7 @@ Git status: clean after backend quiz submit/scoring feature commit; Build Log do
 | 2026-05-14 | `cd frontend && npm run build` after Frontend Note Preload Foundation | PASS | Frontend build passed after adding lesson note preload flow with GET `/api/notes/levels/{levelId}`. | Yes |
 
 | 2026-05-14 | `cd backend && .\mvnw.cmd test` after Backend Quiz Submit/Scoring Foundation | PASS | Backend tests passed with 131 tests, 0 failures, 0 errors after adding authenticated quiz submit/scoring endpoint. | Yes |
+| 2026-05-14 | `cd frontend && npm run build` after Frontend Quiz Submit Integration | PASS | Frontend build passed after adding per-question quiz submit integration in the Lesson Quiz panel. | Yes |
 
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
@@ -872,6 +889,7 @@ Git status: clean after backend quiz submit/scoring feature commit; Build Log do
 | 2026-05-14 | Frontend Note Preload Foundation | Login -> generate/reuse course -> Open Course Map -> Open Lesson -> save note -> Back to Course Map -> reopen same lesson -> edit/save -> reopen -> open a different lesson -> save separate note -> switch between lessons -> verify Quiz/Flashcards/back navigation/console/security | Saved note preloaded into textarea on reopening same lesson; updated content preloaded after resave; different lessons kept separate note content and no previous note leaked; no-note state was handled quietly; Quiz and Flashcards still rendered; Back to Course Map and Back to Home worked; browser console had no red runtime errors; no token/password/secret was visible. | Passed |
 
 | 2026-05-14 | Backend Quiz Submit/Scoring Foundation | Register/login -> fetch an existing AI course with quizQuestions -> pick quizId -> POST `/api/quizzes/{quizQuestionId}/submit` with valid selectedAnswer -> check response shape -> check no `correctAnswer` -> invalid selectedAnswer Z -> random valid quiz UUID -> no-token submit -> scope checks | Valid submit returned safe response with quizQuestionId, selectedAnswer, isCorrect, explanation, and concept; `correctAnswer` was not exposed; invalid answer returned 400; random quiz UUID returned 404; no-token request returned 401; frontend/migration/AI/course/flashcard/note diffs empty. | Passed |
+| 2026-05-14 | Frontend Quiz Submit Integration | Start backend with DB/JWT/Gemini env vars to generate/reuse AI quiz data -> start frontend -> login -> open AI course with quizQuestions -> Open Course Map -> Open Lesson -> select option -> Submit Answer -> inspect result -> change selected answer -> resubmit -> verify navigation/notes/flashcards/security | Quiz questions and A/B/C/D options rendered; Submit Answer enabled only after selecting an option; submit showed a safe result card with Correct/Incorrect, selected answer, explanation, and concept; `correctAnswer` was not visible; changing the selected answer cleared the previous result; backend submit endpoint was called successfully; no tokens/passwords/secrets were visible. | Passed |
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -4022,8 +4040,130 @@ Important boundaries:
 - correctAnswer is never returned in the response.
 - No quiz attempts are persisted yet.
 - No XP, progress, rank, streak, weak concept, or unlock logic was added.
-- Frontend quiz submit UI is still not implemented.
+- Frontend quiz submit UI is implemented; attempt persistence is still not implemented.
 - Piston/code execution, deployment, and Phase 2 remain unimplemented.
+
+
+## Frontend Quiz Submit Integration Manual Test Commands
+Use these after the frontend quiz submit integration task `f6fa55d feat: integrate frontend quiz submit`.
+
+### Automated verification
+```powershell
+cd frontend
+npm run build
+cd ..
+```
+
+Expected:
+```text
+Vite build succeeds.
+```
+
+### Scope checks
+```powershell
+git status --short
+git diff -- backend/src/main/resources/db/migration
+git diff -- backend/src/main/java/com/codequest/ai
+git diff -- backend/src/main/java/com/codequest/course
+git diff -- backend/src/main/java/com/codequest/quiz
+git diff -- backend/src/main/java/com/codequest/flashcard
+git diff -- backend/src/main/java/com/codequest/note
+git diff -- frontend
+```
+
+Expected before commit:
+```text
+Backend migration diff is empty.
+AI diff is empty.
+Backend course diff is empty.
+Backend quiz diff is empty.
+Backend flashcard diff is empty.
+Backend note diff is empty.
+Frontend diff contains only `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js` before commit.
+```
+
+### Backend env/run for browser verification
+Gemini key is required only if local DB has no existing AI course with quizQuestions. Do not paste real keys in chat, logs, screenshots, docs, or commits.
+
+Start backend with local PostgreSQL/JWT env vars and, if needed, a rotated Gemini key:
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject
+
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
+$env:DATABASE_USERNAME="postgres"
+$env:DATABASE_PASSWORD="<your-local-postgres-password>"
+$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
+
+$env:GEMINI_API_KEY="<your-working-rotated-gemini-key>"
+$env:GEMINI_MODEL="gemini-2.5-flash"
+$env:GEMINI_BASE_URL="https://generativelanguage.googleapis.com"
+
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+If using an existing local AI course with quizQuestions, Gemini env vars can be removed before running backend:
+```powershell
+Remove-Item Env:GEMINI_API_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:GEMINI_MODEL -ErrorAction SilentlyContinue
+Remove-Item Env:GEMINI_BASE_URL -ErrorAction SilentlyContinue
+```
+
+### Frontend env/run
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject\frontend
+npm run dev
+```
+
+### Browser verification
+```text
+1. Login.
+2. Generate or reuse an AI course with quizQuestions.
+3. Click Open Course Map.
+4. Click Open Lesson on a level that has quiz questions.
+5. Confirm quiz questions and options A/B/C/D render.
+6. Confirm Submit Answer is disabled until an option is selected.
+7. Select an option.
+8. Confirm Submit Answer becomes enabled.
+9. Click Submit Answer.
+10. Confirm scoring result appears with Correct/Incorrect, selected answer, explanation, and concept.
+11. Confirm correctAnswer is not visible anywhere.
+12. Change the selected answer after submit.
+13. Confirm the previous result clears.
+14. Submit again and confirm the result updates safely.
+15. Open a different lesson and confirm previous quiz selection/result does not leak.
+16. Confirm Flashcards still work.
+17. Confirm Notes preload/save still works.
+18. Confirm Back to Course Map and Back to Home still work.
+19. Confirm browser console has no red runtime errors.
+20. Confirm no token/password/secret/correctAnswer is visible.
+```
+
+Observed latest manual result:
+```text
+AI-generated Trie lesson with quizQuestions rendered in the Lesson Quiz panel.
+Option selection worked.
+Submit Answer called backend scoring endpoint.
+Result card showed Incorrect, selected answer C, concept Trie Search, and safe explanation.
+correctAnswer was not visible.
+No token/password/secret was visible.
+```
+
+Important boundaries:
+- Frontend-only task.
+- Uses existing backend POST `/api/quizzes/{quizQuestionId}/submit`.
+- Uses `quizId` from GET course quiz data with `quizQuestionId` fallback.
+- Sends only `selectedAnswer` in request body.
+- Calls backend only on explicit Submit Answer click.
+- Tracks selection/loading/error/result per question.
+- Clears previous result when selected option changes.
+- Does not store quiz selections/results in localStorage/sessionStorage.
+- Does not display correctAnswer.
+- Does not persist attempts.
+- Does not implement XP/progress/rank/streak/weak concept/level unlock logic.
+- No backend, DB migration, AI, course, quiz backend, flashcard, or note changes.
+- Piston/code execution, deployment, and Phase 2 remain unimplemented.
+
 
 ## Next Chat Prompt
 Paste this into a fresh ChatGPT Project chat whenever the current chat becomes slow or confusing:
@@ -4034,8 +4174,8 @@ Read all CodeQuest project resources and the current CodeQuest_Build_Log.md befo
 Project: CodeQuest — AI-assisted Java learning platform MVP
 Repo: Aana-1025/CodeQuest
 Branch: main
-Latest pushed feature commit: a8a0f79 feat: add quiz submit scoring endpoint
-Previous pushed commit: a75c02c docs: record frontend note preload completion
+Latest pushed feature commit: f6fa55d feat: integrate frontend quiz submit
+Previous pushed commit: cc66880 docs: record quiz submit scoring completion
 
 Very important workflow rule:
 We use Maven Wrapper, not plain Maven.
@@ -4105,49 +4245,49 @@ Completed frontend features:
 - Frontend Real Quiz/Flashcards Display Compatibility Check/Fix
 - Frontend Notes Editor Foundation
 - Frontend Note Preload Foundation
+- Frontend Quiz Submit Integration
 
 Latest completed feature:
-Backend Quiz Submit/Scoring Foundation.
+Frontend Quiz Submit Integration.
 
 What was done:
-- Added authenticated POST `/api/quizzes/{quizQuestionId}/submit`.
-- Added `QuizController` for thin endpoint delegation.
-- Added `QuizService` scoring logic against backend-stored `correctAnswer`.
-- Added `SubmitQuizAnswerRequest` with selectedAnswer validation for A/B/C/D.
-- Added `SubmitQuizAnswerResponse` with safe fields only: `quizQuestionId`, `selectedAnswer`, `isCorrect`, `explanation`, and `concept`.
-- selectedAnswer is normalized with trim + uppercase before scoring.
-- Missing quiz question returns standard 404 ErrorDTO behavior.
-- Invalid selectedAnswer returns standard 400 validation behavior.
-- No-token submit returns 401 through existing security flow.
-- `correctAnswer` is never returned in API responses.
-- No userId is accepted from request body, query, path, or headers.
-- No quiz attempts are persisted yet.
-- No XP/progress/rank/streak/weak concept/unlock logic was added.
-- No frontend changes were made.
+- Added `submitQuizAnswer(quizQuestionId, selectedAnswer)` helper in `frontend/src/services/courseApi.js`.
+- Helper sends authenticated POST `/api/quizzes/{quizQuestionId}/submit` using the existing Bearer token pattern.
+- Helper sends only `{ selectedAnswer }` in the request body.
+- Lesson Quiz panel now supports per-question Submit Answer UI.
+- Submit Answer stays disabled until an option is selected and while that question is submitting.
+- Frontend uses `quizId` from fetched quiz data, with `quizQuestionId` fallback for compatibility.
+- Quiz submit result is tracked per question.
+- Safe result UI displays Correct/Incorrect, selected answer, explanation, and concept.
+- `correctAnswer` is never displayed.
+- Changing selected answer after submit clears the old result.
+- Quiz state resets on lesson change to avoid state leakage.
+- Quiz results are not persisted in localStorage/sessionStorage.
+- No backend changes were made.
 - No DB migration was added.
 - No AI/Gemini changes were made.
+- No attempt persistence, XP/progress/rank/streak/weak concept/unlock logic was added.
 
 Latest test results:
-cd backend && .\mvnw.cmd test
-PASS with 131 tests, 0 failures, 0 errors
+cd frontend && npm run build
+PASS
 
 Latest manual verification:
-- Backend was started with PostgreSQL/JWT env vars.
-- Gemini key was not required because an existing AI course with quizQuestions was reused.
-- User registered/logged in and got an access token.
-- Existing course with quizQuestions was fetched from GET `/api/courses/{courseId}`.
-- A quiz id was selected from `quizQuestions[].quizId`.
-- Valid POST `/api/quizzes/{quizQuestionId}/submit` returned `quizQuestionId`, `selectedAnswer`, `isCorrect`, `explanation`, and `concept`.
-- Response did not contain `correctAnswer`.
-- Invalid selectedAnswer `Z` returned 400.
-- Random valid quiz UUID returned 404.
-- No-token submit returned 401.
-- Scope checks confirmed frontend, DB migrations, AI, backend course, backend flashcard, and backend note diffs were empty.
+- Backend was started with PostgreSQL/JWT env vars and a rotated Gemini key only to generate/reuse AI quiz data.
+- Frontend was started with Vite.
+- User logged in and opened an AI-generated course with quizQuestions.
+- Lesson Quiz panel displayed quiz question and A/B/C/D options.
+- Submit Answer was disabled until an option was selected.
+- Selected answer submitted to backend successfully.
+- Result card displayed Incorrect, selected answer, concept, and explanation.
+- `correctAnswer` was not visible.
+- No token/password/secret was visible.
+- Backend, DB migrations, AI, backend course, backend quiz, backend flashcard, and backend note files were unchanged.
 
 Latest git log should include:
+f6fa55d feat: integrate frontend quiz submit
+cc66880 docs: record quiz submit scoring completion
 a8a0f79 feat: add quiz submit scoring endpoint
-a75c02c docs: record frontend note preload completion
-e7ca3b7 feat: preload lesson notes
 
 Current known blockers:
 None blocking.
@@ -4158,39 +4298,33 @@ Current important known notes:
 - Never paste keys/passwords/secrets again.
 - Never commit or document real secrets.
 - Tests must stay deterministic and must not call real Gemini even when Gemini env vars are present locally.
-- Backend quiz submit/scoring now exists, but frontend quiz submit UI is still not implemented.
-- Quiz attempts/answer persistence is not implemented.
+- Quiz submit UI exists, but quiz attempts/answer persistence is not implemented.
 - XP/progress/rank/streak/weak concept/level unlock logic is not implemented.
+- Piston/code execution is not implemented.
 
 Next safest MVP task:
-Frontend Quiz Submit Integration or next safest MVP task.
+Quiz attempt persistence foundation, XP/progress foundation, level unlock logic foundation, or next safest MVP task depending on the master plan. Prefer one small backend foundation at a time.
 
 Recommended next task:
-Frontend Quiz Submit Integration, because backend POST `/api/quizzes/{quizQuestionId}/submit` now exists and Lesson view already displays quiz questions/options, but the frontend quiz panel still has local-only selections and does not submit answers to the backend.
+Backend Quiz Attempt Persistence Foundation may be a logical next step if the API contracts/core rules support it, because quiz submit currently scores answers but does not persist attempts. Keep it backend-only and do not add XP/progress/unlock unless explicitly scoped.
 
 Important next-task boundaries:
-- Keep the next task frontend-only if choosing Frontend Quiz Submit Integration.
-- Use existing backend POST `/api/quizzes/{quizQuestionId}/submit`.
-- Do not persist attempts.
-- Do not implement XP/progress/rank/streak.
-- Do not implement weak concept detection.
-- Do not implement level unlock logic.
-- Do not expose correctAnswer in frontend.
+- Keep the next task small and MVP-scoped.
+- Do not combine quiz attempts with XP/progress/unlock unless explicitly instructed.
+- Do not expose correctAnswer.
 - Do not touch Gemini/AI retry logic unless explicitly scoped.
 - Do not touch auth/user unless strictly necessary.
-- Do not change existing Flyway migrations.
-- Do not add backend migrations for frontend quiz submit integration.
+- Do not change existing Flyway migrations; add a new migration only if a new table is required and the task explicitly needs it.
 - Keep tests deterministic and do not call real Gemini.
-- For frontend task run:
-  cd frontend
-  npm run build
-- For backend task run only if backend files are touched unexpectedly:
+- For backend tasks run:
   cd backend
   .\mvnw.cmd test
+- For frontend tasks run:
+  cd frontend
+  npm run build
 
 Give me one strict Codex prompt for only the next safest MVP task.
-Do not implement XP/progress, unlock logic, Piston, leaderboard, deployment, or Phase 2.
-If Frontend Quiz Submit Integration is selected, keep it frontend-only and do not add attempt persistence or progress logic.
+Do not implement XP/progress, unlock logic, Piston, leaderboard, deployment, or Phase 2 unless that exact task is explicitly selected.
 Include exact files to inspect/touch, files not to touch, commands to run, manual/API/browser verification steps, diff checks, and Build Log update instructions.
 ```
 
@@ -4235,32 +4369,32 @@ Database: PostgreSQL + Flyway
 AI: Gemini API
 Code execution: Piston API
 
-Current module: Backend / Quiz submit and scoring foundation
-Last completed feature: Backend Quiz Submit/Scoring Foundation
-Latest feature commit: a8a0f79 feat: add quiz submit scoring endpoint
-Previous commit: a75c02c docs: record frontend note preload completion
-Git status: clean after backend quiz submit/scoring feature commit; Build Log docs update pending until this file is committed
+Current module: Frontend / Quiz submit integration
+Last completed feature: Frontend Quiz Submit Integration
+Latest feature commit: f6fa55d feat: integrate frontend quiz submit
+Previous commit: cc66880 docs: record quiz submit scoring completion
+Git status: clean after frontend quiz submit integration feature commit; Build Log docs update pending until this file is committed
 Tests passed:
-- Backend cd backend && .\mvnw.cmd test PASS with 131 tests, 0 failures, 0 errors
+- Frontend cd frontend && npm run build PASS
 
 Manual verification passed:
-- Backend was started with PostgreSQL/JWT env vars.
-- User registered/logged in and got accessToken.
-- Existing AI course with quizQuestions was fetched through GET /api/courses/{courseId}.
-- A quiz id was selected from quizQuestions[].quizId.
-- Valid POST /api/quizzes/{quizQuestionId}/submit returned safe response with quizQuestionId, selectedAnswer, isCorrect, explanation, and concept.
-- Response did not expose correctAnswer.
-- Invalid selectedAnswer Z returned 400.
-- Random valid quiz UUID returned 404.
-- No-token submit returned 401.
-- Frontend, DB migrations, AI, backend course, backend flashcard, and backend note files were unchanged.
+- Backend was started with PostgreSQL/JWT env vars and a rotated Gemini key only to generate/reuse AI quiz data.
+- Frontend was started with Vite.
+- User logged in and opened an AI-generated course with quizQuestions.
+- Lesson Quiz panel displayed quiz question and A/B/C/D options.
+- Submit Answer was disabled until an option was selected.
+- Selected answer submitted to backend successfully.
+- Result card displayed Incorrect, selected answer, concept, and explanation.
+- correctAnswer was not visible.
+- No token/password/secret was visible.
+- Backend, DB migrations, AI, backend course, backend quiz, backend flashcard, and backend note files were unchanged.
 
 Known bugs/blockers:
 - None blocking currently.
 - No blocking issue is currently known.
 
 Next task:
-Frontend Quiz Submit Integration or next safest MVP task.
+Quiz attempt persistence foundation, XP/progress foundation, level unlock logic foundation, or next safest MVP task depending on the master plan. Prefer one small backend foundation at a time.
 
 Important completed Auth details:
 - Register implemented.
@@ -4299,8 +4433,13 @@ Important completed Frontend details:
 - Lesson Quiz panel supports backend quizQuestions[].options object shape {A, B, C, D}.
 - Lesson Flashcards panel supports backend flashcards front/back shape.
 - Real AI quizQuestions and flashcards display has been manually verified in Lesson view.
-- Quiz and Flashcards panel state is local UI-only and resets when selected lesson changes.
-- Frontend quiz submit UI is not implemented yet.
+- Lesson Quiz panel now submits selected answers to POST /api/quizzes/{quizQuestionId}/submit.
+- Frontend quiz submit uses quizId from fetched quiz data with quizQuestionId fallback.
+- Frontend quiz submit tracks loading/error/result state per quiz question.
+- Frontend quiz submit clears previous result when selected answer changes.
+- Frontend quiz submit displays safe Correct/Incorrect, selected answer, explanation, and concept.
+- Frontend quiz submit does not display correctAnswer and does not persist quiz results in browser storage.
+- Frontend quiz attempts/answer persistence is not implemented yet.
 - React Router not added.
 - Lesson view includes a frontend-only Notes editor that saves notes using authenticated POST /api/notes.
 - Notes editor preloads saved notes using authenticated GET /api/notes/levels/{levelId} when a lesson is opened.
@@ -4356,9 +4495,11 @@ Important completed Quiz details:
 - Invalid selectedAnswer returns 400.
 - Missing quiz id returns 404.
 - No-token submit returns 401.
+- Frontend Quiz Submit Integration is implemented.
+- Lesson Quiz panel submits answers using POST /api/quizzes/{quizQuestionId}/submit.
+- Frontend displays only safe scoring result fields and keeps correctAnswer hidden.
 - Quiz attempts are not persisted.
 - XP/progress/unlock logic is not implemented.
-- Frontend quiz submit UI is not implemented.
 
 Important completed Flashcard details:
 - Backend Flashcards Persistence/Fetch Foundation is implemented.
@@ -4391,7 +4532,6 @@ Important completed AI details:
 - Never log raw Gemini response, full prompt, full URL with key, or secrets.
 
 Current unimplemented MVP items:
-- Frontend quiz submit integration
 - Quiz attempt persistence
 - XP/rank/streak/progress persistence
 - Level unlock logic
@@ -4416,6 +4556,6 @@ Important workflow:
 - Do not start the next feature with uncommitted changes.
 
 Recommended next prompt request:
-Give one strict Codex prompt for Frontend Quiz Submit Integration only.
-It should use existing backend POST /api/quizzes/{quizQuestionId}/submit, keep frontend-only scope, do not expose correctAnswer, do not add XP/progress/unlock/attempt persistence, do not touch backend/migrations/AI, and include build/manual verification/diff checks.
+Give one strict Codex prompt for the next safest MVP task only, likely Backend Quiz Attempt Persistence Foundation if supported by the project rules.
+Keep it backend-only, do not expose correctAnswer, do not implement XP/progress/unlock unless explicitly scoped, do not touch frontend/migrations beyond a required new Flyway migration for attempts, and include tests/manual verification/diff checks.
 ```
