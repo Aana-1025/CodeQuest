@@ -5,13 +5,13 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Frontend / Notes editor foundation
-Current feature: Frontend Notes Editor Foundation completed, tested, manually verified, committed, and pushed
-Latest commit: `b1943c4 feat: add frontend notes editor foundation`
-Previous commit: `db4dc24 docs: record backend notes foundation completion`
+Current module: Backend / Notes fetch foundation
+Current feature: Backend GET Notes Foundation completed, tested, manually verified, committed, and pushed
+Latest commit: `2606bfb feat: add get note by level endpoint`
+Previous commit: `589bf7a docs: record frontend notes editor completion`
 Current branch: main
-Test status: Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: Lesson view now shows a Notes section, note content can be saved through authenticated POST `/api/notes`, repeated save updates the same noteId, blank content is blocked safely in the frontend, character counter works, last-saved metadata is shown, lesson content and quiz section still render, and no token/password/secret was visible. Backend, DB migrations, AI, backend course, backend quiz, backend flashcard, and backend note files unchanged.
-Git status: clean after frontend notes editor foundation feature commit; Build Log docs update pending
+Test status: Backend `cd backend && .\mvnw.cmd test` PASS with 121 tests, 0 failures, 0 errors. Manual API verification PASS: user 1 saved and fetched a note through GET `/api/notes/levels/{levelId}`, user 1 updated the same note and fetched the same noteId with updated content, user 2 could not fetch user 1's note before creating their own note and received 404, user 2 saved and fetched a separate note for the same level with a different noteId, random valid level UUID returned 404, no-token GET returned 401, and no userId/token/password/secret was exposed. Frontend, DB migrations, AI, backend course, backend quiz, and backend flashcard files unchanged.
+Git status: clean after backend GET notes foundation feature commit; Build Log docs update pending
 
 ## Completed Features
 - [x] Project setup
@@ -52,6 +52,7 @@ Git status: clean after frontend notes editor foundation feature commit; Build L
 - [x] Frontend Real Quiz/Flashcards Display Compatibility Check/Fix
 - [x] Backend Notes Foundation
 - [x] Frontend Notes Editor Foundation
+- [x] Backend GET Notes Foundation
 - [ ] Flashcards
 - [ ] Notes
 - [ ] Quiz submit
@@ -277,11 +278,21 @@ Git status: clean after frontend notes editor foundation feature commit; Build L
 - The Notes editor saves only on explicit `Save Note` click and does not call backend on page load.
 - The Notes editor keeps note content and saved metadata as local Lesson-view state only.
 - The Notes editor resets local state when the selected lesson changes.
-- The Notes editor does not preload existing saved notes because no GET notes endpoint exists yet.
+- The Notes editor does not preload existing saved notes yet; backend GET `/api/notes/levels/{levelId}` now exists but frontend preload has not been wired yet.
 - The Notes editor treats content as plain textarea text and does not render raw HTML.
 - The Notes editor validates blank notes and 5000-character limit in the frontend before saving.
 - The Notes editor does not store note content in localStorage or sessionStorage.
-- Frontend notes preload/fetch is not implemented yet.
+- Backend GET Notes Foundation is implemented.
+- Backend GET Notes Foundation endpoint is GET `/api/notes/levels/{levelId}`.
+- GET `/api/notes/levels/{levelId}` is authenticated and uses `@AuthenticationPrincipal CurrentUserPrincipal`.
+- GET `/api/notes/levels/{levelId}` accepts only `levelId` from the path and never accepts `userId` from the request body, query, path, or headers.
+- GET `/api/notes/levels/{levelId}` returns only the authenticated user's own saved note for that level.
+- GET `/api/notes/levels/{levelId}` returns safe `NoteResponse` fields only: `noteId`, `levelId`, `content`, `createdAt`, and `updatedAt`.
+- GET `/api/notes/levels/{levelId}` returns standard 404 behavior for missing levels.
+- GET `/api/notes/levels/{levelId}` returns standard 404 behavior when the level exists but the authenticated user has no note for it.
+- GET `/api/notes/levels/{levelId}` returns 401 without a valid Bearer token through the existing security flow.
+- POST `/api/notes` remains the note save/update upsert endpoint and was not changed by Backend GET Notes Foundation.
+- Frontend notes preload/fetch using GET `/api/notes/levels/{levelId}` is not implemented yet.
 - Quiz submit, scoring, answer persistence, XP/progress, weak concept detection, and level unlock logic remain unimplemented.
 - GeminiService + PromptBuilder foundation is implemented in the isolated backend `ai` module.
 - GeminiService + PromptBuilder foundation originally did not call Gemini over network and did not wire into `CourseService` or `CourseController`.
@@ -446,6 +457,7 @@ Git status: clean after frontend notes editor foundation feature commit; Build L
 
 ## Bugs / Issues
 - None blocking currently.
+- Backend GET Notes Foundation note: No blocking issue. Manual verification confirmed authenticated GET `/api/notes/levels/{levelId}` returns only the current user's saved note, preserves same noteId after update, prevents user 2 from fetching user 1's note before creating their own note, returns user 2's separate note after creation, returns 404 for random valid level UUID, and returns 401 without token. Frontend note preload is still not implemented yet.
 - Backend Notes Foundation note: No blocking issue. Manual verification confirmed authenticated POST `/api/notes` creates and updates a note for the same user/level, preserves separate notes for different users on the same level, returns 404 for missing level, 400 for blank content, and 401 without token.
 - Frontend Notes Editor Foundation note: No blocking issue. Manual browser verification confirmed notes can be saved and updated from the Lesson view using existing POST `/api/notes`; blank notes are blocked safely; saved note metadata updates locally; lesson content and quiz section still render; no backend changes were made. Existing notes are not preloaded because a GET notes endpoint is not part of the current API scope.
 - Backend Quiz Persistence/Fetch Foundation note: No blocking issue. Manual verification confirmed placeholder courses return empty `quizQuestions`, `correctAnswer` is hidden from GET course responses, random valid UUID returns 404, and unauthenticated course fetch returns 401.
@@ -659,7 +671,8 @@ Git status: clean after frontend notes editor foundation feature commit; Build L
 | 38 | 2026-05-13 | Backend Flashcards Persistence/Fetch Foundation | Backend / Flashcard | backend/src/main/resources/db/migration/V5__create_flashcards_table.sql; backend/src/main/java/com/codequest/flashcard/Flashcard.java; backend/src/main/java/com/codequest/flashcard/FlashcardRepository.java; backend/src/main/java/com/codequest/flashcard/dto/FlashcardResponse.java; backend/src/main/java/com/codequest/course/CourseService.java; backend/src/main/java/com/codequest/course/dto/CourseLevelResponse.java; backend/src/test/java/com/codequest/course/CourseServiceTest.java; backend/src/test/java/com/codequest/course/CourseControllerTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 101 tests, 0 failures, 0 errors. Manual API verification PASS: Flyway V5 validated, register/login/generate/fetch, `flashcards` present as empty arrays for placeholder levels, existing `quizQuestions` present/stable, random valid UUID returned 404, and no-token request returned 401. | `8c3b44e feat: persist and fetch course flashcards`. Added V5 flashcards table, flashcard entity/repository/safe DTO, AI-success flashcard persistence, and safe flashcards in GET `/api/courses/{courseId}`. Frontend unchanged. AI PromptBuilder/GeminiHttpClient/GeminiService/ResponseParser unchanged. Existing quizQuestions behavior unchanged. No notes, progress, XP/rank/streak, quiz submit, unlock logic, Piston, or Phase 2 work. |
 | 39 | 2026-05-14 | Frontend Real Quiz/Flashcards Display Compatibility Check/Fix | Frontend | frontend/src/pages/DashboardShell.jsx | Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: placeholder/cached lesson showed safe empty states; real Gemini BEGINNER AI course `Trie Data Structure Quiz Flashcards AI Test` displayed AI lesson content, real `quizQuestions`, options A/B/C/D, explanation, real `flashcards`, and Show/Hide Answer behavior. `correctAnswer` was not visible. Scope checks clean: backend migrations, AI, backend course, backend quiz, and backend flashcard diffs empty. | `eb46a9e fix: support backend quiz options shape`. Added small quiz options normalizer so backend `quizQuestions[].options` object shape `{A, B, C, D}` renders in the existing Lesson Quiz panel. Flashcards were already compatible with backend `flashcards` shape. No backend, DB migration, AI, package, submit/scoring/progress, notes, unlock, Piston, or Phase 2 work. |
 | 40 | 2026-05-14 | Backend Notes Foundation | Backend / Note | backend/src/main/resources/db/migration/V6__create_notes_table.sql; backend/src/main/java/com/codequest/note/Note.java; backend/src/main/java/com/codequest/note/NoteRepository.java; backend/src/main/java/com/codequest/note/NoteService.java; backend/src/main/java/com/codequest/note/NoteController.java; backend/src/main/java/com/codequest/note/NoteMapper.java; backend/src/main/java/com/codequest/note/dto/SaveNoteRequest.java; backend/src/main/java/com/codequest/note/dto/NoteResponse.java; backend/src/test/java/com/codequest/note/NoteServiceTest.java; backend/src/test/java/com/codequest/note/NoteControllerTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 113 tests, 0 failures, 0 errors. Manual API verification PASS: note create, same-user/same-level update with same noteId, second user separate note, missing level 404, blank content 400, no-token 401. Scope checks clean: frontend, AI, backend course, backend quiz, and backend flashcard diffs empty. | `58abd4d feat: add backend notes foundation`. Added V6 notes table, Note entity/repository/service/controller/mapper, validated request DTO, safe response DTO, authenticated POST `/api/notes` upsert per user/level, and focused note service/controller tests. No frontend, AI, quiz, flashcard, course, quiz submit, scoring, XP/progress, unlock, Piston, deployment, or Phase 2 work. |
-| 41 | 2026-05-14 | Frontend Notes Editor Foundation | Frontend / Notes | frontend/src/services/courseApi.js; frontend/src/pages/DashboardShell.jsx | Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: Login -> generate/reuse course -> Open Course Map -> Open Lesson -> save note -> update same note -> blank note blocked safely -> lesson/quiz sections still visible -> no secrets/tokens visible. Scope checks clean: backend migrations, AI, backend course, backend quiz, backend flashcard, and backend note diffs empty. | `b1943c4 feat: add frontend notes editor foundation`. Added `saveNoteForLevel({ levelId, content })` helper and frontend-only Notes editor in Lesson view. Uses existing authenticated POST `/api/notes`, local validation, character counter, loading/success/error states, and local saved metadata. No GET notes/preload, backend changes, DB migration, AI, quiz submit, scoring, XP/progress, unlock logic, Piston, deployment, or Phase 2 work. |
+| 41 | 2026-05-14 | Frontend Notes Editor Foundation | Frontend / Notes | frontend/src/services/courseApi.js; frontend/src/pages/DashboardShell.jsx | Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: Login -> generate/reuse course -> Open Course Map -> Open Lesson -> save note -> update same note -> blank note blocked safely -> lesson/quiz sections still visible -> no secrets/tokens visible. Scope checks clean: backend migrations, AI, backend course, backend quiz, backend flashcard, and backend note diffs empty. | `b1943c4 feat: add frontend notes editor foundation`. Added `saveNoteForLevel({ levelId, content })` helper and frontend-only Notes editor in Lesson view. Uses existing authenticated POST `/api/notes`, local validation, character counter, loading/success/error states, and local saved metadata. No frontend note preload, DB migration, AI, quiz submit, scoring, XP/progress, unlock logic, Piston, deployment, or Phase 2 work. |
+| 42 | 2026-05-14 | Backend GET Notes Foundation | Backend / Note | backend/src/main/java/com/codequest/note/NoteController.java; backend/src/main/java/com/codequest/note/NoteService.java; backend/src/test/java/com/codequest/note/NoteControllerTest.java; backend/src/test/java/com/codequest/note/NoteServiceTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 121 tests, 0 failures, 0 errors. Manual API verification PASS: user 1 save/fetch/update/fetch, user 2 404 before own note, user 2 separate note fetch, random level UUID 404, no-token 401. Scope checks clean: frontend, DB migrations, AI, backend course, backend quiz, and backend flashcard diffs empty. | `2606bfb feat: add get note by level endpoint`. Added authenticated GET `/api/notes/levels/{levelId}` for current user's saved note only. Reused existing safe NoteResponse and note ownership logic. No migration, frontend, AI, course, quiz, flashcard, POST notes, scoring, XP/progress, unlock, Piston, deployment, or Phase 2 work. |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -737,6 +750,7 @@ Git status: clean after frontend notes editor foundation feature commit; Build L
 | 2026-05-14 | `cd frontend && npm run build` after Frontend Real Quiz/Flashcards Display Compatibility Check/Fix | PASS | Frontend build passed after adding quiz option normalization for backend `quizQuestions[].options` object shape. | Yes |
 | 2026-05-14 | `cd backend && .\mvnw.cmd test` after Backend Notes Foundation | PASS | Backend tests passed with 113 tests, 0 failures, 0 errors after adding notes persistence/upsert foundation. | Yes |
 | 2026-05-14 | `cd frontend && npm run build` after Frontend Notes Editor Foundation | PASS | Frontend build passed after adding lesson notes editor save flow through existing POST `/api/notes`. | Yes |
+| 2026-05-14 | `cd backend && .\mvnw.cmd test` after Backend GET Notes Foundation | PASS | Backend tests passed with 121 tests, 0 failures, 0 errors after adding authenticated current-user note fetch endpoint. | Yes |
 
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
@@ -816,6 +830,7 @@ Git status: clean after frontend notes editor foundation feature commit; Build L
 | 2026-05-14 | Frontend Real Quiz/Flashcards Display Compatibility Check/Fix | Login -> generate/reuse course -> Open Course Map -> Open Lesson -> verify placeholder/cached empty states -> start backend with Gemini env vars -> generate new BEGINNER AI course `Trie Data Structure Quiz Flashcards AI Test` -> Open Course Map -> Open Lesson -> inspect Quiz and Flashcards | Placeholder/cached lesson still showed safe empty states. Real AI lesson displayed persisted quiz question, options A/B/C/D, concept/explanation, and flashcards with Show/Hide Answer. `correctAnswer` was not visible; no secrets/tokens visible; lesson/course map/back flow still worked. | Passed |
 | 2026-05-14 | Backend Notes Foundation | Flyway V6 active -> register/login user 1 -> generate/reuse course -> GET course levelId -> POST `/api/notes` create -> POST `/api/notes` update same user/level -> register/login user 2 -> POST `/api/notes` same level -> missing level -> blank content -> no-token request -> diff safety checks | User 1 note create returned noteId, levelId, content, createdAt, updatedAt; same user/level update returned same noteId and updated content; user 2 got a different noteId for the same level; missing level returned 404; blank content returned 400; no-token request returned 401; frontend/AI/course/quiz/flashcard diffs empty; no secrets/tokens visible. | Passed |
 | 2026-05-14 | Frontend Notes Editor Foundation | Login -> generate/reuse course -> Open Course Map -> Open Lesson -> save note -> edit and save note again -> blank note attempt -> inspect Lesson/Quiz visibility -> verify no visible secrets | Notes section appeared in Lesson view. Save returned success, `Last saved` metadata and `Note ID` appeared, repeated save updated the same noteId, blank content was blocked with `Please enter a note before saving.`, character counter worked, lesson content and Quiz section still rendered, and no token/password/secret was visible. | Passed |
+| 2026-05-14 | Backend GET Notes Foundation | User 1 save note -> GET `/api/notes/levels/{levelId}` -> update with POST -> GET again -> user 2 GET before own note -> user 2 save/fetch own note -> random valid level UUID -> no-token GET -> scope checks | User 1 fetched saved note; update returned same noteId and updated content; user 2 could not fetch user 1 note and got 404 before creating own note; user 2 fetched own separate note with different noteId; random level UUID returned 404; no-token request returned 401; frontend/migration/AI/course/quiz/flashcard diffs empty; no userId/token/password/secret exposed. | Passed |
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -3173,7 +3188,9 @@ Important boundaries:
 - One note is stored per `(user_id, level_id)`.
 - Same user saving the same level updates the same note.
 - Different users can have separate notes for the same level.
-- Frontend Notes editor is implemented for save/update only; existing note preload/fetch is not implemented yet.
+- Authenticated GET `/api/notes/levels/{levelId}` is implemented for fetching the current user's saved note for a level.
+- GET `/api/notes/levels/{levelId}` returns only the authenticated user's note and returns 404 for missing level or missing current-user note.
+- Frontend Notes editor is implemented for save/update only; frontend note preload using GET `/api/notes/levels/{levelId}` is not implemented yet.
 - Quiz submit, scoring, XP/progress, unlock logic, Piston/code execution, deployment, and Phase 2 remain unimplemented.
 
 ## Frontend Notes Editor Foundation Manual Test Commands
@@ -3284,6 +3301,323 @@ Important boundaries:
 - Quiz submit, scoring, XP/progress, unlock logic, Piston/code execution, deployment, and Phase 2 remain unimplemented.
 
 
+## Backend GET Notes Foundation Manual Test Commands
+Use these after the backend GET notes foundation task `2606bfb feat: add get note by level endpoint`.
+
+### Automated verification
+```powershell
+cd backend
+.\mvnw.cmd test
+cd ..
+```
+
+Expected after this feature:
+```text
+Tests run: 121
+Failures: 0
+Errors: 0
+BUILD SUCCESS
+```
+
+### Scope checks
+```powershell
+git diff -- frontend
+git diff -- backend/src/main/resources/db/migration
+git diff -- backend/src/main/java/com/codequest/ai
+git diff -- backend/src/main/java/com/codequest/course
+git diff -- backend/src/main/java/com/codequest/quiz
+git diff -- backend/src/main/java/com/codequest/flashcard
+git diff -- backend/src/main/java/com/codequest/note
+```
+
+Expected:
+```text
+Frontend diff is empty.
+DB migration diff is empty.
+AI diff is empty.
+Backend course diff is empty.
+Backend quiz diff is empty.
+Backend flashcard diff is empty.
+Backend note diff contains only NoteController, NoteService, NoteControllerTest, and NoteServiceTest before commit.
+```
+
+### Backend env/run
+Start backend with local PostgreSQL/JWT env vars. Gemini key is not required for notes fetch testing.
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject
+
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
+$env:DATABASE_USERNAME="postgres"
+$env:DATABASE_PASSWORD="<your-local-postgres-password>"
+$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
+
+Remove-Item Env:GEMINI_API_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:GEMINI_MODEL -ErrorAction SilentlyContinue
+Remove-Item Env:GEMINI_BASE_URL -ErrorAction SilentlyContinue
+
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+Expected:
+```text
+Flyway validates 6 migrations successfully.
+Tomcat started on port 8080.
+Started CodeQuestApplication.
+```
+
+### Manual get-note verification
+From another PowerShell:
+```powershell
+$baseUrl = "http://localhost:8080"
+
+$email1 = "getnotesmanual1$(Get-Random)@example.com"
+$email2 = "getnotesmanual2$(Get-Random)@example.com"
+$password = "GetNotesManual123"
+
+$registerBody1 = @{
+  name = "Get Notes Manual One"
+  email = $email1
+  password = $password
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/register" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body $registerBody1
+
+$loginBody1 = @{
+  email = $email1
+  password = $password
+} | ConvertTo-Json
+
+$loginResponse1 = Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/login" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body $loginBody1
+
+$token1 = $loginResponse1.accessToken
+
+$courseBody = @{
+  topic = "Get Notes Foundation Manual Test"
+  difficulty = "BEGINNER"
+  goal = "Verify get saved notes"
+} | ConvertTo-Json
+
+$generatedCourse = Invoke-RestMethod `
+  -Uri "$baseUrl/api/courses/generate" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Headers @{ Authorization = "Bearer $token1" } `
+  -Body $courseBody
+
+$courseId = $generatedCourse.courseId
+
+$fetchedCourse = Invoke-RestMethod `
+  -Uri "$baseUrl/api/courses/$courseId" `
+  -Method GET `
+  -Headers @{ Authorization = "Bearer $token1" }
+
+$levelId = $fetchedCourse.levels[0].levelId
+
+$noteBody1 = @{
+  levelId = $levelId
+  content = "User 1 first saved note"
+} | ConvertTo-Json
+
+$noteCreate = Invoke-RestMethod `
+  -Uri "$baseUrl/api/notes" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Headers @{ Authorization = "Bearer $token1" } `
+  -Body $noteBody1
+
+$noteFetch1 = Invoke-RestMethod `
+  -Uri "$baseUrl/api/notes/levels/$levelId" `
+  -Method GET `
+  -Headers @{ Authorization = "Bearer $token1" }
+
+$noteCreate
+$noteFetch1
+$noteCreate.noteId -eq $noteFetch1.noteId
+$noteFetch1.content
+```
+
+Expected:
+```text
+GET /api/notes/levels/{levelId} returns the saved note for user 1.
+The noteId equality check returns True.
+The content is User 1 first saved note.
+```
+
+### Manual update and fetch check
+```powershell
+$noteBodyUpdate = @{
+  levelId = $levelId
+  content = "User 1 updated saved note"
+} | ConvertTo-Json
+
+$noteUpdate = Invoke-RestMethod `
+  -Uri "$baseUrl/api/notes" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Headers @{ Authorization = "Bearer $token1" } `
+  -Body $noteBodyUpdate
+
+$noteFetchUpdated = Invoke-RestMethod `
+  -Uri "$baseUrl/api/notes/levels/$levelId" `
+  -Method GET `
+  -Headers @{ Authorization = "Bearer $token1" }
+
+$noteUpdate
+$noteFetchUpdated
+$noteCreate.noteId -eq $noteFetchUpdated.noteId
+$noteFetchUpdated.content
+```
+
+Expected:
+```text
+Same noteId remains True.
+GET returns User 1 updated saved note.
+```
+
+### Manual user isolation check
+```powershell
+$registerBody2 = @{
+  name = "Get Notes Manual Two"
+  email = $email2
+  password = $password
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/register" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body $registerBody2
+
+$loginBody2 = @{
+  email = $email2
+  password = $password
+} | ConvertTo-Json
+
+$loginResponse2 = Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/login" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body $loginBody2
+
+$token2 = $loginResponse2.accessToken
+
+try {
+  Invoke-RestMethod `
+    -Uri "$baseUrl/api/notes/levels/$levelId" `
+    -Method GET `
+    -Headers @{ Authorization = "Bearer $token2" }
+} catch {
+  $_.Exception.Response.StatusCode.value__
+}
+```
+
+Expected before user 2 creates a note:
+```text
+404
+```
+
+Then create and fetch user 2's separate note:
+```powershell
+$noteBodyUser2 = @{
+  levelId = $levelId
+  content = "User 2 separate saved note"
+} | ConvertTo-Json
+
+$noteUser2 = Invoke-RestMethod `
+  -Uri "$baseUrl/api/notes" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Headers @{ Authorization = "Bearer $token2" } `
+  -Body $noteBodyUser2
+
+$noteFetchUser2 = Invoke-RestMethod `
+  -Uri "$baseUrl/api/notes/levels/$levelId" `
+  -Method GET `
+  -Headers @{ Authorization = "Bearer $token2" }
+
+$noteUser2
+$noteFetchUser2
+$noteFetchUpdated.noteId -ne $noteFetchUser2.noteId
+$noteFetchUser2.content
+```
+
+Expected:
+```text
+User 2 gets a different noteId from user 1.
+The inequality check returns True.
+GET returns User 2 separate saved note.
+```
+
+### Manual error checks
+Random valid level UUID:
+```powershell
+$missingLevelId = [guid]::NewGuid().ToString()
+
+try {
+  Invoke-RestMethod `
+    -Uri "$baseUrl/api/notes/levels/$missingLevelId" `
+    -Method GET `
+    -Headers @{ Authorization = "Bearer $token1" }
+} catch {
+  $_.Exception.Response.StatusCode.value__
+}
+```
+
+Expected:
+```text
+404
+```
+
+No token:
+```powershell
+try {
+  Invoke-RestMethod `
+    -Uri "$baseUrl/api/notes/levels/$levelId" `
+    -Method GET
+} catch {
+  $_.Exception.Response.StatusCode.value__
+}
+```
+
+Expected:
+```text
+401
+```
+
+Observed latest manual result:
+```text
+User 1 saved and fetched a note successfully.
+User 1 updated the note and fetched the same noteId with updated content.
+User 2 received 404 when fetching user 1's level note before creating their own note.
+User 2 saved and fetched a separate note for the same level with a different noteId.
+Random valid level UUID returned 404.
+No-token request returned 401.
+Scope checks showed no frontend, migration, AI, course, quiz, or flashcard diffs.
+```
+
+Important boundaries:
+- Backend-only task.
+- No migration was added or changed.
+- Existing V6 notes table is reused.
+- GET `/api/notes/levels/{levelId}` is authenticated.
+- GET `/api/notes/levels/{levelId}` accepts only levelId from path.
+- Current user identity comes from JWT / CurrentUserPrincipal.
+- Another user's note is never returned.
+- Missing level and missing current-user note both return safe 404 behavior.
+- POST `/api/notes` remains the upsert/save path and was not changed.
+- Frontend note preload is still not implemented yet.
+- Quiz submit, scoring, XP/progress, unlock logic, Piston/code execution, deployment, and Phase 2 remain unimplemented.
+
+
 ## Next Chat Prompt
 Paste this into a fresh ChatGPT Project chat whenever the current chat becomes slow or confusing:
 
@@ -3293,8 +3627,8 @@ Read all CodeQuest project resources and the current CodeQuest_Build_Log.md befo
 Project: CodeQuest — AI-assisted Java learning platform MVP
 Repo: Aana-1025/CodeQuest
 Branch: main
-Latest pushed feature commit: b1943c4 feat: add frontend notes editor foundation
-Previous pushed commit: db4dc24 docs: record backend notes foundation completion
+Latest pushed feature commit: 2606bfb feat: add get note by level endpoint
+Previous pushed commit: 589bf7a docs: record frontend notes editor completion
 
 Very important workflow rule:
 We use Maven Wrapper, not plain Maven.
@@ -3345,6 +3679,7 @@ Completed backend features:
 - Backend Quiz Persistence/Fetch Foundation
 - Backend Flashcards Persistence/Fetch Foundation
 - Backend Notes Foundation
+- Backend GET Notes Foundation
 
 Completed frontend features:
 - Login page
@@ -3363,52 +3698,49 @@ Completed frontend features:
 - Frontend Notes Editor Foundation
 
 Latest completed feature:
-Frontend Notes Editor Foundation.
+Backend GET Notes Foundation.
 
 What was done:
-- Added `saveNoteForLevel({ levelId, content })` in `frontend/src/services/courseApi.js`.
-- Added a Notes editor section inside the existing Lesson view in `DashboardShell.jsx`.
-- Notes editor uses `selectedLevel.levelId` and authenticated POST `/api/notes`.
-- Notes editor sends only `levelId` and `content`.
-- Notes are saved only when the user clicks `Save Note`.
-- Notes editor has character counter out of 5000.
-- Blank notes are blocked safely in the frontend.
-- Notes longer than 5000 characters are blocked in the frontend.
-- Save button has loading/disabled state.
-- Success and safe error messages are shown inline.
-- Saved note metadata such as `noteId` and `updatedAt` is stored/displayed locally after save.
-- Note editor local state resets when the selected lesson changes.
-- Notes are not stored in localStorage or sessionStorage.
-- Note content is plain textarea text and is not rendered as raw HTML.
-- No GET notes endpoint or note preload was implemented.
-- Backend was unchanged.
-- DB migrations were unchanged.
-- AI, backend course, backend quiz, backend flashcard, and backend note files were unchanged.
+- Added authenticated `GET /api/notes/levels/{levelId}` in `NoteController`.
+- Added `getNoteForCurrentUser(UUID userId, UUID levelId)` in `NoteService`.
+- The endpoint uses `@AuthenticationPrincipal CurrentUserPrincipal`.
+- The endpoint accepts only `levelId` from the path.
+- The endpoint never accepts `userId` from request body, query, path, or headers.
+- The service validates level existence first.
+- Missing level returns standard 404 behavior.
+- Existing level with no current-user note returns standard 404 behavior.
+- Existing current-user note returns safe `NoteResponse` only: `noteId`, `levelId`, `content`, `createdAt`, `updatedAt`.
+- Another user's note is not returned.
+- `POST /api/notes` behavior remained unchanged as the note upsert/save path.
+- No migration was added; existing V6 notes table is reused.
+- Frontend was unchanged.
+- AI, backend course, backend quiz, backend flashcard, auth, and user files were unchanged.
+- Frontend note preload was not implemented yet.
 - Quiz submit, scoring, answer persistence, XP/progress, weak concept detection, and level unlock logic were not implemented.
 
 Latest test results:
-cd frontend && npm run build
-PASS
+cd backend && .\mvnw.cmd test
+PASS with 121 tests, 0 failures, 0 errors
 
 Latest manual verification:
 - Backend was started with PostgreSQL/JWT env vars and no Gemini key required.
-- Frontend was started with Vite.
-- Login worked.
-- Course Map and Lesson view opened.
-- Notes section appeared in Lesson view.
-- Saving a note returned success and showed `Note saved.`.
-- Saved note metadata showed `Last saved` and `Note ID`.
-- Editing and saving the same note updated the note while preserving the same noteId.
-- Blank content was blocked with `Please enter a note before saving.`.
-- Character counter worked.
-- Lesson content and Quiz section still rendered.
-- No token/password/secret was visible.
-- Scope checks confirmed no backend, migration, AI, course, quiz, flashcard, or note diffs.
+- User 1 registered/logged in, generated/reused a course, and selected a levelId.
+- User 1 saved a note with POST `/api/notes`.
+- User 1 fetched the note with GET `/api/notes/levels/{levelId}`.
+- User 1 updated the note with POST `/api/notes`.
+- User 1 fetched the same noteId with updated content using GET `/api/notes/levels/{levelId}`.
+- User 2 could not fetch user 1's note for the same level and received 404 before creating their own note.
+- User 2 saved a separate note for the same level.
+- User 2 fetched their own note with a different noteId.
+- Random valid level UUID returned 404.
+- No-token GET request returned 401.
+- No userId/token/password/secret was visible in note responses.
+- Scope checks confirmed no frontend, migration, AI, course, quiz, or flashcard diffs.
 
 Latest git log should include:
+2606bfb feat: add get note by level endpoint
+589bf7a docs: record frontend notes editor completion
 b1943c4 feat: add frontend notes editor foundation
-db4dc24 docs: record backend notes foundation completion
-58abd4d feat: add backend notes foundation
 
 Current known blockers:
 None blocking.
@@ -3421,13 +3753,13 @@ Current important known notes:
 - Tests must stay deterministic and must not call real Gemini even when Gemini env vars are present locally.
 
 Next safest MVP task:
-GET notes foundation / frontend note preload follow-up or next safest MVP task.
+Frontend note preload foundation using GET `/api/notes/levels/{levelId}` or next safest MVP task.
 
 Recommended next task:
-Backend GET notes foundation for fetching the current user's saved note for a level, because the frontend Notes editor can save/update notes but cannot preload existing notes after lesson changes or page refresh yet.
+Frontend note preload foundation, because the backend now supports fetching the current user's saved note for a level and the frontend Notes editor can save/update notes but still does not preload existing saved notes after opening a lesson.
 
 Alternative next task:
-Frontend note preload can be done after adding a GET notes endpoint. Safe parser diagnostics/prompt compatibility for occasional `PARSER_VALIDATION_FAILURE` on harder/advanced Gemini outputs can come later if it becomes a recurring blocker. Do not combine that with notes UI, quiz submit, XP/progress, unlock logic, Piston, deployment, or Phase 2.
+After note preload, consider quiz submit/scoring foundation only if explicitly scoped. Safe parser diagnostics/prompt compatibility for occasional `PARSER_VALIDATION_FAILURE` on harder/advanced Gemini outputs can come later if it becomes a recurring blocker. Do not combine that with notes preload, quiz submit, XP/progress, unlock logic, Piston, deployment, or Phase 2.
 
 Important next-task boundaries:
 - Do not implement quiz submit, scoring, answer persistence, XP/progress, unlock logic, Piston/code execution, leaderboard, Docker, CI/CD, deployment, or Phase 2.
@@ -3489,34 +3821,34 @@ Database: PostgreSQL + Flyway
 AI: Gemini API
 Code execution: Piston API
 
-Current module: Frontend / Notes editor foundation
-Last completed feature: Frontend Notes Editor Foundation
-Latest feature commit: b1943c4 feat: add frontend notes editor foundation
-Previous commit: db4dc24 docs: record backend notes foundation completion
-Git status: clean after frontend notes editor foundation feature commit; Build Log docs update pending until this file is committed
+Current module: Backend / Notes fetch foundation
+Last completed feature: Backend GET Notes Foundation
+Latest feature commit: 2606bfb feat: add get note by level endpoint
+Previous commit: 589bf7a docs: record frontend notes editor completion
+Git status: clean after backend GET notes foundation feature commit; Build Log docs update pending until this file is committed
 Tests passed:
-- Frontend cd frontend && npm run build PASS
+- Backend cd backend && .\mvnw.cmd test PASS with 121 tests, 0 failures, 0 errors
 
 Manual verification passed:
 - Backend was started with PostgreSQL/JWT env vars.
-- Frontend was started with Vite.
-- User logged in and opened Course Map then Lesson view.
-- Notes section appeared in Lesson view.
-- Saving a note through POST /api/notes worked.
-- Editing and saving the same note updated it and kept the same noteId.
-- Blank content was blocked safely in the frontend.
-- Character counter worked.
-- Last saved and Note ID metadata appeared.
-- Lesson content and Quiz section still rendered.
-- No secrets/tokens visible.
-- Backend, DB migrations, AI, backend course, backend quiz, backend flashcard, and backend note files were unchanged.
+- User 1 registered/logged in, generated/reused a course, and selected a levelId.
+- User 1 saved a note through POST /api/notes.
+- User 1 fetched the saved note through GET /api/notes/levels/{levelId}.
+- User 1 updated the note through POST /api/notes.
+- User 1 fetched the same noteId with updated content.
+- User 2 could not fetch user 1's note before creating their own note and received 404.
+- User 2 saved and fetched a separate note for the same level with a different noteId.
+- Random valid level UUID returned 404.
+- No-token GET returned 401.
+- No userId/token/password/secret was exposed.
+- Frontend, DB migrations, AI, backend course, backend quiz, and backend flashcard files were unchanged.
 
 Known bugs/blockers:
 - None blocking currently.
 - No blocking issue is currently known.
 
 Next task:
-GET notes foundation / frontend note preload follow-up or next safest MVP task.
+Frontend note preload foundation using GET `/api/notes/levels/{levelId}` or next safest MVP task.
 
 Important completed Auth details:
 - Register implemented.
