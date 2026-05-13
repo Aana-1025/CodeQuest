@@ -49,6 +49,17 @@ public class NoteService {
         return noteMapper.toResponse(savedNote);
     }
 
+    @Transactional(readOnly = true)
+    public NoteResponse getNoteForCurrentUser(UUID userId, UUID levelId) {
+        levelRepository.findById(levelId)
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Level not found."));
+
+        Note note = noteRepository.findByUserIdAndLevelId(userId, levelId)
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Note not found."));
+
+        return noteMapper.toResponse(note);
+    }
+
     private Note createNewNote(User user, Level level, String content, Instant now) {
         return new Note(
                 UUID.randomUUID(),

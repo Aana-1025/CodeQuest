@@ -1,6 +1,7 @@
 package com.codequest.note;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -233,6 +234,83 @@ class NoteControllerTest {
                 .andExpect(jsonPath("$.content").value("Authenticated user note"));
 
         assertEquals(1L, noteRepository.countByUserIdAndLevelId(authenticatedUser.getId(), level.getId()));
+    }
+
+    @Test
+    void shouldReturnCurrentUsersNoteForLevelWhenItExists() throws Exception {
+        LoginResponse loginResponse = registerAndLogin("getnote-" + System.currentTimeMillis() + "@example.com");
+        Level level = createLevelForAuthenticatedUser(loginResponse.accessToken(), "Fetch Note Level");
+
+        mockMvc.perform(post("/api/notes")
+                        .header("Authorization", "Bearer " + loginResponse.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "levelId": "%s",
+                                  "content": "Fetch this saved note"
+                                }
+                                """.formatted(level.getId())))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/notes/levels/{levelId}", level.getId())
+                        .header("Authorization", "Bearer " + loginResponse.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.noteId").exists())
+                .andExpect(jsonPath("$.levelId").value(level.getId().toString()))
+                .andExpect(jsonPath("$.content").value("Fetch this saved note"))
+                .andExpect(jsonPath("$.createdAt").exists())
+                .andExpect(jsonPath("$.updatedAt").exists())
+                .andExpect(jsonPath("$.userId").doesNotExist())
+                .andExpect(jsonPath("$.token").doesNotExist())
+                .andExpect(jsonPath("$.password").doesNotExist())
+                .andExpect(jsonPath("$.role").doesNotExist())
+                .andExpect(jsonPath("$.refreshToken").doesNotExist());
+    }
+
+    @Test
+    void shouldReturn404WhenCurrentUserHasNoNoteForExistingLevel() throws Exception {
+        LoginResponse firstLoginResponse = registerAndLogin("noteowner-" + System.currentTimeMillis() + "@example.com");
+        LoginResponse secondLoginResponse = registerAndLogin("notenotowner-" + System.currentTimeMillis() + "@example.com");
+        Level level = createLevelForAuthenticatedUser(firstLoginResponse.accessToken(), "No Note For Requester Level");
+
+        mockMvc.perform(post("/api/notes")
+                        .header("Authorization", "Bearer " + firstLoginResponse.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "levelId": "%s",
+                                  "content": "Only the first user owns this note"
+                                }
+                                """.formatted(level.getId())))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/notes/levels/{levelId}", level.getId())
+                        .header("Authorization", "Bearer " + secondLoginResponse.accessToken()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Note not found."))
+                .andExpect(jsonPath("$.path").value("/api/notes/levels/" + level.getId()));
+    }
+
+    @Test
+    void shouldReturn404WhenFetchingNoteForMissingLevel() throws Exception {
+        LoginResponse loginResponse = registerAndLogin("missinggetnote-" + System.currentTimeMillis() + "@example.com");
+        UUID missingLevelId = UUID.randomUUID();
+
+        mockMvc.perform(get("/api/notes/levels/{levelId}", missingLevelId)
+                        .header("Authorization", "Bearer " + loginResponse.accessToken()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Level not found."))
+                .andExpect(jsonPath("$.path").value("/api/notes/levels/" + missingLevelId));
+    }
+
+    @Test
+    void shouldReturn401WhenFetchingNoteWithoutAuthentication() throws Exception {
+        mockMvc.perform(get("/api/notes/levels/{levelId}", UUID.randomUUID()))
+                .andExpect(status().isUnauthorized());
     }
 
     private Level createLevelForAuthenticatedUser(String accessToken, String topic) throws Exception {

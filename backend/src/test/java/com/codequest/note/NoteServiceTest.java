@@ -142,6 +142,85 @@ class NoteServiceTest {
         verify(noteRepository, times(2)).save(any(Note.class));
     }
 
+    @Test
+    void getNoteForCurrentUser_shouldReturnCurrentUsersNoteWhenItExists() {
+        User user = createUser("fetch-note@example.com");
+        Level level = createLevel();
+        Instant createdAt = Instant.now().minusSeconds(60);
+        Instant updatedAt = Instant.now();
+        Note note = new Note(
+                UUID.randomUUID(),
+                user,
+                level,
+                "Saved note content",
+                createdAt,
+                updatedAt
+        );
+
+        when(levelRepository.findById(level.getId())).thenReturn(Optional.of(level));
+        when(noteRepository.findByUserIdAndLevelId(user.getId(), level.getId())).thenReturn(Optional.of(note));
+
+        NoteResponse response = noteService.getNoteForCurrentUser(user.getId(), level.getId());
+
+        assertEquals(note.getId(), response.noteId());
+        assertEquals(level.getId(), response.levelId());
+        assertEquals("Saved note content", response.content());
+        assertEquals(createdAt, response.createdAt());
+        assertEquals(updatedAt, response.updatedAt());
+    }
+
+    @Test
+    void getNoteForCurrentUser_shouldThrowNotFoundWhenLevelDoesNotExist() {
+        User user = createUser("missing-note-level@example.com");
+        UUID missingLevelId = UUID.randomUUID();
+
+        when(levelRepository.findById(missingLevelId)).thenReturn(Optional.empty());
+
+        ApiException exception = assertThrows(
+                ApiException.class,
+                () -> noteService.getNoteForCurrentUser(user.getId(), missingLevelId)
+        );
+
+        assertEquals(ErrorCode.NOT_FOUND, exception.getErrorCode());
+        assertEquals("Level not found.", exception.getMessage());
+    }
+
+    @Test
+    void getNoteForCurrentUser_shouldThrowNotFoundWhenNoteDoesNotExistForCurrentUser() {
+        User user = createUser("note-missing@example.com");
+        Level level = createLevel();
+
+        when(levelRepository.findById(level.getId())).thenReturn(Optional.of(level));
+        when(noteRepository.findByUserIdAndLevelId(user.getId(), level.getId())).thenReturn(Optional.empty());
+
+        ApiException exception = assertThrows(
+                ApiException.class,
+                () -> noteService.getNoteForCurrentUser(user.getId(), level.getId())
+        );
+
+        assertEquals(ErrorCode.NOT_FOUND, exception.getErrorCode());
+        assertEquals("Note not found.", exception.getMessage());
+    }
+
+    @Test
+    void getNoteForCurrentUser_shouldNotReturnAnotherUsersNoteForSameLevel() {
+        User firstUser = createUser("note-owner-fetch@example.com");
+        User secondUser = createUser("note-requester-fetch@example.com");
+        Level level = createLevel();
+
+        when(levelRepository.findById(level.getId())).thenReturn(Optional.of(level));
+        when(noteRepository.findByUserIdAndLevelId(secondUser.getId(), level.getId())).thenReturn(Optional.empty());
+
+        ApiException exception = assertThrows(
+                ApiException.class,
+                () -> noteService.getNoteForCurrentUser(secondUser.getId(), level.getId())
+        );
+
+        assertEquals(ErrorCode.NOT_FOUND, exception.getErrorCode());
+        assertEquals("Note not found.", exception.getMessage());
+        verify(noteRepository).findByUserIdAndLevelId(secondUser.getId(), level.getId());
+    }
+
     private User createUser(String email) {
         Instant now = Instant.now();
         User user = new User(UUID.randomUUID(), "Note User", email, "hashed-password");
