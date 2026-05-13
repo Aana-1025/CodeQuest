@@ -107,6 +107,24 @@ function getOptionText(option) {
   return typeof text === "string" && text.trim() ? text.trim() : "Option not available";
 }
 
+function normalizeQuestionOptions(question) {
+  if (!question || typeof question !== "object") {
+    return [];
+  }
+
+  if (Array.isArray(question.options)) {
+    return question.options;
+  }
+
+  if (question.options && typeof question.options === "object") {
+    return ["A", "B", "C", "D"]
+      .map((label) => question.options[label])
+      .filter((option) => option !== undefined && option !== null);
+  }
+
+  return [];
+}
+
 function getFlashcardFront(card) {
   if (!card || typeof card !== "object") {
     return "Flashcard front is not available yet.";
@@ -317,7 +335,7 @@ export default function DashboardShell({ profile, onBackHome }) {
               ) : (
                 <div className="mt-5 space-y-4">
                   {quizQuestions.map((question, questionIndex) => {
-                    const options = Array.isArray(question.options) ? question.options : [];
+                    const options = normalizeQuestionOptions(question);
                     const selectedOptionIndex = quizSelections[questionIndex];
 
                     return (
