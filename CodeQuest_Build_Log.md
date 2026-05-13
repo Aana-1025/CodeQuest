@@ -5,15 +5,15 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Frontend / Course generation UI
-Current feature: Frontend AI/placeholder course source badge fix completed, tested, pending review
-Last completed feature: Frontend AI/placeholder course source badge fix
-Next feature: Course map or the next safest MVP task after review; do not implement it yet
+Current module: Course Generation / Frontend + API response polish
+Current feature: Frontend AI/placeholder course source badge fix completed, tested, manually verified, committed, and pushed
+Last completed feature: Frontend course source badge fix so AI-generated courses show `AI Generated Course` instead of `New Placeholder Course`
+Next feature: Course map foundation / backend course fetch endpoint `GET /api/courses/{courseId}`
 Current branch: main
-Latest commit before current pending feature: 4344e5b fix: retry gemini transient failures
-Pending commit message for current feature: fix: show ai course source badge
-Test status: Frontend `cd frontend && npm run build` PASS. Backend `cd backend && .\mvnw.cmd test` PASS; 93 tests, 0 failures, 0 errors because the course generate response DTO shape changed. Frontend badge bug fixed so new AI-generated courses can display AI wording when API response includes `sourceType=AI`. DB migrations unchanged. CourseController unchanged.
-Git status: pending review for frontend badge fix files plus this Build Log update
+Latest commit: `08fe631 fix: show course source badge`
+Previous commit: `4344e5b fix: retry gemini transient failures`
+Test status: Frontend `cd frontend && npm run build` PASS; Backend `cd backend && .\mvnw.cmd test` PASS with 93 tests, 0 failures, 0 errors; manual browser verification PASS; AI-generated course displayed `AI Generated Course`; no DB migration changes; `CourseController` unchanged
+Git status: clean after push to `origin/main`
 
 ## Completed Features
 - [x] Project setup
@@ -35,14 +35,14 @@ Git status: pending review for frontend badge fix files plus this Build Log upda
 - [x] Local frontend-backend CORS
 - [x] Course generation foundation
 - [x] Frontend course generation UI
-- [x] Frontend AI/placeholder course source badge fix
 - [x] GeminiService + PromptBuilder
 - [x] ResponseParser + AI validation
 - [x] GeminiService + ResponseParser course generation wiring with safe fallback
 - [x] Gemini prompt/response compatibility polish
 - [x] Safe Gemini fallback diagnostics
 - [x] Gemini HTTP request/status diagnostics
-- [ ] Gemini 429 quota/rate-limit handling / sourceType=AI manual verification
+- [x] Gemini retry-once for transient 5xx / sourceType=AI manual verification
+- [x] Frontend AI/placeholder course source badge fix
 - [ ] Course map
 - [ ] Level unlock logic
 - [ ] Lesson page
@@ -126,6 +126,18 @@ Git status: pending review for frontend badge fix files plus this Build Log upda
 - Dashboard shell course generation UI calls backend only when the user clicks Generate Course.
 - Dashboard shell course generation UI does not store course result in localStorage.
 - Dashboard shell course generation UI does not show accessToken, refreshToken, password, passwordHash, tokenHash, role, or sensitive fields.
+- Dashboard shell course badge display now uses `sourceType` from the API response.
+- Dashboard shell badge behavior after the source badge fix:
+  - `cacheHit=true` shows `Cache Hit`.
+  - `sourceType=AI` shows `AI Generated Course`.
+  - `sourceType=PLACEHOLDER` with non-cache result shows `New Placeholder Course`.
+  - unknown/missing source values show a safe neutral `New Course` fallback.
+- `GenerateCourseResponse` now exposes `sourceType` to the frontend.
+- `CourseService` maps persisted course source type into `GenerateCourseResponse`.
+- The source badge fix required a small backend response DTO/mapping change because the frontend did not previously receive any source type field.
+- `CourseController` remained unchanged for the source badge fix.
+- DB migrations remained unchanged for the source badge fix.
+- Backend AI retry logic remained unchanged for the source badge fix.
 - Local PostgreSQL 17 is installed for development.
 - Local database `codequest` was created with PostgreSQL user `postgres`.
 - Local backend runtime works when these environment variables are set:
@@ -155,13 +167,14 @@ Git status: pending review for frontend badge fix files plus this Build Log upda
 - Course generation foundation creates/returns courses by `normalizedTopic + difficulty`.
 - Course generation foundation normalizes topic by trim, lowercase, and whitespace collapse.
 - Course generation foundation cache behavior:
-  - first request creates placeholder course and returns `cacheHit=false`
+  - first request creates placeholder or AI course and returns `cacheHit=false`
   - later same topic/difficulty with different casing/spaces returns same course and `cacheHit=true`
 - Course generation foundation creates exactly 3 placeholder levels:
   1. Introduction to `<Title>` with 50 XP
   2. Practice `<Title>` with 75 XP
   3. `<Title>` Boss Challenge with 100 XP and `isBoss=true`
-- Course generation foundation persists `totalXp=225`.
+- Course generation foundation persists placeholder `totalXp=225`.
+- Valid AI-generated courses can have AI-defined level count and XP totals after strict parser validation.
 - V3 Flyway migration creates `courses` and `levels` tables.
 - `courses(normalized_topic, difficulty)` is unique for cache behavior.
 - `levels(course_id, order_number)` is unique for ordered levels.
@@ -175,7 +188,7 @@ Git status: pending review for frontend badge fix files plus this Build Log upda
 - Frontend course generation result UI shows:
   - title
   - description
-  - cache hit / new placeholder course badge
+  - cache hit / AI generated / placeholder / unknown new course badge
   - course id in muted text
   - ordered level cards
   - level order number, title, XP reward, and Boss/Standard badge
@@ -240,7 +253,7 @@ Git status: pending review for frontend badge fix files plus this Build Log upda
 - DB migrations remain unchanged.
 - Manual real-runtime test with Gemini env vars started backend successfully and browser course generation worked.
 - Manual DB result for topic `graph traversal bfs real ai test` showed `source_type=PLACEHOLDER`, confirming safe fallback works.
-- Manual real AI-success persistence was not confirmed yet; automated tests cover valid AI response path with mocked Gemini/client output.
+- Manual real AI-success persistence was not confirmed at that time; later retry-once verification confirmed real `source_type=AI` persistence for `graph dfs gemini retry test`.
 - Gemini prompt/response compatibility polish is implemented.
 - PromptBuilder now asks Gemini for parser-compatible JSON with:
   - exact difficulty matching the requested value
@@ -263,7 +276,7 @@ Git status: pending review for frontend badge fix files plus this Build Log upda
 - Invalid AI output is still rejected and never persisted.
 - Manual browser generation for `Dynamic Programming Memoization AI Check` completed successfully with no browser error.
 - Manual DB result for topic `dynamic programming memoization ai check` showed `source_type=PLACEHOLDER` and `total_xp=225`, confirming fallback safety still works after prompt/response polish.
-- Manual real Gemini `source_type=AI` persistence is still not confirmed.
+- Manual real Gemini `source_type=AI` persistence is now confirmed for `graph dfs gemini retry test`.
 - Safe Gemini fallback diagnostics are implemented.
 - `GeminiException` carries safe Gemini error categories so request/config/extraction failures can be classified without exposing payloads or secrets.
 - `GeminiHttpClient` classifies empty-response and response-extraction failures separately from request failures.
@@ -323,7 +336,7 @@ Git status: pending review for frontend badge fix files plus this Build Log upda
   - `httpStatusFamily=4xx`
 - Current real Gemini failure reason is now known at the safe HTTP-status level: Gemini is rejecting the request with HTTP 429.
 - HTTP 429 usually indicates quota/rate-limit/usage-limit/overload-style rejection, so the request path is now reaching Gemini but real AI success cannot be confirmed until quota/key/model availability is resolved.
-- Current manual real Gemini `source_type=AI` persistence is still not confirmed.
+- Current manual real Gemini `source_type=AI` persistence is now confirmed for `graph dfs gemini retry test`.
 - API keys and local DB passwords must never be pasted into chat, Build Log, screenshots, or committed files.
 - If any Gemini API key was accidentally pasted into chat/logs/screenshots, revoke/delete it and create a new key.
 - Real Gemini API key was previously accidentally pasted during manual testing and should be considered exposed. Use only a newly rotated key for future local manual tests.
@@ -341,6 +354,7 @@ Git status: pending review for frontend badge fix files plus this Build Log upda
 
 ## Bugs / Issues
 - None blocking currently.
+- Resolved: Frontend course generation badge issue. UI previously showed `New Placeholder Course` even when DB confirmed `source_type=AI`. Fixed in commit `08fe631 fix: show course source badge` by exposing `sourceType` in `GenerateCourseResponse`, mapping it from `CourseService`, and updating DashboardShell badge logic. Manual browser verification confirmed `AI Generated Course` displays for a real AI-generated course.
 - Note from Global ErrorDTO task: Codex initially looped and produced a broken test. The test was manually corrected to a stable standalone MockMvcBuilders test. Final backend test passed before commit.
 - Auth register note: Codex changed `backend/src/test/resources/application.yml` to use `ddl-auto: create` for test schema generation only. Production `ddl-auto` remains `none`, and production schema remains Flyway-controlled.
 - Auth register note: Codex added `spring-security-crypto` only for BCrypt password hashing. Full Spring Security filter chain, JWT filter, login, refresh token, and logout were intentionally unimplemented at that stage.
@@ -457,13 +471,36 @@ Git status: pending review for frontend badge fix files plus this Build Log upda
 - Gemini HTTP diagnostics note: Manual browser generation for `HashMap Gemini Status Diagnostic Test` persisted `source_type=PLACEHOLDER`.
 - Gemini HTTP diagnostics note: Manual backend log for `HashMap Gemini Status Diagnostic Test` showed `reasonCategory=GEMINI_REQUEST_FAILURE`, `httpStatusCode=429`, and `httpStatusFamily=4xx`.
 - Gemini HTTP diagnostics note: Current known real Gemini root cause is now safe-status-level HTTP 429, meaning Gemini is rejecting the request due to quota/rate-limit/usage-limit/overload-style behavior rather than a frontend, DB, controller, or parser issue.
-- Gemini HTTP diagnostics note: Manual real `source_type=AI` persistence is still not confirmed because Gemini returned 429.
+- Gemini HTTP diagnostics note: Manual real `source_type=AI` persistence was not confirmed at that time because Gemini returned 429; later retry-once verification confirmed `source_type=AI` for `graph dfs gemini retry test`.
 - Gemini HTTP diagnostics note: Frontend files were not changed.
 - Gemini HTTP diagnostics note: DB migrations were not changed.
 - Gemini HTTP diagnostics note: `CourseController` was not changed.
 - Gemini course generation wiring note: Real Gemini API key was accidentally pasted in chat/log context during manual testing. It must be revoked/deleted and replaced with a new key. Do not commit or store the exposed key anywhere.
 - Gemini course generation wiring note: Local PostgreSQL password was also pasted in chat/log context. Consider rotating the local password later. Do not commit or document the real password.
-- Gemini course generation wiring note: Next AI-related work should handle Gemini 429 gracefully and/or retry real `source_type=AI` only after quota/key/model availability is resolved.
+- Gemini course generation wiring note: Earlier manual diagnostics showed 429 with one key/model/project, but this is no longer the current blocker after a later working key/model request and retry work.
+- Gemini retry-once reliability note: Commit `4344e5b fix: retry gemini transient failures` was pushed to `main`, and git status was clean afterward.
+- Gemini retry-once reliability note: Backend `cd backend && .\mvnw.cmd test` passed with 93 tests, 0 failures, 0 errors.
+- Gemini retry-once reliability note: `CourseService` now performs exactly one additional retry only for transient Gemini request failures with HTTP status family `5xx`, including 503.
+- Gemini retry-once reliability note: `CourseService` does not retry 400, 401, 403, 404, 429, missing config, parser validation failure, requested difficulty mismatch, or unexpected non-transient failures.
+- Gemini retry-once reliability note: If the retry succeeds with valid parsed AI JSON, `CourseService` persists `sourceType=AI`.
+- Gemini retry-once reliability note: If the retry fails again, `CourseService` preserves deterministic `PLACEHOLDER` fallback.
+- Gemini retry-once reliability note: Cache-hit behavior remains unchanged and must not call Gemini.
+- Gemini retry-once reliability note: Safe retry/fallback logs may include only topic, requested difficulty, exception type, safe HTTP status/family, and retry attempt number.
+- Gemini retry-once reliability note: Safe retry/fallback logs must never include API keys, JWTs/tokens, DB passwords, raw Gemini response body, full URL with key, full prompt, or secrets.
+- Gemini retry-once reliability note: Manual real Gemini success is now confirmed for normalized topic `graph dfs gemini retry test`.
+- Gemini retry-once reliability note: Manual DB course check confirmed title `Mastering Graph DFS for Java Interviews (Beginner)`, `source_type=AI`, and `total_xp=375`.
+- Gemini retry-once reliability note: Manual DB levels check confirmed `level_count=4` and `total_level_xp=375`.
+- Gemini retry-once reliability note: Frontend, DB migrations, and `CourseController` remained unchanged.
+- Gemini retry-once reliability note: Browser UI initially still showed `New Placeholder Course` even when DB confirmed `source_type=AI`; this was fixed later by commit `08fe631 fix: show course source badge`.
+- Frontend source badge fix note: Commit `08fe631 fix: show course source badge` was pushed to `main`, and git status was clean afterward.
+- Frontend source badge fix note: Frontend `cd frontend && npm run build` passed.
+- Frontend source badge fix note: Backend `cd backend && .\mvnw.cmd test` passed with 93 tests, 0 failures, 0 errors.
+- Frontend source badge fix note: Manual browser test generated an AI course for linked lists and displayed `AI Generated Course`.
+- Frontend source badge fix note: API response now includes `sourceType`.
+- Frontend source badge fix note: Backend response DTO/mapping was changed minimally because frontend had no source field before this fix.
+- Frontend source badge fix note: `CourseController` was not changed.
+- Frontend source badge fix note: DB migrations were not changed.
+- Frontend source badge fix note: AI retry logic was not changed.
 
 ## Feature History
 | # | Date | Feature | Module | Files changed | Tests | Commit/Notes |
@@ -497,8 +534,9 @@ Git status: pending review for frontend badge fix files plus this Build Log upda
 | 27 | 2026-05-05 | GeminiService + ResponseParser course generation wiring with safe fallback | AI / Course Generation Integration | GeminiClient, GeminiHttpClient, GeminiException, GeminiService, CourseService, GeminiServiceTest, CourseServiceTest | Backend `cd backend && .\mvnw.cmd test` PASS; 71 tests total, 0 failures, 0 errors. Manual backend runtime PASS with Gemini env vars. Manual browser course generation PASS. DB result for test topic persisted `source_type=PLACEHOLDER`, confirming fallback safety. | `5777c2d feat: wire gemini course generation fallback`. Added real Gemini client abstraction/HTTP client and wired AI generation on cache miss behind safe placeholder fallback. No frontend, no DB migration, no CourseController change. Mocked tests confirm AI success path; manual real AI-success persistence not confirmed yet. Commit pushed; git status clean. |
 | 28 | 2026-05-05 | Gemini prompt/response compatibility polish | AI / Gemini Prompt-Response Compatibility | PromptBuilder, GeminiHttpClient, CourseService, PromptBuilderTest, GeminiServiceTest, ResponseParserTest | Backend `cd backend && .\mvnw.cmd test` PASS; 74 tests total, 0 failures, 0 errors. Manual browser generation PASS. DB result for `dynamic programming memoization ai check` persisted `source_type=PLACEHOLDER`, confirming fallback safety but not real AI-success persistence. | `594636e fix: improve gemini response compatibility`. Tightened parser-aligned prompt schema, added Gemini fenced/prose JSON sanitization, and added safe fallback reason logging categories. No frontend, no DB migration, no CourseController change. Commit pushed; git status clean. |
 | 29 | 2026-05-06 | Safe Gemini fallback diagnostics | AI / Gemini Diagnostics | GeminiException, GeminiHttpClient, GeminiService, CourseService, GeminiServiceTest, CourseServiceTest | Backend `cd backend && .\mvnw.cmd test` PASS; 74 tests total, 0 failures, 0 errors. Manual browser generation PASS. DB result for `recursion backtracking safe diagnostic test` persisted `source_type=PLACEHOLDER`. Backend log showed `reasonCategory=GEMINI_REQUEST_FAILURE`. | `4780b1e chore: add safe gemini fallback diagnostics`. Added safe category-based fallback diagnostics for Gemini config/request/extraction/parser/difficulty/unexpected failures. No frontend, no DB migration, no CourseController change. Real Gemini request failure safely identified as `GEMINI_REQUEST_FAILURE`. Commit pushed; git status clean. |
-| 30 | 2026-05-06 | Gemini HTTP request/status diagnostics | AI / Gemini HTTP Integration | GeminiException, GeminiHttpClient, CourseService, CourseServiceTest, GeminiHttpClientTest | Backend `cd backend && .\mvnw.cmd test` PASS; 88 tests total, 0 failures, 0 errors. Manual browser generation PASS. DB result for `hashmap gemini status diagnostic test` persisted `source_type=PLACEHOLDER`. Backend log showed `reasonCategory=GEMINI_REQUEST_FAILURE`, `httpStatusCode=429`, `httpStatusFamily=4xx`. | Pending commit: `fix: improve gemini http diagnostics`. Normalized Gemini base URL path, added deterministic GeminiHttpClient tests, added safe HTTP status metadata in GeminiException and fallback logs. No frontend, no DB migration, no CourseController change. Manual real AI success still blocked by Gemini 429 quota/rate-limit/usage-limit-style response. |
-| 31 | 2026-05-13 | Frontend AI/placeholder course source badge fix | Course Generation / Frontend | frontend/src/pages/DashboardShell.jsx, backend/src/main/java/com/codequest/course/dto/GenerateCourseResponse.java, backend/src/main/java/com/codequest/course/CourseService.java, backend/src/test/java/com/codequest/course/CourseServiceTest.java, CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS. Backend `cd backend && .\mvnw.cmd test` PASS; 93 tests, 0 failures, 0 errors. | Pending commit: `fix: show ai course source badge`. Added `sourceType` to the course generation response and updated DashboardShell badge logic to show `AI Generated Course` for `AI`, keep `Cache Hit` for cache hits, keep `New Placeholder Course` for new placeholder responses, and use `New Course` for unknown source values. DB migrations unchanged. CourseController unchanged. |
+| 30 | 2026-05-06 | Gemini HTTP request/status diagnostics | AI / Gemini HTTP Integration | GeminiException, GeminiHttpClient, CourseService, CourseServiceTest, GeminiHttpClientTest | Backend `cd backend && .\mvnw.cmd test` PASS; 88 tests total, 0 failures, 0 errors. Manual browser generation PASS. DB result for `hashmap gemini status diagnostic test` persisted `source_type=PLACEHOLDER`. Backend log showed `reasonCategory=GEMINI_REQUEST_FAILURE`, `httpStatusCode=429`, `httpStatusFamily=4xx`. | `e64c355 fix: improve gemini http diagnostics`. Normalized Gemini base URL path, added deterministic GeminiHttpClient tests, added safe HTTP status metadata in GeminiException and fallback logs. No frontend, no DB migration, no CourseController change. At that time manual real AI success was still blocked by Gemini 429 quota/rate-limit/usage-limit-style response. |
+| 31 | 2026-05-13 | Gemini retry-once for transient 5xx + real AI success verification | AI / Gemini course generation reliability | backend/src/main/java/com/codequest/course/CourseService.java; backend/src/test/java/com/codequest/course/CourseServiceTest.java; CodeQuest_Build_Log.md | Backend `cd backend && .\mvnw.cmd test` PASS; 93 tests total, 0 failures, 0 errors. Manual browser generation PASS. DB confirmed `graph dfs gemini retry test` persisted `source_type=AI`, `total_xp=375`, `level_count=4`, `total_level_xp=375`. Scope checks clean: no frontend diff, no DB migration diff, CourseController unchanged. | `4344e5b fix: retry gemini transient failures`. Added exactly one retry for transient Gemini 5xx request failures before placeholder fallback. Does not retry 400/401/403/404/429, parser validation failure, difficulty mismatch, or missing config. Frontend badge display bug found after this feature and fixed in the next feature. |
+| 32 | 2026-05-13 | Frontend AI/placeholder course source badge fix | Course Generation / Frontend + API Response | frontend/src/pages/DashboardShell.jsx; backend/src/main/java/com/codequest/course/dto/GenerateCourseResponse.java; backend/src/main/java/com/codequest/course/CourseService.java; backend/src/test/java/com/codequest/course/CourseServiceTest.java; CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS. Backend `cd backend && .\mvnw.cmd test` PASS; 93 tests total, 0 failures, 0 errors. Manual browser verification PASS: AI course displayed `AI Generated Course`. Scope checks clean: DB migration diff empty, CourseController diff empty. | `08fe631 fix: show course source badge`. Added `sourceType` to generate-course response, mapped it from CourseService, added tests for placeholder/AI response source type, and updated DashboardShell badge logic for cache hit, AI, placeholder, and unknown source values. Commit pushed; git status clean. |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -553,6 +591,14 @@ Git status: pending review for frontend badge fix files plus this Build Log upda
 | 2026-05-06 | `cd backend && .\mvnw.cmd test` after Gemini HTTP request/status diagnostics | PASS | Backend tests passed: 88 tests, 0 failures, 0 errors. Tests cover GeminiHttpClient URI construction, request JSON shape, success extraction, empty response handling, HTTP failure status mapping for 400/401/403/404/429/5xx, JSON sanitization, and CourseService safe fallback diagnostic message content. No real Gemini calls in tests. | Yes |
 | 2026-05-06 | `git diff -- frontend`, `git diff -- backend/src/main/resources/db/migration`, `git diff -- backend/src/main/java/com/codequest/course/CourseController.java` after Gemini HTTP request/status diagnostics | PASS | No frontend diff, no DB migration diff, no CourseController diff. | Yes |
 | 2026-05-06 | Manual browser course generation with Gemini HTTP status diagnostics | PASS | Browser generated placeholder course for `HashMap Gemini Status Diagnostic Test` without crashing. DB showed `source_type=PLACEHOLDER`; backend log showed safe `reasonCategory=GEMINI_REQUEST_FAILURE`, `httpStatusCode=429`, and `httpStatusFamily=4xx`. | Yes |
+| 2026-05-13 | `cd backend && .\mvnw.cmd test` after Gemini retry-once 5xx reliability fix | PASS | Backend tests passed: 93 tests, 0 failures, 0 errors. Tests cover retry-once for transient 5xx/503, no retry for 403/429, parser fallback behavior, and safe retry log formatting. | Yes |
+| 2026-05-13 | `git diff -- frontend`, `git diff -- backend/src/main/resources/db/migration`, `git diff -- backend/src/main/java/com/codequest/course/CourseController.java` after Gemini retry-once 5xx reliability fix | PASS | No frontend diff, no DB migration diff, no CourseController diff. | Yes |
+| 2026-05-13 | Manual browser course generation + DB verification for `Graph DFS Gemini Retry Test` | PASS | Browser generated course. DB confirmed `source_type=AI`, `total_xp=375`, `level_count=4`, `total_level_xp=375`. | Yes |
+| 2026-05-13 | `cd frontend && npm run build` after source badge fix | PASS | Frontend build succeeded after DashboardShell badge logic update. | Yes |
+| 2026-05-13 | `cd backend && .\mvnw.cmd test` after source badge fix | PASS | Backend tests passed: 93 tests, 0 failures, 0 errors. Tests verify `sourceType` exposure for placeholder and AI generated course responses. | Yes |
+| 2026-05-13 | `git diff -- backend/src/main/resources/db/migration` after source badge fix | PASS | Empty diff; no DB migration changes. | Yes |
+| 2026-05-13 | `git diff -- backend/src/main/java/com/codequest/course/CourseController.java` after source badge fix | PASS | Empty diff; CourseController unchanged. | Yes |
+| 2026-05-13 | Manual browser course generation after source badge fix | PASS | AI-generated Linked List course displayed `AI Generated Course` badge in DashboardShell. | Yes |
 
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
@@ -591,11 +637,11 @@ Git status: pending review for frontend badge fix files plus this Build Log upda
 | 2026-05-05 | Gemini course generation backend runtime | Start backend with DB/JWT/Gemini env vars | Backend starts successfully on port 8080; Flyway schema up to date | Passed |
 | 2026-05-05 | Gemini course generation browser fallback check | Generate new uncached topic `Graph Traversal BFS Real AI Test` from browser | Course generation works without browser crash/error | Passed |
 | 2026-05-05 | Gemini course generation DB fallback check | Query `courses` for normalized topic `graph traversal bfs real ai test` | Row exists with `source_type=PLACEHOLDER`, `total_xp=225` | Passed; fallback safety confirmed |
-| 2026-05-05 | Gemini course generation real AI-success check | Manual real Gemini run should ideally persist `source_type=AI` for valid Gemini output | Not confirmed manually yet; automated mocked test covers AI success path | Pending future investigation |
+| 2026-05-05 | Gemini course generation real AI-success check | Manual real Gemini run should ideally persist `source_type=AI` for valid Gemini output | Not confirmed manually at that time; later confirmed with `graph dfs gemini retry test` | Completed later |
 | 2026-05-05 | Gemini prompt/response compatibility polish tests | `cd backend && .\mvnw.cmd test` | 74 tests pass; prompt/schema compatibility, response sanitization, and validation safety tests pass | Passed |
 | 2026-05-05 | Gemini prompt/response compatibility scope check | `git diff -- frontend`, `git diff -- db/migration`, `git diff -- CourseController` | No frontend, DB migration, or CourseController changes | Passed |
 | 2026-05-05 | Gemini prompt/response browser check | Generate new uncached topic `Dynamic Programming Memoization AI Check` from DashboardShell with Gemini env vars | Course generation completes without browser error | Passed |
-| 2026-05-05 | Gemini prompt/response DB check | Query `courses` for normalized topic `dynamic programming memoization ai check` | Row exists with `source_type=PLACEHOLDER`, `total_xp=225` | Passed; fallback safety confirmed, real AI-success still not confirmed |
+| 2026-05-05 | Gemini prompt/response DB check | Query `courses` for normalized topic `dynamic programming memoization ai check` | Row exists with `source_type=PLACEHOLDER`, `total_xp=225` | Passed; fallback safety confirmed at that time; later retry-once verification confirmed real AI success |
 | 2026-05-06 | Safe Gemini fallback diagnostics tests | `cd backend && .\mvnw.cmd test` | 74 tests pass; safe fallback categories and existing AI/fallback behavior remain stable | Passed |
 | 2026-05-06 | Safe Gemini fallback diagnostics scope check | `git diff -- frontend`, `git diff -- db/migration`, `git diff -- CourseController` | No frontend, DB migration, or CourseController changes | Passed |
 | 2026-05-06 | Safe Gemini fallback diagnostics browser check | Generate new uncached topic `Recursion Backtracking Safe Diagnostic Test` from DashboardShell with Gemini env vars | Course generation completes without browser error | Passed |
@@ -608,6 +654,17 @@ Git status: pending review for frontend badge fix files plus this Build Log upda
 | 2026-05-06 | Gemini HTTP status diagnostics browser check | Generate new uncached topic `HashMap Gemini Status Diagnostic Test` from DashboardShell with Gemini env vars | Course generation completes without browser error | Passed |
 | 2026-05-06 | Gemini HTTP status diagnostics DB check | Query `courses` for normalized topic `hashmap gemini status diagnostic test` | Row exists with `source_type=PLACEHOLDER`, `total_xp=225` | Passed; fallback safety confirmed |
 | 2026-05-06 | Gemini HTTP status diagnostics log check | Inspect backend log after browser generation | Safe log shows `reasonCategory=GEMINI_REQUEST_FAILURE`, `httpStatusCode=429`, `httpStatusFamily=4xx`; no raw Gemini output or secrets included | Passed; real Gemini quota/rate-limit/usage-limit-style rejection identified safely |
+| 2026-05-13 | Gemini retry-once transient 5xx tests | `cd backend && .\mvnw.cmd test` | 93 tests pass with retry/non-retry coverage | Passed |
+| 2026-05-13 | Gemini retry-once scope check | `git diff -- frontend`, `git diff -- db/migration`, `git diff -- CourseController` | No frontend, DB migration, or CourseController changes | Passed |
+| 2026-05-13 | Gemini retry-once browser check | Generate new uncached topic `Graph DFS Gemini Retry Test` from DashboardShell with working Gemini env vars | Course generation completes without browser error | Passed |
+| 2026-05-13 | Gemini retry-once DB course check | Query `courses` for normalized topic `graph dfs gemini retry test` | Row exists with `source_type=AI`, title `Mastering Graph DFS for Java Interviews (Beginner)`, and `total_xp=375` | Passed; real AI persistence confirmed |
+| 2026-05-13 | Gemini retry-once DB levels check | Query `levels` for the generated course | `level_count=4` and `total_level_xp=375` | Passed |
+| 2026-05-13 | Gemini retry-once frontend display observation | Browser result badge after AI course generation | Backend DB said `source_type=AI`; UI still said `New Placeholder Course` | Passed; frontend display bug identified and later fixed in commit `08fe631 fix: show course source badge` |
+| 2026-05-13 | Frontend source badge fix build | `cd frontend && npm run build` | Vite build succeeds | Passed |
+| 2026-05-13 | Frontend source badge fix backend tests | `cd backend && .\mvnw.cmd test` | 93 tests, 0 failures, 0 errors | Passed |
+| 2026-05-13 | Frontend source badge fix API response shape | Inspect course generation response behavior | `sourceType` is now exposed in `GenerateCourseResponse` | Passed |
+| 2026-05-13 | Frontend source badge fix browser verification | Generate AI course for linked lists from DashboardShell | UI shows `AI Generated Course` badge | Passed |
+| 2026-05-13 | Frontend source badge fix scope check | `git diff -- backend/src/main/resources/db/migration` and `git diff -- backend/src/main/java/com/codequest/course/CourseController.java` | Both diffs empty | Passed |
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -1024,10 +1081,22 @@ courseId: exists
 title: Binary Search
 description: A CodeQuest course foundation for Binary Search.
 cacheHit: False
+sourceType: PLACEHOLDER
 levels: 3 items
 level 1: Introduction to Binary Search, orderNumber 1, isBoss false, xpReward 50
 level 2: Practice Binary Search, orderNumber 2, isBoss false, xpReward 75
 level 3: Binary Search Boss Challenge, orderNumber 3, isBoss true, xpReward 100
+```
+
+Expected AI response when Gemini succeeds:
+```text
+courseId: exists
+title: AI-generated title
+description: AI-generated description
+cacheHit: False
+sourceType: AI
+levels: 1 to 10 validated ordered levels
+total XP depends on validated AI level XP values
 ```
 
 Cache check:
@@ -1050,6 +1119,7 @@ Expected second response:
 ```text
 same courseId as first response
 cacheHit: True
+sourceType preserved from cached course
 levels remain ordered by orderNumber
 ```
 
@@ -1064,9 +1134,12 @@ Important Course generation boundaries:
 - Gemini/client failure falls back to placeholder.
 - Parser validation failure falls back to placeholder.
 - Valid parsed AI output can persist supported course/level fields with `sourceType=AI`.
-- Current manual real Gemini checks still persist `sourceType=PLACEHOLDER`.
-- Safe diagnostics currently show real Gemini fallback reason as `GEMINI_REQUEST_FAILURE`.
-- Safe HTTP diagnostics currently show real Gemini status as HTTP `429` / `4xx`.
+- `GenerateCourseResponse` now includes `sourceType`.
+- Latest manual real Gemini verification confirmed sourceType=AI for graph dfs gemini retry test after retry-once reliability work.
+- Latest manual browser source badge verification confirmed `AI Generated Course` appears for real AI course output.
+- Earlier manual Gemini checks persisted sourceType=PLACEHOLDER during fallback diagnostics.
+- Latest manual real Gemini verification confirmed sourceType=AI for graph dfs gemini retry test after retry-once reliability work.
+- Earlier safe HTTP diagnostics showed 429 / 4xx for one key/model/project, but this is no longer the current blocker.
 - No quiz, flashcard, note, progress, XP/rank/streak, leaderboard, Piston/code execution, Docker, CI/CD, deployment, or Phase 2 features are implemented.
 
 ## GeminiService + PromptBuilder Foundation Manual Test Commands
@@ -1168,6 +1241,14 @@ Errors: 0
 BUILD SUCCESS
 ```
 
+Expected after retry-once and source badge response DTO update:
+```text
+Tests run: 93
+Failures: 0
+Errors: 0
+BUILD SUCCESS
+```
+
 ### Scope checks
 ```powershell
 git diff -- frontend
@@ -1199,6 +1280,7 @@ Expected:
 ```text
 Placeholder course still works.
 3 deterministic levels appear.
+sourceType=PLACEHOLDER.
 No frontend crash.
 Safe fallback category should be MISSING_GEMINI_CONFIG if diagnostics are active.
 ```
@@ -1336,9 +1418,10 @@ Meaning:
 ```text
 Prompt/response compatibility polish did not break the app.
 Fallback safety is still confirmed.
-Manual real source_type=AI persistence is still not confirmed.
+Manual real source_type=AI persistence was not confirmed during this earlier polish check.
 Safe diagnostics later identified real Gemini fallback reason as GEMINI_REQUEST_FAILURE.
 HTTP status diagnostics later identified the specific safe status as 429 / 4xx.
+Final retry-once verification later confirmed real source_type=AI persistence for graph dfs gemini retry test.
 ```
 
 Important boundaries:
@@ -1529,6 +1612,212 @@ Important boundaries:
 - No frontend changes should be made unless explicitly scoped.
 - Placeholder fallback must remain.
 
+## Gemini Retry-once Manual Verification Commands
+Use this after the Gemini retry-once reliability task.
+
+### Automated verification
+```powershell
+cd backend
+.\mvnw.cmd test
+cd ..
+```
+
+Expected:
+```text
+Tests run: 93
+Failures: 0
+Errors: 0
+BUILD SUCCESS
+```
+
+### Scope checks
+```powershell
+git diff -- frontend
+git diff -- backend/src/main/resources/db/migration
+git diff -- backend/src/main/java/com/codequest/course/CourseController.java
+```
+
+Expected:
+```text
+No output for all unrelated diff checks.
+```
+
+### Backend env/run
+Use local DB/JWT/Gemini env vars with a rotated working Gemini key only. Do not paste real secrets.
+
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject
+
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
+$env:DATABASE_USERNAME="postgres"
+$env:DATABASE_PASSWORD="<your-local-postgres-password>"
+$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
+
+$env:GEMINI_API_KEY="<working-rotated-gemini-key>"
+$env:GEMINI_MODEL="gemini-2.5-flash"
+$env:GEMINI_BASE_URL="https://generativelanguage.googleapis.com"
+
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+### Browser test
+```text
+Topic: Graph DFS Gemini Retry Test
+Difficulty: BEGINNER
+Goal: Learn DFS for Java DSA interviews
+```
+
+### DB course check
+```powershell
+$env:Path += ";C:\Program Files\PostgreSQL\17\bin"
+
+psql -U postgres -W -d codequest -c "select title, difficulty, source_type, total_xp, created_at from courses where normalized_topic='graph dfs gemini retry test' order by created_at desc limit 1;"
+```
+
+Observed:
+```text
+title=Mastering Graph DFS for Java Interviews (Beginner)
+difficulty=BEGINNER
+source_type=AI
+total_xp=375
+```
+
+### DB levels check
+```powershell
+psql -U postgres -W -d codequest -c "select count(*) as level_count, sum(xp_reward) as total_level_xp from levels where course_id = (select id from courses where normalized_topic='graph dfs gemini retry test' order by created_at desc limit 1);"
+```
+
+Observed:
+```text
+level_count=4
+total_level_xp=375
+```
+
+Meaning:
+```text
+Real Gemini AI course generation is now confirmed end-to-end.
+Direct Gemini access works.
+Backend Gemini call works.
+ResponseParser validation passed.
+CourseService persisted source_type=AI.
+Retry-once reliability behavior is implemented and tested.
+Placeholder fallback remains available for failures.
+```
+
+Important boundaries:
+- No raw Gemini response should be logged.
+- No API key should be pasted, logged, committed, or stored in Build Log.
+- No full prompt should be logged.
+- No full URL containing query key should be logged.
+- No DB migration was added for this retry task.
+- No frontend changes were made for this retry task.
+- `CourseController` was not changed for this retry task.
+- Placeholder fallback must remain.
+- Frontend source badge display was fixed later in commit `08fe631 fix: show course source badge`.
+
+## Frontend Course Source Badge Fix Manual Test Commands
+Use these after the source badge fix task.
+
+### Automated verification
+Frontend build:
+```powershell
+cd frontend
+npm run build
+cd ..
+```
+
+Expected:
+```text
+Build succeeds.
+```
+
+Backend tests because the response DTO/mapping was changed:
+```powershell
+cd backend
+.\mvnw.cmd test
+cd ..
+```
+
+Expected:
+```text
+Tests run: 93
+Failures: 0
+Errors: 0
+BUILD SUCCESS
+```
+
+### Scope checks
+```powershell
+git diff -- frontend
+git diff -- backend/src/main/resources/db/migration
+git diff -- backend/src/main/java/com/codequest/course/CourseController.java
+```
+
+Expected:
+```text
+Frontend diff contains DashboardShell badge fix only.
+DB migration diff is empty.
+CourseController diff is empty.
+```
+
+### Manual browser verification
+Start backend with DB/JWT/Gemini env vars:
+```powershell
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
+$env:DATABASE_USERNAME="postgres"
+$env:DATABASE_PASSWORD="<your-local-postgres-password>"
+$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
+
+$env:GEMINI_API_KEY="<working-rotated-gemini-key>"
+$env:GEMINI_MODEL="gemini-2.5-flash"
+$env:GEMINI_BASE_URL="https://generativelanguage.googleapis.com"
+
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+Start frontend:
+```powershell
+cd frontend
+npm run dev
+```
+
+Browser flow:
+```text
+1. Open Vite URL such as http://localhost:5173.
+2. Log in.
+3. Open Dashboard Shell.
+4. Generate a new course topic likely to use AI.
+5. Confirm API response includes sourceType.
+6. Confirm UI badge behavior.
+```
+
+Observed manual result:
+```text
+Topic generated: Linked List / Linked Lists for Java Interviews
+Difficulty: INTERMEDIATE
+UI displayed: AI Generated Course
+Levels displayed: 4
+Badge bug fixed.
+```
+
+Expected badge behavior:
+```text
+cacheHit=true -> Cache Hit
+sourceType=AI -> AI Generated Course
+sourceType=PLACEHOLDER and cacheHit=false -> New Placeholder Course
+unknown or missing sourceType -> New Course
+```
+
+Important boundaries:
+- No DB migration changes.
+- CourseController unchanged.
+- AI retry logic unchanged.
+- Auth/user logic unchanged.
+- No course map UI implemented.
+- No lesson/quiz/flashcard/progress/Piston/leaderboard/deployment work implemented.
+
 ## Frontend Course Generation UI Manual Test Commands
 Use these after starting backend and frontend.
 
@@ -1574,7 +1863,7 @@ Generated course appears.
 Title appears.
 Description appears.
 Course ID appears in muted text.
-Cache badge appears.
+Correct badge appears: Cache Hit, AI Generated Course, New Placeholder Course, or New Course.
 Level cards appear.
 No accessToken or refreshToken is visible.
 No CORS error appears.
@@ -1673,7 +1962,7 @@ Click Generate Course.
 
 Expected:
 ```text
-Generated course result appears with title, description, cache badge, course id, and level cards.
+Generated course result appears with title, description, correct source/cache badge, course id, and level cards.
 ```
 
 Important Dashboard shell boundaries:
@@ -1724,126 +2013,141 @@ Important CORS boundaries:
 Paste this into a fresh ChatGPT Project chat whenever the current chat becomes slow or confusing:
 
 ```text
-Read the project resources and this Build Log.
-Continue CodeQuest from the current status.
-Do not redesign anything.
-Do not implement Phase 2 features.
+Read all CodeQuest project resources and the current CodeQuest_Build_Log.md before replying.
 
-Current module: AI / Gemini HTTP Status Diagnostics.
-Last completed feature: Gemini HTTP request construction and safe HTTP-status diagnostics for real Gemini request failure.
-Current feature status: Gemini HTTP diagnostics completed, backend tests passed, manual HTTP 429 root-cause verified; commit may still be pending if this Build Log update has not been committed.
-Latest completed commit before current pending feature: 4780b1e chore: add safe gemini fallback diagnostics.
-Pending commit for current feature: fix: improve gemini http diagnostics.
-Git status: should be clean only after committing GeminiException, GeminiHttpClient, CourseService, CourseServiceTest, GeminiHttpClientTest, and this Build Log update.
+Project: CodeQuest — AI-assisted Java learning platform MVP
+Repo: Aana-1025/CodeQuest
+Branch: main
+Latest pushed commit: 08fe631 fix: show course source badge
 
-Important completed local runtime details:
-- PostgreSQL 17 installed locally.
-- Local database `codequest` created.
-- Backend starts with:
-  DATABASE_URL=jdbc:postgresql://localhost:5432/codequest
-  DATABASE_USERNAME=postgres
-  DATABASE_PASSWORD=<local postgres password>
-  JWT_SECRET=dev-only-change-this-secret-dev-only-change-this-secret
-- Flyway applied V1, V2, and V3 migrations to local PostgreSQL.
-- Backend health endpoint works on http://localhost:8080/api/health.
+Very important workflow rule:
+We use Maven Wrapper, not plain Maven.
+For backend tests always use:
+cd backend
+.\mvnw.cmd test
 
-Important completed Course generation details:
-- V3 migration creates courses and levels tables.
-- CourseService implements normalized topic/difficulty cache behavior.
-- CourseController exposes authenticated POST /api/courses/generate.
-- Endpoint uses JWT principal and does not accept userId from path, params, or body.
-- Cache key is normalizedTopic + difficulty.
-- Cache hit returns same courseId with cacheHit=true.
-- Cache hit must not call Gemini.
-- Placeholder fallback creates exactly 3 levels and totalXp 225.
-- Frontend DashboardShell calls POST /api/courses/generate and displays returned course/levels.
+If stale compiled class issues happen:
+cd backend
+.\mvnw.cmd clean test
 
-Important completed AI details:
-- GeminiProperties, PromptBuilder, GeminiService foundation implemented.
-- ResponseParser + AI response DTO records implemented.
-- ResponseParser validates Gemini JSON and throws safe AiResponseValidationException.
-- GeminiClient abstraction implemented.
-- GeminiHttpClient implemented using Spring RestClient.
-- GeminiHttpClient sanitizes fenced/prose-wrapped JSON.
-- GeminiHttpClient now normalizes GEMINI_BASE_URL so host-only and /v1beta base URLs build one correct generateContent endpoint.
-- GeminiException implemented and now carries safe categories plus optional safe HTTP status metadata.
-- GeminiService delegates to GeminiClient only when config is present.
-- CourseService attempts Gemini + ResponseParser only on cache miss when config is present.
-- Missing config/client failure/parser failure falls back to placeholder.
-- Valid mocked AI response can persist supported course/level fields with sourceType=AI.
-- Safe diagnostics categories implemented:
-  MISSING_GEMINI_CONFIG,
-  GEMINI_REQUEST_FAILURE,
-  EMPTY_GEMINI_RESPONSE_TEXT,
-  RESPONSE_EXTRACTION_FAILURE,
-  PARSER_VALIDATION_FAILURE,
-  REQUESTED_DIFFICULTY_MISMATCH,
-  UNEXPECTED_AI_INTEGRATION_ERROR.
-- CourseService logs safe fallback diagnostics only.
-- Latest manual real Gemini request falls back with:
-  reasonCategory=GEMINI_REQUEST_FAILURE,
-  geminiConfigured=true,
-  exceptionType=GeminiException,
-  httpStatusCode=429,
-  httpStatusFamily=4xx.
-- This means the app reaches the Gemini request path but Gemini rejects with HTTP 429, likely quota/rate-limit/usage-limit/overload-style rejection.
-- Manual real sourceType=AI is still not confirmed because of 429.
-- Flashcards, quizzes, and codingProblems are parsed/validated but not persisted.
-- No frontend changes.
-- No DB migration changes.
+Never tell me to run plain mvn test.
+
+Current completed state:
+1. Project skeleton is complete.
+2. Backend is Java 21 + Spring Boot.
+3. Frontend is React + Vite + Tailwind.
+4. Database is PostgreSQL + Flyway.
+5. Security is Spring Security + JWT + BCrypt.
+6. AI is Gemini API through GeminiService only.
+7. Code execution must eventually use Piston API only; never run user code inside backend.
+8. Deployment target later: Vercel frontend, Render backend, Neon PostgreSQL, GitHub Actions CI.
+
+Completed backend features:
+- Health endpoint /api/health
+- PostgreSQL/Flyway setup
+- Swagger/OpenAPI setup
+- Global ErrorDTO + GlobalExceptionHandler
+- Auth register
+- Auth login
+- JWT authentication
+- Refresh token
+- Logout / refresh token revoke
+- User profile endpoint GET /api/user/profile
+- Local backend runtime with PostgreSQL
+- Local frontend-backend CORS
+- Course generation foundation
+- Gemini AI foundation
+- ResponseParser + AI validation foundation
+- Gemini course generation wiring with safe placeholder fallback
+- Gemini prompt/response compatibility polish
+- Safe Gemini fallback diagnostics
+- Gemini HTTP request/status diagnostics
+- Gemini retry-once for transient 5xx failures
+- GenerateCourseResponse now exposes sourceType
+- CourseService maps sourceType in course generation response
+
+Completed frontend features:
+- Login page
+- Register page
+- Protected Area
+- DashboardShell
+- DashboardShell course generation UI
+- Course generation API helper
+- Browser auth/profile/course-generation flow works
+- AI/placeholder course source badge fix
+
+Latest completed feature:
+Frontend course source badge fix.
+
+What was done:
+- `GenerateCourseResponse` now includes `sourceType`.
+- `CourseService` populates `sourceType`.
+- `CourseServiceTest` verifies response exposes `sourceType` for placeholder and AI-generated courses.
+- `DashboardShell` badge logic now distinguishes:
+  - `Cache Hit` when cacheHit=true
+  - `AI Generated Course` when sourceType=AI
+  - `New Placeholder Course` when sourceType=PLACEHOLDER and cacheHit=false
+  - `New Course` for missing/unknown sourceType
+- Manual browser verification confirmed AI course now shows `AI Generated Course`.
+- No DB migrations changed.
 - CourseController unchanged.
+- Backend AI retry logic unchanged.
+- Auth/user logic unchanged.
+- No course map, lessons, quizzes, flashcards, progress, leaderboard, Piston, Docker, CI/CD, deployment, or Phase 2 work was added.
 
-Testing completed:
-- Backend test command:
+Latest test results:
+cd frontend && npm run build
+PASS
+
+cd backend && .\mvnw.cmd test
+PASS
+93 tests, 0 failures, 0 errors
+
+Latest manual verification:
+Generated a Linked List / Linked Lists Java interview course from DashboardShell.
+UI displayed `AI Generated Course`.
+Course had 4 levels and AI-style XP values.
+Badge bug is fixed.
+
+Latest git log:
+08fe631 fix: show course source badge
+4344e5b fix: retry gemini transient failures
+e64c355 fix: improve gemini http diagnostics
+
+Current known blockers:
+None blocking.
+
+Current important known notes:
+- A Gemini API key was accidentally pasted in chat/log context earlier. Treat it as compromised and use only a rotated/new key.
+- A local PostgreSQL password was also pasted earlier. Consider rotating local password later.
+- Never paste keys/passwords/secrets again.
+- Never commit or document real secrets.
+
+Next safest MVP task:
+Course map foundation, starting with backend course fetch endpoint:
+GET /api/courses/{courseId}
+
+Reason:
+- Courses and levels are already persisted.
+- Frontend currently only displays the generated response directly.
+- A real course map needs a stable API to fetch a course later by courseId.
+- This should come before full course map UI, lesson page, flashcards, quiz, progress, XP, leaderboard, Piston, Docker, CI/CD, or deployment.
+
+Important next-task boundaries:
+- Implement only backend course fetch endpoint foundation if missing.
+- Return course + ordered levels.
+- Keep it authenticated unless API contract/public rules require otherwise.
+- Do not implement progress-based lock/unlock logic yet unless already explicitly required by existing contract and can be done safely.
+- Do not add frontend course map UI yet.
+- Do not add DB migrations unless inspection proves a required column/table is missing.
+- Do not touch Gemini/AI retry logic.
+- Do not touch auth/user/frontend unless strictly necessary.
+- Use Maven Wrapper only:
   cd backend
   .\mvnw.cmd test
-- Result after latest HTTP diagnostics: 88 tests, 0 failures, 0 errors.
-- Tests cover GeminiHttpClient URI construction, request JSON shape, success extraction, empty response handling, HTTP failure status mapping for 400/401/403/404/429/5xx, JSON sanitization, and CourseService safe fallback diagnostic message content.
-- Scope checks showed no frontend diff, no DB migration diff, and no CourseController diff.
-- Manual browser course generation for `HashMap Gemini Status Diagnostic Test` worked.
-- Manual DB check for normalized topic `hashmap gemini status diagnostic test` returned source_type=PLACEHOLDER and total_xp=225.
-- Manual backend log showed reasonCategory=GEMINI_REQUEST_FAILURE, geminiConfigured=true, exceptionType=GeminiException, httpStatusCode=429, httpStatusFamily=4xx.
-- This confirms fallback safety and identifies real Gemini request failure at safe HTTP status level.
-- Mocked automated tests confirm valid AI success path.
 
-Security notes:
-- Do not paste API keys, DB passwords, or JWT secrets in chat, screenshots, Build Log, or commits.
-- A Gemini API key was accidentally pasted during manual testing. Revoke/delete that exposed key and create a new key.
-- A local DB password was also pasted during manual testing. Consider rotating local DB password later.
-- Never hardcode API keys.
-- Never commit real secrets.
-- Do not log raw Gemini output, full prompts, full URLs containing query keys, API keys, JWTs, tokens, passwords, or secrets.
-
-Not implemented yet:
-- Real Gemini sourceType=AI manual persistence after quota/key/model availability is resolved
-- Gemini 429 user-facing handling beyond safe backend fallback logs
-- Real Course map navigation
-- Lesson page
-- Flashcards UI
-- Notes
-- Quizzes UI
-- XP/rank/streak/progress
-- Leaderboard
-- Piston/code execution
-- Logout UI
-- Docker
-- CI/CD
-- Deployment
-- Phase 2 features
-
-Next safest step:
-First confirm git status is clean after committing Gemini HTTP request/status diagnostics.
-Then decide whether to:
-1. wait for quota/reset or use another valid Gemini key/project/model, then retry real sourceType=AI verification, or
-2. add a small safe 429-specific handling note/category if useful, without changing frontend or removing fallback.
-Do not remove placeholder fallback.
-Do not touch frontend unless explicitly scoped.
-Do not add DB migrations unless explicitly scoped.
-Do not implement course map, lesson UI, quiz UI, flashcard UI, code execution, leaderboard, deployment, or Phase 2 features.
-Do not call Gemini in automated tests.
-Keep tests deterministic.
-Do not persist unsafe/unvalidated AI output.
-Do not log raw Gemini response, full prompt, full URL with key, API key, JWTs, tokens, passwords, or secrets.
+Give me one strict Codex prompt for only this backend course fetch/course map foundation step.
+Include exact files to inspect/touch, files not to touch, commands to run, manual API verification steps, diff checks, and Build Log update instructions.
 ```
 
 ## Update Protocol After Every Feature
@@ -1887,15 +2191,21 @@ Database: PostgreSQL + Flyway
 AI: Gemini API
 Code execution: Piston API
 
-Current module: AI / Gemini HTTP Status Diagnostics
-Last completed feature: Gemini HTTP request construction and safe HTTP-status diagnostics for real Gemini request failure
-Current feature status: Gemini HTTP diagnostics completed, backend tests passed, manual HTTP 429 root-cause verified; commit may still be pending if Build Log update has not been committed yet
-Next task: Commit Gemini HTTP diagnostics, then handle 429/quota path or retry sourceType=AI verification after quota/key/model availability is resolved
-Latest completed commit before current pending feature: 4780b1e chore: add safe gemini fallback diagnostics
-Pending commit: fix: improve gemini http diagnostics
-Git status: should be clean only after committing GeminiException, GeminiHttpClient, CourseService, CourseServiceTest, GeminiHttpClientTest, and this Build Log update
-Tests passed: Backend .\mvnw.cmd test PASS with 88 tests, 0 failures, 0 errors
-Known bugs/blockers: Manual real Gemini run still fell back to PLACEHOLDER. Safe diagnostic category is GEMINI_REQUEST_FAILURE with geminiConfigured=true and HTTP status 429 / 4xx. source_type=AI not manually confirmed yet because Gemini is rejecting due to quota/rate-limit/usage-limit-style response. Mocked automated tests cover AI success path.
+Current module: Course Generation / Frontend + API response polish
+Last completed feature: Frontend course source badge fix
+Latest commit: 08fe631 fix: show course source badge
+Previous commit: 4344e5b fix: retry gemini transient failures
+Git status: clean after push
+Tests passed:
+- Frontend cd frontend && npm run build PASS
+- Backend cd backend && .\mvnw.cmd test PASS with 93 tests, 0 failures, 0 errors
+
+Known bugs/blockers:
+- None blocking currently.
+- Previous frontend badge bug is fixed. UI now shows AI Generated Course for sourceType=AI.
+
+Next task:
+Course map foundation / backend course fetch endpoint GET /api/courses/{courseId}
 
 Important completed Auth details:
 - Register implemented.
@@ -1925,6 +2235,8 @@ Important completed Frontend details:
 - DashboardShell includes Generate Course form.
 - DashboardShell calls POST /api/courses/generate only on button click.
 - DashboardShell displays generated course and levels.
+- DashboardShell now displays correct source badge:
+  Cache Hit, AI Generated Course, New Placeholder Course, or New Course.
 - React Router not added.
 - Logout UI not implemented.
 
@@ -1943,6 +2255,7 @@ Important completed Course generation details:
 - Cache hit returns same courseId with cacheHit=true.
 - Cache hit does not call Gemini.
 - Placeholder fallback creates exactly 3 levels and totalXp 225.
+- GenerateCourseResponse now includes sourceType.
 - Frontend DashboardShell displays returned course and levels.
 
 Important completed AI details:
@@ -1960,6 +2273,8 @@ Important completed AI details:
 - CourseService attempts Gemini + ResponseParser only on cache miss when config is present.
 - Missing config/client failure/parser failure falls back to placeholder.
 - Valid mocked AI response can persist supported course/level fields with sourceType=AI.
+- CourseService retries exactly once for transient Gemini request failures with HTTP status family 5xx.
+- CourseService does not retry 400, 401, 403, 404, 429, missing config, parser validation failure, requested difficulty mismatch, or unexpected non-transient failures.
 - Safe diagnostics categories implemented:
   MISSING_GEMINI_CONFIG,
   GEMINI_REQUEST_FAILURE,
@@ -1968,12 +2283,10 @@ Important completed AI details:
   PARSER_VALIDATION_FAILURE,
   REQUESTED_DIFFICULTY_MISMATCH,
   UNEXPECTED_AI_INTEGRATION_ERROR.
-- Manual real Gemini request currently falls back with GEMINI_REQUEST_FAILURE and HTTP 429 / 4xx.
-- geminiConfigured=true in manual diagnostic, so env config is present.
+- Earlier manual Gemini diagnostics showed GEMINI_REQUEST_FAILURE with HTTP 429 / 4xx for one key/model/project.
+- Latest manual verification confirmed real Gemini success for graph dfs gemini retry test with source_type=AI, total_xp=375, level_count=4, and total_level_xp=375.
+- Latest browser verification confirmed source badge displays AI Generated Course.
 - Flashcards, quizzes, and codingProblems are parsed/validated but not persisted.
-- No frontend changes.
-- No DB migration changes.
-- CourseController unchanged.
 
 Testing notes:
 - Always use Maven Wrapper only for backend:
