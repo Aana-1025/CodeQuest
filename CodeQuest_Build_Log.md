@@ -5,13 +5,13 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Backend / Notes foundation
-Current feature: Backend Notes Foundation completed, tested, manually verified, committed, and pushed
-Latest commit: `58abd4d feat: add backend notes foundation`
-Previous commit: `007dada docs: record quiz options compatibility fix`
+Current module: Frontend / Notes editor foundation
+Current feature: Frontend Notes Editor Foundation completed, tested, manually verified, committed, and pushed
+Latest commit: `b1943c4 feat: add frontend notes editor foundation`
+Previous commit: `db4dc24 docs: record backend notes foundation completion`
 Current branch: main
-Test status: Backend `cd backend && .\mvnw.cmd test` PASS with 113 tests, 0 failures, 0 errors. Manual API verification PASS: Flyway V6 notes migration active, authenticated POST `/api/notes` created a note for the current user and level, repeated POST for the same user/level updated the same noteId without duplicate notes, a second user saved a separate note for the same level, missing level returned 404, blank content returned 400, no-token request returned 401, and no token/password/secret was visible. Frontend, AI, backend course, backend quiz, and backend flashcard files unchanged.
-Git status: clean after backend notes foundation feature commit; Build Log docs update pending
+Test status: Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: Lesson view now shows a Notes section, note content can be saved through authenticated POST `/api/notes`, repeated save updates the same noteId, blank content is blocked safely in the frontend, character counter works, last-saved metadata is shown, lesson content and quiz section still render, and no token/password/secret was visible. Backend, DB migrations, AI, backend course, backend quiz, backend flashcard, and backend note files unchanged.
+Git status: clean after frontend notes editor foundation feature commit; Build Log docs update pending
 
 ## Completed Features
 - [x] Project setup
@@ -51,6 +51,7 @@ Git status: clean after backend notes foundation feature commit; Build Log docs 
 - [x] Backend Flashcards Persistence/Fetch Foundation
 - [x] Frontend Real Quiz/Flashcards Display Compatibility Check/Fix
 - [x] Backend Notes Foundation
+- [x] Frontend Notes Editor Foundation
 - [ ] Flashcards
 - [ ] Notes
 - [ ] Quiz submit
@@ -270,7 +271,17 @@ Git status: clean after backend notes foundation feature commit; Build Log docs 
 - Missing level IDs return standard 404 behavior.
 - Blank note content returns 400 validation error.
 - Backend Notes Foundation did not change frontend files, AI files, backend course, backend quiz, or backend flashcard files.
-- Frontend notes editor/rendering is not implemented yet.
+- Frontend Notes Editor Foundation is implemented in the existing Lesson view.
+- Frontend Notes Editor Foundation uses the existing authenticated POST `/api/notes` endpoint through `saveNoteForLevel` in `frontend/src/services/courseApi.js`.
+- The Notes editor uses `selectedLevel.levelId` and sends only `levelId` and `content` to the backend.
+- The Notes editor saves only on explicit `Save Note` click and does not call backend on page load.
+- The Notes editor keeps note content and saved metadata as local Lesson-view state only.
+- The Notes editor resets local state when the selected lesson changes.
+- The Notes editor does not preload existing saved notes because no GET notes endpoint exists yet.
+- The Notes editor treats content as plain textarea text and does not render raw HTML.
+- The Notes editor validates blank notes and 5000-character limit in the frontend before saving.
+- The Notes editor does not store note content in localStorage or sessionStorage.
+- Frontend notes preload/fetch is not implemented yet.
 - Quiz submit, scoring, answer persistence, XP/progress, weak concept detection, and level unlock logic remain unimplemented.
 - GeminiService + PromptBuilder foundation is implemented in the isolated backend `ai` module.
 - GeminiService + PromptBuilder foundation originally did not call Gemini over network and did not wire into `CourseService` or `CourseController`.
@@ -435,7 +446,8 @@ Git status: clean after backend notes foundation feature commit; Build Log docs 
 
 ## Bugs / Issues
 - None blocking currently.
-- Backend Notes Foundation note: No blocking issue. Manual verification confirmed authenticated POST `/api/notes` creates and updates a note for the same user/level, preserves separate notes for different users on the same level, returns 404 for missing level, 400 for blank content, and 401 without token. Frontend notes UI is still out of scope and not implemented yet.
+- Backend Notes Foundation note: No blocking issue. Manual verification confirmed authenticated POST `/api/notes` creates and updates a note for the same user/level, preserves separate notes for different users on the same level, returns 404 for missing level, 400 for blank content, and 401 without token.
+- Frontend Notes Editor Foundation note: No blocking issue. Manual browser verification confirmed notes can be saved and updated from the Lesson view using existing POST `/api/notes`; blank notes are blocked safely; saved note metadata updates locally; lesson content and quiz section still render; no backend changes were made. Existing notes are not preloaded because a GET notes endpoint is not part of the current API scope.
 - Backend Quiz Persistence/Fetch Foundation note: No blocking issue. Manual verification confirmed placeholder courses return empty `quizQuestions`, `correctAnswer` is hidden from GET course responses, random valid UUID returns 404, and unauthenticated course fetch returns 401.
 - Backend Flashcards Persistence/Fetch Foundation note: No blocking issue. Manual verification confirmed placeholder courses return empty `flashcards`, existing `quizQuestions` arrays remain present/stable, random valid UUID returns 404, and unauthenticated course fetch returns 401. Persisted AI flashcards currently do not carry `conceptTag` because the existing AI flashcard DTO exposes only `front` and `back`.
 - Frontend Quiz/Flashcards foundation note: No blocking issue. Quiz and flashcards currently show safe empty states until persisted quiz/flashcard data is available.
@@ -647,6 +659,7 @@ Git status: clean after backend notes foundation feature commit; Build Log docs 
 | 38 | 2026-05-13 | Backend Flashcards Persistence/Fetch Foundation | Backend / Flashcard | backend/src/main/resources/db/migration/V5__create_flashcards_table.sql; backend/src/main/java/com/codequest/flashcard/Flashcard.java; backend/src/main/java/com/codequest/flashcard/FlashcardRepository.java; backend/src/main/java/com/codequest/flashcard/dto/FlashcardResponse.java; backend/src/main/java/com/codequest/course/CourseService.java; backend/src/main/java/com/codequest/course/dto/CourseLevelResponse.java; backend/src/test/java/com/codequest/course/CourseServiceTest.java; backend/src/test/java/com/codequest/course/CourseControllerTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 101 tests, 0 failures, 0 errors. Manual API verification PASS: Flyway V5 validated, register/login/generate/fetch, `flashcards` present as empty arrays for placeholder levels, existing `quizQuestions` present/stable, random valid UUID returned 404, and no-token request returned 401. | `8c3b44e feat: persist and fetch course flashcards`. Added V5 flashcards table, flashcard entity/repository/safe DTO, AI-success flashcard persistence, and safe flashcards in GET `/api/courses/{courseId}`. Frontend unchanged. AI PromptBuilder/GeminiHttpClient/GeminiService/ResponseParser unchanged. Existing quizQuestions behavior unchanged. No notes, progress, XP/rank/streak, quiz submit, unlock logic, Piston, or Phase 2 work. |
 | 39 | 2026-05-14 | Frontend Real Quiz/Flashcards Display Compatibility Check/Fix | Frontend | frontend/src/pages/DashboardShell.jsx | Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: placeholder/cached lesson showed safe empty states; real Gemini BEGINNER AI course `Trie Data Structure Quiz Flashcards AI Test` displayed AI lesson content, real `quizQuestions`, options A/B/C/D, explanation, real `flashcards`, and Show/Hide Answer behavior. `correctAnswer` was not visible. Scope checks clean: backend migrations, AI, backend course, backend quiz, and backend flashcard diffs empty. | `eb46a9e fix: support backend quiz options shape`. Added small quiz options normalizer so backend `quizQuestions[].options` object shape `{A, B, C, D}` renders in the existing Lesson Quiz panel. Flashcards were already compatible with backend `flashcards` shape. No backend, DB migration, AI, package, submit/scoring/progress, notes, unlock, Piston, or Phase 2 work. |
 | 40 | 2026-05-14 | Backend Notes Foundation | Backend / Note | backend/src/main/resources/db/migration/V6__create_notes_table.sql; backend/src/main/java/com/codequest/note/Note.java; backend/src/main/java/com/codequest/note/NoteRepository.java; backend/src/main/java/com/codequest/note/NoteService.java; backend/src/main/java/com/codequest/note/NoteController.java; backend/src/main/java/com/codequest/note/NoteMapper.java; backend/src/main/java/com/codequest/note/dto/SaveNoteRequest.java; backend/src/main/java/com/codequest/note/dto/NoteResponse.java; backend/src/test/java/com/codequest/note/NoteServiceTest.java; backend/src/test/java/com/codequest/note/NoteControllerTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 113 tests, 0 failures, 0 errors. Manual API verification PASS: note create, same-user/same-level update with same noteId, second user separate note, missing level 404, blank content 400, no-token 401. Scope checks clean: frontend, AI, backend course, backend quiz, and backend flashcard diffs empty. | `58abd4d feat: add backend notes foundation`. Added V6 notes table, Note entity/repository/service/controller/mapper, validated request DTO, safe response DTO, authenticated POST `/api/notes` upsert per user/level, and focused note service/controller tests. No frontend, AI, quiz, flashcard, course, quiz submit, scoring, XP/progress, unlock, Piston, deployment, or Phase 2 work. |
+| 41 | 2026-05-14 | Frontend Notes Editor Foundation | Frontend / Notes | frontend/src/services/courseApi.js; frontend/src/pages/DashboardShell.jsx | Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: Login -> generate/reuse course -> Open Course Map -> Open Lesson -> save note -> update same note -> blank note blocked safely -> lesson/quiz sections still visible -> no secrets/tokens visible. Scope checks clean: backend migrations, AI, backend course, backend quiz, backend flashcard, and backend note diffs empty. | `b1943c4 feat: add frontend notes editor foundation`. Added `saveNoteForLevel({ levelId, content })` helper and frontend-only Notes editor in Lesson view. Uses existing authenticated POST `/api/notes`, local validation, character counter, loading/success/error states, and local saved metadata. No GET notes/preload, backend changes, DB migration, AI, quiz submit, scoring, XP/progress, unlock logic, Piston, deployment, or Phase 2 work. |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -723,6 +736,7 @@ Git status: clean after backend notes foundation feature commit; Build Log docs 
 | 2026-05-13 | `cd backend && .\mvnw.cmd test` after Backend Flashcards Persistence/Fetch Foundation | PASS | Backend tests passed with 101 tests, 0 failures, 0 errors after adding flashcards persistence/fetch foundation. | Yes |
 | 2026-05-14 | `cd frontend && npm run build` after Frontend Real Quiz/Flashcards Display Compatibility Check/Fix | PASS | Frontend build passed after adding quiz option normalization for backend `quizQuestions[].options` object shape. | Yes |
 | 2026-05-14 | `cd backend && .\mvnw.cmd test` after Backend Notes Foundation | PASS | Backend tests passed with 113 tests, 0 failures, 0 errors after adding notes persistence/upsert foundation. | Yes |
+| 2026-05-14 | `cd frontend && npm run build` after Frontend Notes Editor Foundation | PASS | Frontend build passed after adding lesson notes editor save flow through existing POST `/api/notes`. | Yes |
 
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
@@ -801,6 +815,7 @@ Git status: clean after backend notes foundation feature commit; Build Log docs 
 | 2026-05-13 | Backend Flashcards Persistence/Fetch Foundation | Flyway V5 validated -> register/login -> POST `/api/courses/generate` -> GET `/api/courses/{courseId}` -> inspect `flashcards` and `quizQuestions` -> random UUID 404 -> no-token 401 | GET course response included safe `flashcards` arrays on levels; placeholder levels returned empty arrays; existing `quizQuestions` arrays were still present/stable; missing course returned 404; unauthenticated fetch returned 401; no secrets/tokens visible | Passed |
 | 2026-05-14 | Frontend Real Quiz/Flashcards Display Compatibility Check/Fix | Login -> generate/reuse course -> Open Course Map -> Open Lesson -> verify placeholder/cached empty states -> start backend with Gemini env vars -> generate new BEGINNER AI course `Trie Data Structure Quiz Flashcards AI Test` -> Open Course Map -> Open Lesson -> inspect Quiz and Flashcards | Placeholder/cached lesson still showed safe empty states. Real AI lesson displayed persisted quiz question, options A/B/C/D, concept/explanation, and flashcards with Show/Hide Answer. `correctAnswer` was not visible; no secrets/tokens visible; lesson/course map/back flow still worked. | Passed |
 | 2026-05-14 | Backend Notes Foundation | Flyway V6 active -> register/login user 1 -> generate/reuse course -> GET course levelId -> POST `/api/notes` create -> POST `/api/notes` update same user/level -> register/login user 2 -> POST `/api/notes` same level -> missing level -> blank content -> no-token request -> diff safety checks | User 1 note create returned noteId, levelId, content, createdAt, updatedAt; same user/level update returned same noteId and updated content; user 2 got a different noteId for the same level; missing level returned 404; blank content returned 400; no-token request returned 401; frontend/AI/course/quiz/flashcard diffs empty; no secrets/tokens visible. | Passed |
+| 2026-05-14 | Frontend Notes Editor Foundation | Login -> generate/reuse course -> Open Course Map -> Open Lesson -> save note -> edit and save note again -> blank note attempt -> inspect Lesson/Quiz visibility -> verify no visible secrets | Notes section appeared in Lesson view. Save returned success, `Last saved` metadata and `Note ID` appeared, repeated save updated the same noteId, blank content was blocked with `Please enter a note before saving.`, character counter worked, lesson content and Quiz section still rendered, and no token/password/secret was visible. | Passed |
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -3158,8 +3173,116 @@ Important boundaries:
 - One note is stored per `(user_id, level_id)`.
 - Same user saving the same level updates the same note.
 - Different users can have separate notes for the same level.
-- Frontend notes editor/rendering is not implemented yet.
+- Frontend Notes editor is implemented for save/update only; existing note preload/fetch is not implemented yet.
 - Quiz submit, scoring, XP/progress, unlock logic, Piston/code execution, deployment, and Phase 2 remain unimplemented.
+
+## Frontend Notes Editor Foundation Manual Test Commands
+Use these after the frontend notes editor foundation task `b1943c4 feat: add frontend notes editor foundation`.
+
+### Automated verification
+```powershell
+cd frontend
+npm run build
+cd ..
+```
+
+Expected:
+```text
+Vite build succeeds.
+```
+
+### Scope checks
+```powershell
+git diff -- backend/src/main/resources/db/migration
+git diff -- backend/src/main/java/com/codequest/ai
+git diff -- backend/src/main/java/com/codequest/course
+git diff -- backend/src/main/java/com/codequest/quiz
+git diff -- backend/src/main/java/com/codequest/flashcard
+git diff -- backend/src/main/java/com/codequest/note
+git diff -- frontend
+```
+
+Expected:
+```text
+Backend migration diff is empty.
+AI diff is empty.
+Backend course diff is empty.
+Backend quiz diff is empty.
+Backend flashcard diff is empty.
+Backend note diff is empty.
+Frontend diff contains only `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js` before commit.
+```
+
+### Backend env/run
+Start backend with local PostgreSQL/JWT env vars. Gemini key is not required for notes testing.
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject
+
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
+$env:DATABASE_USERNAME="postgres"
+$env:DATABASE_PASSWORD="<your-local-postgres-password>"
+$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
+
+Remove-Item Env:GEMINI_API_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:GEMINI_MODEL -ErrorAction SilentlyContinue
+Remove-Item Env:GEMINI_BASE_URL -ErrorAction SilentlyContinue
+
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+### Frontend env/run
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject\frontend
+npm run dev
+```
+
+### Browser verification
+```text
+1. Login.
+2. Generate or reuse a course.
+3. Click Open Course Map.
+4. Click Open Lesson on one level.
+5. Confirm Lesson content still appears.
+6. Confirm Quiz and Flashcards sections still work as before.
+7. Confirm Notes section appears.
+8. Type a note such as: Remember this level’s key idea.
+9. Click Save Note.
+10. Confirm button loading/disabled behavior and success message.
+11. Confirm Last saved and Note ID metadata appear if shown.
+12. Edit the note and click Save Note again.
+13. Confirm update succeeds and the same Note ID remains.
+14. Clear note content or enter spaces only.
+15. Click Save Note and confirm safe message: Please enter a note before saving.
+16. Confirm Back to Course Map and Back to Home still work.
+17. Confirm browser console has no red runtime errors.
+18. Confirm no token/password/secret is visible.
+```
+
+Observed latest manual result:
+```text
+Notes section appeared in Lesson view.
+First save returned success and displayed Note saved.
+Last saved metadata and Note ID appeared.
+Second save updated the same Note ID.
+Blank content was blocked safely with Please enter a note before saving.
+Character counter worked.
+Lesson content and Quiz section remained visible.
+No token/password/secret was visible.
+```
+
+Important boundaries:
+- Frontend-only task.
+- Uses existing POST `/api/notes` only.
+- No GET notes endpoint or preload implemented.
+- No backend changes.
+- No DB migration.
+- No AI changes.
+- Notes are local editor state only and reset when the selected lesson changes.
+- Notes are not stored in localStorage/sessionStorage.
+- Notes are plain textarea text and are not rendered as raw HTML.
+- Quiz submit, scoring, XP/progress, unlock logic, Piston/code execution, deployment, and Phase 2 remain unimplemented.
+
 
 ## Next Chat Prompt
 Paste this into a fresh ChatGPT Project chat whenever the current chat becomes slow or confusing:
@@ -3170,8 +3293,8 @@ Read all CodeQuest project resources and the current CodeQuest_Build_Log.md befo
 Project: CodeQuest — AI-assisted Java learning platform MVP
 Repo: Aana-1025/CodeQuest
 Branch: main
-Latest pushed feature commit: 58abd4d feat: add backend notes foundation
-Previous pushed commit: 007dada docs: record quiz options compatibility fix
+Latest pushed feature commit: b1943c4 feat: add frontend notes editor foundation
+Previous pushed commit: db4dc24 docs: record backend notes foundation completion
 
 Very important workflow rule:
 We use Maven Wrapper, not plain Maven.
@@ -3237,53 +3360,55 @@ Completed frontend features:
 - Frontend Quiz Panel Foundation
 - Frontend Flashcards Panel Foundation
 - Frontend Real Quiz/Flashcards Display Compatibility Check/Fix
+- Frontend Notes Editor Foundation
 
 Latest completed feature:
-Backend Notes Foundation.
+Frontend Notes Editor Foundation.
 
 What was done:
-- Added V6 Flyway migration for the `notes` table.
-- Added backend note module foundation:
-  - `Note`
-  - `NoteRepository`
-  - `NoteService`
-  - `NoteController`
-  - `NoteMapper`
-  - `SaveNoteRequest`
-  - `NoteResponse`
-- Implemented authenticated POST `/api/notes`.
-- Request accepts `levelId` and `content` only.
-- User identity is derived only from JWT / `CurrentUserPrincipal`, never request body.
-- POST `/api/notes` upserts one note per authenticated user per level.
-- Same user + same level updates the same noteId.
-- Different users can save separate notes for the same level.
-- Missing level returns 404.
-- Blank content returns 400.
-- No-token request returns 401.
-- Frontend notes UI was not implemented.
-- No frontend, AI, course, quiz, or flashcard files were changed.
+- Added `saveNoteForLevel({ levelId, content })` in `frontend/src/services/courseApi.js`.
+- Added a Notes editor section inside the existing Lesson view in `DashboardShell.jsx`.
+- Notes editor uses `selectedLevel.levelId` and authenticated POST `/api/notes`.
+- Notes editor sends only `levelId` and `content`.
+- Notes are saved only when the user clicks `Save Note`.
+- Notes editor has character counter out of 5000.
+- Blank notes are blocked safely in the frontend.
+- Notes longer than 5000 characters are blocked in the frontend.
+- Save button has loading/disabled state.
+- Success and safe error messages are shown inline.
+- Saved note metadata such as `noteId` and `updatedAt` is stored/displayed locally after save.
+- Note editor local state resets when the selected lesson changes.
+- Notes are not stored in localStorage or sessionStorage.
+- Note content is plain textarea text and is not rendered as raw HTML.
+- No GET notes endpoint or note preload was implemented.
+- Backend was unchanged.
+- DB migrations were unchanged.
+- AI, backend course, backend quiz, backend flashcard, and backend note files were unchanged.
 - Quiz submit, scoring, answer persistence, XP/progress, weak concept detection, and level unlock logic were not implemented.
 
 Latest test results:
-cd backend && .\mvnw.cmd test
-PASS with 113 tests, 0 failures, 0 errors
+cd frontend && npm run build
+PASS
 
 Latest manual verification:
 - Backend was started with PostgreSQL/JWT env vars and no Gemini key required.
-- Flyway V6 notes migration was active.
-- User 1 created a note for a level through POST `/api/notes`.
-- User 1 updated the same note for the same level and received the same noteId.
-- User 2 saved a separate note for the same level and received a different noteId.
-- Missing level returned 404.
-- Blank content returned 400.
-- No-token POST `/api/notes` returned 401.
-- Scope checks confirmed no frontend, AI, backend course, backend quiz, or backend flashcard diffs.
-- No secrets/tokens visible.
+- Frontend was started with Vite.
+- Login worked.
+- Course Map and Lesson view opened.
+- Notes section appeared in Lesson view.
+- Saving a note returned success and showed `Note saved.`.
+- Saved note metadata showed `Last saved` and `Note ID`.
+- Editing and saving the same note updated the note while preserving the same noteId.
+- Blank content was blocked with `Please enter a note before saving.`.
+- Character counter worked.
+- Lesson content and Quiz section still rendered.
+- No token/password/secret was visible.
+- Scope checks confirmed no backend, migration, AI, course, quiz, flashcard, or note diffs.
 
 Latest git log should include:
+b1943c4 feat: add frontend notes editor foundation
+db4dc24 docs: record backend notes foundation completion
 58abd4d feat: add backend notes foundation
-007dada docs: record quiz options compatibility fix
-eb46a9e fix: support backend quiz options shape
 
 Current known blockers:
 None blocking.
@@ -3296,13 +3421,13 @@ Current important known notes:
 - Tests must stay deterministic and must not call real Gemini even when Gemini env vars are present locally.
 
 Next safest MVP task:
-Frontend Notes Editor Foundation or GET notes foundation / next safest MVP notes follow-up.
+GET notes foundation / frontend note preload follow-up or next safest MVP task.
 
 Recommended next task:
-Frontend Notes Editor Foundation, because backend POST `/api/notes` now exists and frontend Lesson view can add a small notes editor that saves notes for the selected level.
+Backend GET notes foundation for fetching the current user's saved note for a level, because the frontend Notes editor can save/update notes but cannot preload existing notes after lesson changes or page refresh yet.
 
 Alternative next task:
-GET notes foundation can be done before the frontend editor if we want the frontend to load previously saved notes from backend first. Safe parser diagnostics/prompt compatibility for occasional `PARSER_VALIDATION_FAILURE` on harder/advanced Gemini outputs can come later if it becomes a recurring blocker. Do not combine that with notes UI, quiz submit, XP/progress, unlock logic, Piston, deployment, or Phase 2.
+Frontend note preload can be done after adding a GET notes endpoint. Safe parser diagnostics/prompt compatibility for occasional `PARSER_VALIDATION_FAILURE` on harder/advanced Gemini outputs can come later if it becomes a recurring blocker. Do not combine that with notes UI, quiz submit, XP/progress, unlock logic, Piston, deployment, or Phase 2.
 
 Important next-task boundaries:
 - Do not implement quiz submit, scoring, answer persistence, XP/progress, unlock logic, Piston/code execution, leaderboard, Docker, CI/CD, deployment, or Phase 2.
@@ -3364,32 +3489,34 @@ Database: PostgreSQL + Flyway
 AI: Gemini API
 Code execution: Piston API
 
-Current module: Backend / Notes foundation
-Last completed feature: Backend Notes Foundation
-Latest feature commit: 58abd4d feat: add backend notes foundation
-Previous commit: 007dada docs: record quiz options compatibility fix
-Git status: clean after backend notes foundation feature commit; Build Log docs update pending until this file is committed
+Current module: Frontend / Notes editor foundation
+Last completed feature: Frontend Notes Editor Foundation
+Latest feature commit: b1943c4 feat: add frontend notes editor foundation
+Previous commit: db4dc24 docs: record backend notes foundation completion
+Git status: clean after frontend notes editor foundation feature commit; Build Log docs update pending until this file is committed
 Tests passed:
-- Backend cd backend && .\mvnw.cmd test PASS with 113 tests, 0 failures, 0 errors
+- Frontend cd frontend && npm run build PASS
 
 Manual verification passed:
 - Backend was started with PostgreSQL/JWT env vars.
-- Flyway V6 notes migration was active.
-- User 1 created a note for a level through POST /api/notes.
-- User 1 updated the same note for the same level and received the same noteId.
-- User 2 saved a separate note for the same level and received a different noteId.
-- Missing level returned 404.
-- Blank content returned 400.
-- No-token POST /api/notes returned 401.
+- Frontend was started with Vite.
+- User logged in and opened Course Map then Lesson view.
+- Notes section appeared in Lesson view.
+- Saving a note through POST /api/notes worked.
+- Editing and saving the same note updated it and kept the same noteId.
+- Blank content was blocked safely in the frontend.
+- Character counter worked.
+- Last saved and Note ID metadata appeared.
+- Lesson content and Quiz section still rendered.
 - No secrets/tokens visible.
-- Frontend, AI, backend course, backend quiz, and backend flashcard files were unchanged.
+- Backend, DB migrations, AI, backend course, backend quiz, backend flashcard, and backend note files were unchanged.
 
 Known bugs/blockers:
 - None blocking currently.
 - No blocking issue is currently known.
 
 Next task:
-Frontend Notes Editor Foundation or GET notes foundation / next safest MVP notes follow-up.
+GET notes foundation / frontend note preload follow-up or next safest MVP task.
 
 Important completed Auth details:
 - Register implemented.
@@ -3430,6 +3557,9 @@ Important completed Frontend details:
 - Real AI quizQuestions and flashcards display has been manually verified in Lesson view.
 - Quiz and Flashcards panel state is local UI-only and resets when selected lesson changes.
 - React Router not added.
+- Lesson view includes a frontend-only Notes editor that saves notes using authenticated POST `/api/notes`.
+- Notes editor uses local state only, resets on lesson change, and does not preload saved notes yet because no GET notes endpoint exists.
+- Notes editor does not store notes in localStorage/sessionStorage and does not render raw HTML.
 - Logout UI not implemented.
 
 Important completed Local runtime / CORS details:
@@ -3471,7 +3601,7 @@ Important completed Course generation/details:
 - User identity comes from JWT / CurrentUserPrincipal.
 - Same user/level note saves update the existing note.
 - Different users can save separate notes for the same level.
-- Frontend notes editor/rendering is not implemented yet.
+- Frontend Notes editor is implemented for save/update only; existing note preload/fetch is not implemented yet.
 
 Important completed AI details:
 - GeminiProperties implemented.
