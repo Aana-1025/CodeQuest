@@ -9,6 +9,22 @@ const INITIAL_FORM = {
   goal: "",
 };
 
+function getCourseBadgeLabel(generatedCourse) {
+  if (generatedCourse.cacheHit) {
+    return "Cache Hit";
+  }
+
+  if (generatedCourse.sourceType === "AI") {
+    return "AI Generated Course";
+  }
+
+  if (generatedCourse.sourceType === "PLACEHOLDER") {
+    return "New Placeholder Course";
+  }
+
+  return "New Course";
+}
+
 export default function DashboardShell({ profile, onBackHome }) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [generationLoading, setGenerationLoading] = useState(false);
@@ -180,7 +196,7 @@ export default function DashboardShell({ profile, onBackHome }) {
                     <p className="mt-2 text-xs text-slate-500">Course ID: {generatedCourse.courseId}</p>
                   </div>
                   <span className="inline-flex w-fit rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
-                    {generatedCourse.cacheHit ? "Cache Hit" : "New Placeholder Course"}
+                    {getCourseBadgeLabel(generatedCourse)}
                   </span>
                 </div>
 

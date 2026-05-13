@@ -5,15 +5,15 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: AI / Gemini HTTP Status Diagnostics
-Current feature: Gemini HTTP request/status diagnostics completed, tested, manual 429 root-cause verified, pending commit
-Last completed feature: Gemini HTTP request construction and safe HTTP-status diagnostics for real Gemini request failure
-Next feature: Handle Gemini 429 quota/rate-limit path safely and retry real AI manual verification only after quota/key/model availability is resolved; do not start until git status is clean after this diagnostics/fix commit
+Current module: Frontend / Course generation UI
+Current feature: Frontend AI/placeholder course source badge fix completed, tested, pending review
+Last completed feature: Frontend AI/placeholder course source badge fix
+Next feature: Course map or the next safest MVP task after review; do not implement it yet
 Current branch: main
-Latest commit before current pending feature: 4780b1e chore: add safe gemini fallback diagnostics
-Pending commit message for current feature: fix: improve gemini http diagnostics
-Test status: Backend `cd backend && .\mvnw.cmd test` PASS; 88 tests, 0 failures, 0 errors; no frontend changes; no DB migration changes; CourseController unchanged; GeminiHttpClient URL normalization and request-shape tests added; safe HTTP status metadata added; manual browser generation completed for `HashMap Gemini Status Diagnostic Test`; DB persisted `source_type=PLACEHOLDER`; backend log showed `reasonCategory=GEMINI_REQUEST_FAILURE`, `httpStatusCode=429`, and `httpStatusFamily=4xx`, confirming the code reaches Gemini but Gemini rejects the request due to quota/rate-limit/usage-limit-style response; no API key, full URL, raw Gemini response body, full prompt, JWT, token, DB password, or secret was logged
-Git status: pending commit for Gemini HTTP diagnostics files plus this Build Log update
+Latest commit before current pending feature: 4344e5b fix: retry gemini transient failures
+Pending commit message for current feature: fix: show ai course source badge
+Test status: Frontend `cd frontend && npm run build` PASS. Backend `cd backend && .\mvnw.cmd test` PASS; 93 tests, 0 failures, 0 errors because the course generate response DTO shape changed. Frontend badge bug fixed so new AI-generated courses can display AI wording when API response includes `sourceType=AI`. DB migrations unchanged. CourseController unchanged.
+Git status: pending review for frontend badge fix files plus this Build Log update
 
 ## Completed Features
 - [x] Project setup
@@ -35,6 +35,7 @@ Git status: pending commit for Gemini HTTP diagnostics files plus this Build Log
 - [x] Local frontend-backend CORS
 - [x] Course generation foundation
 - [x] Frontend course generation UI
+- [x] Frontend AI/placeholder course source badge fix
 - [x] GeminiService + PromptBuilder
 - [x] ResponseParser + AI validation
 - [x] GeminiService + ResponseParser course generation wiring with safe fallback
@@ -497,6 +498,7 @@ Git status: pending commit for Gemini HTTP diagnostics files plus this Build Log
 | 28 | 2026-05-05 | Gemini prompt/response compatibility polish | AI / Gemini Prompt-Response Compatibility | PromptBuilder, GeminiHttpClient, CourseService, PromptBuilderTest, GeminiServiceTest, ResponseParserTest | Backend `cd backend && .\mvnw.cmd test` PASS; 74 tests total, 0 failures, 0 errors. Manual browser generation PASS. DB result for `dynamic programming memoization ai check` persisted `source_type=PLACEHOLDER`, confirming fallback safety but not real AI-success persistence. | `594636e fix: improve gemini response compatibility`. Tightened parser-aligned prompt schema, added Gemini fenced/prose JSON sanitization, and added safe fallback reason logging categories. No frontend, no DB migration, no CourseController change. Commit pushed; git status clean. |
 | 29 | 2026-05-06 | Safe Gemini fallback diagnostics | AI / Gemini Diagnostics | GeminiException, GeminiHttpClient, GeminiService, CourseService, GeminiServiceTest, CourseServiceTest | Backend `cd backend && .\mvnw.cmd test` PASS; 74 tests total, 0 failures, 0 errors. Manual browser generation PASS. DB result for `recursion backtracking safe diagnostic test` persisted `source_type=PLACEHOLDER`. Backend log showed `reasonCategory=GEMINI_REQUEST_FAILURE`. | `4780b1e chore: add safe gemini fallback diagnostics`. Added safe category-based fallback diagnostics for Gemini config/request/extraction/parser/difficulty/unexpected failures. No frontend, no DB migration, no CourseController change. Real Gemini request failure safely identified as `GEMINI_REQUEST_FAILURE`. Commit pushed; git status clean. |
 | 30 | 2026-05-06 | Gemini HTTP request/status diagnostics | AI / Gemini HTTP Integration | GeminiException, GeminiHttpClient, CourseService, CourseServiceTest, GeminiHttpClientTest | Backend `cd backend && .\mvnw.cmd test` PASS; 88 tests total, 0 failures, 0 errors. Manual browser generation PASS. DB result for `hashmap gemini status diagnostic test` persisted `source_type=PLACEHOLDER`. Backend log showed `reasonCategory=GEMINI_REQUEST_FAILURE`, `httpStatusCode=429`, `httpStatusFamily=4xx`. | Pending commit: `fix: improve gemini http diagnostics`. Normalized Gemini base URL path, added deterministic GeminiHttpClient tests, added safe HTTP status metadata in GeminiException and fallback logs. No frontend, no DB migration, no CourseController change. Manual real AI success still blocked by Gemini 429 quota/rate-limit/usage-limit-style response. |
+| 31 | 2026-05-13 | Frontend AI/placeholder course source badge fix | Course Generation / Frontend | frontend/src/pages/DashboardShell.jsx, backend/src/main/java/com/codequest/course/dto/GenerateCourseResponse.java, backend/src/main/java/com/codequest/course/CourseService.java, backend/src/test/java/com/codequest/course/CourseServiceTest.java, CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS. Backend `cd backend && .\mvnw.cmd test` PASS; 93 tests, 0 failures, 0 errors. | Pending commit: `fix: show ai course source badge`. Added `sourceType` to the course generation response and updated DashboardShell badge logic to show `AI Generated Course` for `AI`, keep `Cache Hit` for cache hits, keep `New Placeholder Course` for new placeholder responses, and use `New Course` for unknown source values. DB migrations unchanged. CourseController unchanged. |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |

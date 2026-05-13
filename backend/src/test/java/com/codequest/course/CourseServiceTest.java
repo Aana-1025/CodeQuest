@@ -74,6 +74,7 @@ class CourseServiceTest {
         assertEquals(savedCourse.getId(), response.courseId());
         assertEquals("Binary Search", response.title());
         assertEquals("A CodeQuest course foundation for Binary Search.", response.description());
+        assertEquals(CourseSourceType.PLACEHOLDER, response.sourceType());
         assertEquals(3, response.levels().size());
         assertEquals(225, savedCourse.getTotalXp());
         assertEquals(CourseSourceType.PLACEHOLDER, savedCourse.getSourceType());
@@ -111,6 +112,7 @@ class CourseServiceTest {
 
         assertTrue(response.cacheHit());
         assertEquals(existingCourse.getId(), response.courseId());
+        assertEquals(CourseSourceType.PLACEHOLDER, response.sourceType());
         assertEquals(3, response.levels().size());
 
         verify(courseRepository).findByNormalizedTopicAndDifficulty("binary search", CourseDifficulty.BEGINNER);
@@ -225,6 +227,7 @@ class CourseServiceTest {
         GenerateCourseResponse response = courseService.generateCourse(creator, request);
 
         assertFalse(response.cacheHit());
+        assertEquals(CourseSourceType.AI, response.sourceType());
         assertEquals(CourseSourceType.AI, courseCaptor.getValue().getSourceType());
         verify(geminiService, times(2)).generateCourseJson(request);
         verify(responseParser).parseCourseResponse("{\"title\":\"Graph DFS\"}");
@@ -400,6 +403,7 @@ class CourseServiceTest {
         assertFalse(response.cacheHit());
         assertEquals("Graph Theory", response.title());
         assertEquals("A structured course on graph theory for interviews.", response.description());
+        assertEquals(CourseSourceType.AI, response.sourceType());
         assertEquals(CourseSourceType.AI, savedCourse.getSourceType());
         assertEquals(260, savedCourse.getTotalXp());
         assertEquals(3, savedCourse.getLevels().size());

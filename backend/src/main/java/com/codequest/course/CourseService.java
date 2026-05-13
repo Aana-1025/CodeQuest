@@ -228,6 +228,7 @@ public class CourseService {
                 course.getId(),
                 course.getTitle(),
                 course.getDescription(),
+                course.getSourceType(),
                 cacheHit,
                 levels
         );
