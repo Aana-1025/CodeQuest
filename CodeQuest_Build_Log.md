@@ -5,13 +5,13 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Frontend / Lesson page foundation
-Current feature: Lesson Page Foundation completed, tested, manually verified, committed, and pushed
-Latest commit: `2bc37dc feat: add lesson page foundation`
-Previous commit: `d8eabd8 docs: fix latest course map commit reference`
+Current module: Frontend / Lesson quiz and flashcards foundation
+Current feature: Frontend Quiz Panel Foundation and Frontend Flashcards Panel Foundation completed, tested, manually verified, committed, and pushed
+Latest commit: `5c6cb42 feat: add lesson quiz and flashcards panels`
+Previous commit: `7800cb9 docs: record lesson page foundation completion`
 Current branch: main
-Test status: Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: Login -> generate/reuse course -> Open Course Map -> Open Lesson -> Back to Course Map -> Back to dashboard/generated result. Lesson view shows course title, level number, level title, XP reward, Boss/Standard badge, and readable plain-text lesson content from `contentMarkdown`. Backend, DB migrations, AI, and backend course files unchanged. Backend tests were not rerun for this frontend-only feature.
-Git status: clean after lesson page foundation commit
+Test status: Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: Login -> generate/reuse course -> Open Course Map -> Open Lesson -> Quiz empty state -> Flashcards empty state -> Back to Course Map -> Back to dashboard/generated result. Lesson content still appears, Quiz and Flashcards panels appear with safe empty states, no backend quiz/flashcard call is needed, and no secrets/tokens are visible. Backend, DB migrations, AI, backend course, backend quiz, and backend flashcard files unchanged. Backend tests were not rerun for this frontend-only feature.
+Git status: clean after lesson quiz and flashcards panels commit
 
 ## Completed Features
 - [x] Project setup
@@ -45,6 +45,8 @@ Git status: clean after lesson page foundation commit
 - [x] Course map
 - [ ] Level unlock logic
 - [x] Lesson page
+- [x] Frontend Quiz Panel Foundation
+- [x] Frontend Flashcards Panel Foundation
 - [ ] Flashcards
 - [ ] Notes
 - [ ] Quiz submit
@@ -218,6 +220,16 @@ Git status: clean after lesson page foundation commit
 - Lesson view renders safe plain text only; it does not render raw markdown as unsafe HTML.
 - `Back to Course Map` returns to the already-loaded Course Map without a backend refetch requirement.
 - Lesson Page Foundation is frontend-only and does not implement quiz submit, notes saving, unlock logic, XP/progress persistence, Piston/code execution, leaderboard, Docker, CI/CD, deployment, or Phase 2 features.
+- Frontend Quiz Panel Foundation is implemented in DashboardShell inside the Lesson view.
+- The Quiz panel is frontend-only and does not call backend quiz endpoints, submit answers, calculate score, award XP, persist answers, update progress, or unlock levels.
+- The Quiz panel supports safe future-compatible quiz-like arrays if they appear on a selected level later, but current persisted level data usually has no quiz data.
+- When quiz data is missing, the Lesson view shows the safe empty state: `Quiz questions are not available for this level yet.`
+- Frontend Flashcards Panel Foundation is implemented in DashboardShell inside the Lesson view.
+- The Flashcards panel is frontend-only and does not call backend flashcard endpoints, persist cards, calculate progress, award XP, update progress, or unlock levels.
+- The Flashcards panel supports safe future-compatible flashcard-like arrays if they appear on a selected level later, but current persisted level data usually has no flashcard data.
+- When flashcard data is missing, the Lesson view shows the safe empty state: `Flashcards are not available for this level yet.`
+- Quiz selections and flashcard reveal state are local UI-only state and reset when the selected lesson changes.
+- Current real quiz submit, scoring, persisted flashcards, notes saving, XP/progress persistence, level unlock logic, Piston/code execution, leaderboard, Docker, CI/CD, deployment, and Phase 2 features remain unimplemented.
 - GeminiService + PromptBuilder foundation is implemented in the isolated backend `ai` module.
 - GeminiService + PromptBuilder foundation originally did not call Gemini over network and did not wire into `CourseService` or `CourseController`.
 - GeminiService + PromptBuilder foundation uses env-backed Gemini placeholders:
@@ -379,6 +391,7 @@ Git status: clean after lesson page foundation commit
 
 ## Bugs / Issues
 - None blocking currently.
+- Frontend Quiz/Flashcards foundation note: No blocking issue. Quiz and flashcards currently show safe empty states until persisted quiz/flashcard data is available.
 - Resolved: Frontend course generation badge issue. UI previously showed `New Placeholder Course` even when DB confirmed `source_type=AI`. Fixed in commit `08fe631 fix: show course source badge` by exposing `sourceType` in `GenerateCourseResponse`, mapping it from `CourseService`, and updating DashboardShell badge logic. Manual browser verification confirmed `AI Generated Course` displays for a real AI-generated course.
 - Note from Global ErrorDTO task: Codex initially looped and produced a broken test. The test was manually corrected to a stable standalone MockMvcBuilders test. Final backend test passed before commit.
 - Auth register note: Codex changed `backend/src/test/resources/application.yml` to use `ddl-auto: create` for test schema generation only. Production `ddl-auto` remains `none`, and production schema remains Flyway-controlled.
@@ -580,6 +593,7 @@ Git status: clean after lesson page foundation commit
 | 33 | 2026-05-13 | Backend course fetch endpoint | Course Generation / Course Map Foundation | backend/src/main/java/com/codequest/course/CourseController.java; backend/src/main/java/com/codequest/course/CourseService.java; backend/src/main/java/com/codequest/course/dto/CourseResponse.java; backend/src/main/java/com/codequest/course/dto/CourseLevelResponse.java; backend/src/test/java/com/codequest/course/CourseControllerTest.java; backend/src/test/java/com/codequest/course/CourseServiceTest.java; CodeQuest_Build_Log.md | Backend `cd backend && .\mvnw.cmd test` PASS; 98 tests total, 0 failures, 0 errors. Manual API verification PASS: authenticated GET returned 200 with safe course + ordered levels, random valid UUID returned 404, unauthenticated request returned 401. Scope checks clean: DB migration diff empty, AI diff empty, frontend diff empty. | `feat: add course fetch endpoint`. Added authenticated GET `/api/courses/{courseId}` and safe course/level response DTOs. Preserved POST `/api/courses/generate`; no DB migration, AI, or frontend changes. Commit pushed; git status clean. |
 | 34 | 2026-05-13 | Frontend Course Map foundation | Course Generation / Frontend | frontend/src/services/courseApi.js; frontend/src/pages/DashboardShell.jsx; CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS. Backend `cd backend && .\mvnw.cmd test` PASS; 98 tests total, 0 failures, 0 errors. Manual browser verification PASS: Login -> generate/reuse course -> Open Course Map -> Course Map loaded from GET `/api/courses/{courseId}` with ordered levels, content preview, and working Back button. | `427f9da feat: add frontend course map foundation`. Added explicit-click `Open Course Map` flow, frontend GET helper, local loading/error state, course map view, ordered level cards, and plain-text content previews. Backend, DB migrations, AI, and backend course files unchanged. |
 | 35 | 2026-05-13 | Lesson Page Foundation | Frontend | frontend/src/pages/DashboardShell.jsx; CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: Login -> generate/reuse course -> Open Course Map -> Open Lesson -> Back to Course Map -> Back to dashboard/generated result. | `2bc37dc feat: add lesson page foundation`. Added frontend-only Lesson view using existing fetched Course Map data, local selectedLevel state, Open Lesson action, readable plain-text lesson content, and Back to Course Map. Backend, DB migrations, AI, and backend course files unchanged. |
+| 36 | 2026-05-13 | Frontend Quiz Panel Foundation and Frontend Flashcards Panel Foundation | Frontend | frontend/src/pages/DashboardShell.jsx; CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: Login -> generate/reuse course -> Open Course Map -> Open Lesson -> verify Quiz empty state -> verify Flashcards empty state -> Back to Course Map -> Back to dashboard/generated result. | `5c6cb42 feat: add lesson quiz and flashcards panels`. Added frontend-only Quiz and Flashcards panels inside Lesson view with safe empty states, future-compatible quiz/flashcard data normalization, local-only quiz selection state, local-only flashcard reveal state, and reset-on-lesson-change behavior. No backend quiz/flashcard calls, no DB migration, no scoring, no XP/progress, no persistence. |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -651,6 +665,7 @@ Git status: clean after lesson page foundation commit
 | 2026-05-13 | Manual API: random valid UUID fetch | PASS | Returned 404 for missing course. | Yes |
 | 2026-05-13 | Manual API: GET `/api/courses/{courseId}` without token | PASS | Returned 401 for unauthenticated request. | Yes |
 | 2026-05-13 | Scope checks after backend course fetch endpoint | PASS | `git diff -- backend/src/main/resources/db/migration`, `git diff -- backend/src/main/java/com/codequest/ai`, and `git diff -- frontend` were empty. | Yes |
+| 2026-05-13 | `cd frontend && npm run build` after Frontend Quiz/Flashcards panels | PASS | Frontend build passed after adding frontend-only Quiz and Flashcards panels to Lesson view. | Yes |
 
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
@@ -724,6 +739,7 @@ Git status: clean after lesson page foundation commit
 | 2026-05-13 | Backend course fetch endpoint scope check | `git diff -- backend/src/main/resources/db/migration`, `git diff -- backend/src/main/java/com/codequest/ai`, `git diff -- frontend` | All diffs empty | Passed |
 | 2026-05-13 | Frontend Course Map foundation browser verification | Login -> generate/reuse course -> Open Course Map -> Back | Course Map loads from GET `/api/courses/{courseId}` and shows title, description, difficulty, sourceType, totalXp, ordered levels, XP reward, Boss/Standard badge, content preview, working Back button, and no visible secrets/tokens | Passed |
 | 2026-05-13 | Lesson Page Foundation | Login -> generate/reuse course -> Open Course Map -> Open Lesson -> Back to Course Map -> Back to dashboard/generated result | Lesson view shows course title, level number, level title, XP reward, Boss/Standard badge, and readable plain-text `contentMarkdown`; no secrets/tokens visible | Passed |
+| 2026-05-13 | Frontend Quiz Panel Foundation and Frontend Flashcards Panel Foundation | Login -> generate/reuse course -> Open Course Map -> Open Lesson -> verify Quiz empty state -> verify Flashcards empty state -> Back to Course Map -> Back to dashboard/generated result | Quiz and Flashcards sections appeared with safe empty states; lesson content and back flow still worked; no secrets/tokens visible; no backend quiz/flashcard call needed; no blocking issue known | Passed |
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -2255,8 +2271,8 @@ Read all CodeQuest project resources and the current CodeQuest_Build_Log.md befo
 Project: CodeQuest — AI-assisted Java learning platform MVP
 Repo: Aana-1025/CodeQuest
 Branch: main
-Latest pushed commit: 2bc37dc feat: add lesson page foundation
-Previous pushed commit: d8eabd8 docs: fix latest course map commit reference
+Latest pushed commit: 5c6cb42 feat: add lesson quiz and flashcards panels
+Previous pushed commit: 7800cb9 docs: record lesson page foundation completion
 
 Very important workflow rule:
 We use Maven Wrapper, not plain Maven.
@@ -2316,41 +2332,49 @@ Completed frontend features:
 - AI/placeholder course source badge fix
 - Frontend Course Map foundation
 - Lesson Page Foundation
+- Frontend Quiz Panel Foundation
+- Frontend Flashcards Panel Foundation
 
 Latest completed feature:
-Lesson Page Foundation.
+Frontend Quiz Panel Foundation and Frontend Flashcards Panel Foundation.
 
 What was done:
-- Course Map level cards now support `Open Lesson`.
-- Lesson view uses already-fetched Course Map data.
-- No backend refetch is required for opening a lesson.
-- Lesson view shows course title, level number, level title, XP reward, Boss/Standard badge, and readable plain-text content from `contentMarkdown`.
-- Back to Course Map works without refetching.
-- Existing Course Map back flow still works.
-- Existing course generation behavior and source badge behavior remain unchanged.
-- Backend, DB migrations, AI files, and backend course files were not changed.
+- Lesson view now includes a frontend-only `Quiz` panel.
+- Lesson view now includes a frontend-only `Flashcards` panel.
+- Both panels use local UI state only.
+- Quiz selections are local-only, have no submit button, no score, no XP award, and no persistence.
+- Flashcard answer reveal state is local-only, has no progress calculation, no XP award, and no persistence.
+- Both panels safely support future quiz/flashcard-like arrays if those fields appear on selected level data later.
+- Current default behavior is safe empty states because persisted level data does not yet include quiz/flashcards.
+- Empty quiz state: `Quiz questions are not available for this level yet.`
+- Empty flashcards state: `Flashcards are not available for this level yet.`
+- Lesson content, Course Map flow, Generate Course flow, and source badge behavior remain unchanged.
+- Backend, DB migrations, AI files, backend course files, backend quiz files, and backend flashcard files were not changed.
 - Frontend file changed:
   - `frontend/src/pages/DashboardShell.jsx`
 
 Latest test results:
 cd frontend && npm run build
 PASS
-Backend tests were not rerun for Lesson Page Foundation because backend files were not touched.
+Backend tests were not rerun for the Quiz/Flashcards panel feature because backend files were not touched.
 
 Latest manual verification:
 - Login succeeded.
 - Generate/reuse course succeeded from DashboardShell.
 - Clicking `Open Course Map` loaded the Course Map from GET `/api/courses/{courseId}`.
 - Clicking `Open Lesson` opened the Lesson view using existing fetched Course Map data.
-- Lesson view showed course title, level number, level title, XP reward, Boss/Standard badge, and readable plain-text `contentMarkdown`.
-- Back to Course Map worked without a backend refetch requirement.
+- Lesson content still appeared.
+- Quiz section appeared with safe empty state.
+- Flashcards section appeared with safe empty state.
+- Back to Course Map worked.
 - Back to dashboard/generated result worked.
+- No backend quiz/flashcard call was needed.
 - No secrets or tokens were visible.
 
 Latest git log should include:
+5c6cb42 feat: add lesson quiz and flashcards panels
+7800cb9 docs: record lesson page foundation completion
 2bc37dc feat: add lesson page foundation
-d8eabd8 docs: fix latest course map commit reference
-427f9da feat: add frontend course map foundation
 
 Current known blockers:
 None blocking.
@@ -2363,32 +2387,32 @@ Current important known notes:
 - Tests must stay deterministic and must not call real Gemini even when Gemini env vars are present locally.
 
 Next safest MVP task:
-Quiz foundation or the next safest MVP task.
+Backend quiz persistence/fetch foundation or the next safest MVP task.
 
 Reason:
-- Backend can generate and fetch persisted courses.
-- DashboardShell can display generated course results, open Course Map, and open Lesson view from Course Map.
-- The next small MVP step can introduce a quiz foundation, but quiz submit, scoring, XP/progress persistence, unlock logic, and Phase 2 features must stay out of scope unless explicitly selected.
+- Frontend lesson UI now has Quiz and Flashcards foundation panels.
+- Current persisted level data still does not include quiz or flashcard payloads.
+- The next backend step can add quiz persistence/fetch foundation only if scoped carefully with a new Flyway migration and tests.
+- Quiz submit, scoring, XP/progress persistence, unlock logic, and Phase 2 features must stay out of scope unless explicitly selected.
 
 Important next-task boundaries:
-- Implement only Quiz Foundation if selected.
+- Implement only Backend Quiz Persistence/Fetch Foundation if selected.
 - Do not implement quiz submit, scoring, answer persistence, XP/progress, unlock logic, Piston/code execution, leaderboard, Docker, CI/CD, deployment, or Phase 2.
 - Do not implement notes saving, weak concept detection, XP/rank/streak progress, leaderboard, Piston, Docker, CI/CD, deployment, or Phase 2 features.
-- Do not change DB migrations unless the selected task explicitly requires and explains a new migration.
-- Do not touch Gemini/AI retry logic.
-- Do not touch auth/user/backend unless strictly necessary.
-- Prefer frontend-only scope for the next small MVP UI foundation if possible.
-- Use existing fetched course/level data where possible.
+- Do not touch Gemini/AI retry logic unless the selected backend persistence task explicitly requires mapping already-parsed AI quiz DTOs and does not change prompt/retry behavior.
+- Do not touch auth/user unless strictly necessary.
+- Do not change existing Flyway migrations; add a new migration only if the selected backend persistence task requires it.
+- Keep tests deterministic and do not call real Gemini.
 - For frontend task run:
   cd frontend
   npm run build
-- Backend tests only needed if backend files are touched:
+- For backend task run:
   cd backend
   .\mvnw.cmd test
 
-Give me one strict Codex prompt for only the next safest MVP task, preferably Quiz Foundation if selected.
+Give me one strict Codex prompt for only the next safest MVP task, preferably Backend Quiz Persistence/Fetch Foundation if selected.
 Do not implement quiz submit, scoring, notes saving, XP/progress, unlock logic, Piston, leaderboard, deployment, or Phase 2.
-Include exact files to inspect/touch, files not to touch, commands to run, manual browser verification steps, diff checks, and Build Log update instructions.
+Include exact files to inspect/touch, files not to touch, commands to run, manual/API/browser verification steps, diff checks, and Build Log update instructions.
 ```
 
 ## Update Protocol After Every Feature
@@ -2432,20 +2456,23 @@ Database: PostgreSQL + Flyway
 AI: Gemini API
 Code execution: Piston API
 
-Current module: Frontend / Lesson page foundation
-Last completed feature: Lesson Page Foundation
-Latest commit: 2bc37dc feat: add lesson page foundation
-Previous commit: d8eabd8 docs: fix latest course map commit reference
-Git status: clean after lesson page foundation commit
+Current module: Frontend / Lesson quiz and flashcards foundation
+Last completed feature: Frontend Quiz Panel Foundation and Frontend Flashcards Panel Foundation
+Latest commit: 5c6cb42 feat: add lesson quiz and flashcards panels
+Previous commit: 7800cb9 docs: record lesson page foundation completion
+Git status: clean after lesson quiz and flashcards panels commit
 Tests passed:
 - Frontend cd frontend && npm run build PASS
-- Backend tests were not rerun for Lesson Page Foundation because backend files were not touched
+- Backend tests were not rerun for the Quiz/Flashcards panel feature because backend files were not touched
 
 Manual verification passed:
-- Login, generate/reuse course, Open Course Map, Open Lesson, Back to Course Map, and Back to dashboard/generated result all worked in the browser.
+- Login, generate/reuse course, Open Course Map, Open Lesson, Quiz empty state, Flashcards empty state, Back to Course Map, and Back to dashboard/generated result all worked in the browser.
 - Course Map loaded from GET /api/courses/{courseId}.
 - Lesson view used existing fetched Course Map data without a backend refetch requirement.
-- Lesson view showed course title, level number, level title, XP reward, Boss/Standard badge, and readable plain-text contentMarkdown.
+- Lesson content still appeared.
+- Quiz section appeared with safe empty state: Quiz questions are not available for this level yet.
+- Flashcards section appeared with safe empty state: Flashcards are not available for this level yet.
+- No backend quiz/flashcard call was needed.
 - No secrets or tokens were visible.
 
 Known bugs/blockers:
@@ -2453,7 +2480,7 @@ Known bugs/blockers:
 - No blocking issue is currently known.
 
 Next task:
-Quiz foundation or the next safest MVP task.
+Backend quiz persistence/fetch foundation or the next safest MVP task.
 
 Important completed Auth details:
 - Register implemented.
@@ -2487,6 +2514,9 @@ Important completed Frontend details:
 - DashboardShell supports explicit-click Course Map loading from GET /api/courses/{courseId}.
 - DashboardShell supports frontend-only Lesson view opened from Course Map level cards.
 - Lesson view reuses already-fetched Course Map data and supports Back to Course Map without refetching.
+- Lesson view includes frontend-only Quiz panel with safe empty state when quiz data is missing.
+- Lesson view includes frontend-only Flashcards panel with safe empty state when flashcard data is missing.
+- Quiz and Flashcards panel state is local UI-only and resets when selected lesson changes.
 - React Router not added.
 - Logout UI not implemented.
 
