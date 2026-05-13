@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { generateCourse, getCourseById } from "../services/courseApi";
+import { generateCourse, getCourseById, saveNoteForLevel } from "../services/courseApi";
 import { getAccessToken } from "../utils/tokenStorage";
 
 const INITIAL_FORM = {
@@ -145,6 +145,20 @@ function getFlashcardBack(card) {
   return typeof back === "string" && back.trim() ? back.trim() : "Flashcard answer is not available yet.";
 }
 
+function formatSavedTimestamp(timestamp) {
+  if (!timestamp) {
+    return "";
+  }
+
+  const date = new Date(timestamp);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toLocaleString();
+}
+
 export default function DashboardShell({ profile, onBackHome }) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [generationLoading, setGenerationLoading] = useState(false);
@@ -156,10 +170,20 @@ export default function DashboardShell({ profile, onBackHome }) {
   const [selectedLevel, setSelectedLevel] = useState(null);
   const [quizSelections, setQuizSelections] = useState({});
   const [revealedFlashcards, setRevealedFlashcards] = useState({});
+  const [noteContent, setNoteContent] = useState("");
+  const [noteSaving, setNoteSaving] = useState(false);
+  const [noteError, setNoteError] = useState("");
+  const [noteSuccess, setNoteSuccess] = useState("");
+  const [savedNoteMeta, setSavedNoteMeta] = useState(null);
 
   useEffect(() => {
     setQuizSelections({});
     setRevealedFlashcards({});
+    setNoteContent("");
+    setNoteSaving(false);
+    setNoteError("");
+    setNoteSuccess("");
+    setSavedNoteMeta(null);
   }, [selectedLevel?.levelId, selectedLevel?.orderNumber, selectedLevel?.title]);
 
   const handleGenerateCourse = async (event) => {
@@ -254,6 +278,65 @@ export default function DashboardShell({ profile, onBackHome }) {
     }));
   };
 
+  const handleNoteContentChange = (event) => {
+    setNoteContent(event.target.value);
+    setNoteError("");
+    setNoteSuccess("");
+  };
+
+  const handleSaveNote = async () => {
+    const levelId = selectedLevel?.levelId;
+    const trimmedNote = noteContent.trim();
+
+    if (!levelId) {
+      setNoteError("This lesson cannot be saved yet because the level ID is missing.");
+      setNoteSuccess("");
+      return;
+    }
+
+    if (!trimmedNote) {
+      setNoteError("Please enter a note before saving.");
+      setNoteSuccess("");
+      return;
+    }
+
+    if (noteContent.length > 5000) {
+      setNoteError("Notes must be 5000 characters or fewer.");
+      setNoteSuccess("");
+      return;
+    }
+
+    setNoteSaving(true);
+    setNoteError("");
+    setNoteSuccess("");
+
+    try {
+      const response = await saveNoteForLevel({
+        levelId,
+        content: noteContent,
+      });
+
+      setNoteContent(response?.content ?? noteContent);
+      setSavedNoteMeta({
+        noteId: response?.noteId ?? null,
+        updatedAt: response?.updatedAt ?? null,
+      });
+      setNoteSuccess("Note saved.");
+    } catch (error) {
+      if (error?.status === 400) {
+        setNoteError("The note could not be saved. Please check the content and try again.");
+      } else if (error?.status === 401) {
+        setNoteError("Your session has expired. Please log in again.");
+      } else if (error?.status === 404) {
+        setNoteError("The selected level could not be found.");
+      } else {
+        setNoteError("We could not save your note right now. Please try again.");
+      }
+    } finally {
+      setNoteSaving(false);
+    }
+  };
+
   if (courseMap && selectedLevel) {
     const quizQuestions = normalizeQuizQuestions(selectedLevel);
     const flashcards = normalizeFlashcards(selectedLevel);
@@ -317,6 +400,66 @@ export default function DashboardShell({ profile, onBackHome }) {
                 <p className="whitespace-pre-wrap text-sm leading-7 text-slate-700">
                   {toPlainText(selectedLevel.contentMarkdown) || "Lesson content is not available yet."}
                 </p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="text-xl font-semibold text-slate-900">Notes</h3>
+                  <p className="mt-1 text-sm text-slate-600">Write down the key idea you want to remember from this lesson and save it to your account.</p>
+                </div>
+                <p className="text-sm text-slate-500">{noteContent.length}/5000</p>
+              </div>
+
+              <div className="mt-4">
+                <label htmlFor="lesson-note" className="sr-only">
+                  Lesson note
+                </label>
+                <textarea
+                  id="lesson-note"
+                  value={noteContent}
+                  onChange={handleNoteContentChange}
+                  rows={6}
+                  placeholder="Write your note for this lesson here."
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                />
+              </div>
+
+              {savedNoteMeta?.updatedAt && (
+                <p className="mt-3 text-xs text-slate-500">
+                  Last saved: {formatSavedTimestamp(savedNoteMeta.updatedAt)}
+                </p>
+              )}
+
+              {savedNoteMeta?.noteId && (
+                <p className="mt-1 text-xs text-slate-500">Note ID: {savedNoteMeta.noteId}</p>
+              )}
+
+              {noteError && (
+                <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+                  {noteError}
+                </div>
+              )}
+
+              {noteSuccess && (
+                <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="status">
+                  {noteSuccess}
+                </div>
+              )}
+
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleSaveNote}
+                  disabled={noteSaving || !selectedLevel?.levelId}
+                  className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                >
+                  {noteSaving ? "Saving..." : "Save Note"}
+                </button>
+                {!selectedLevel?.levelId && (
+                  <p className="text-sm text-slate-500">Notes can be saved after a valid level ID is available.</p>
+                )}
               </div>
             </div>
 

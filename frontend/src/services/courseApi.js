@@ -1,4 +1,5 @@
 import { API_BASE_URL } from "./authApi";
+import { getAccessToken } from "../utils/tokenStorage";
 
 async function parseJsonResponse(response) {
   const text = await response.text();
@@ -18,7 +19,9 @@ async function handleResponse(response) {
 
   if (!response.ok) {
     const message = data?.message || "Request failed. Please try again.";
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
   }
 
   return data;
@@ -64,4 +67,32 @@ async function getCourseById({ accessToken, courseId }) {
   return handleResponse(response);
 }
 
-export { generateCourse, getCourseById };
+async function saveNoteForLevel({ levelId, content }) {
+  const accessToken = getAccessToken();
+
+  if (!accessToken) {
+    const error = new Error("Access token is missing.");
+    error.status = 401;
+    throw error;
+  }
+
+  if (!levelId) {
+    throw new Error("Level ID is missing.");
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/notes`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      levelId,
+      content,
+    }),
+  });
+
+  return handleResponse(response);
+}
+
+export { generateCourse, getCourseById, saveNoteForLevel };
