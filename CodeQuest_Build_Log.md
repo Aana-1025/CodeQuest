@@ -5,15 +5,15 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Course Generation / Frontend + API response polish
-Current feature: Frontend AI/placeholder course source badge fix completed, tested, manually verified, committed, and pushed
-Last completed feature: Frontend course source badge fix so AI-generated courses show `AI Generated Course` instead of `New Placeholder Course`
-Next feature: Course map foundation / backend course fetch endpoint `GET /api/courses/{courseId}`
+Current module: Course Generation / Course map foundation
+Current feature: Backend course fetch endpoint foundation completed, tested, pending review
+Last completed feature: Backend course fetch endpoint `GET /api/courses/{courseId}`
+Next feature: Frontend course map foundation or the next safest MVP task, but do not implement it yet
 Current branch: main
-Latest commit: `08fe631 fix: show course source badge`
-Previous commit: `4344e5b fix: retry gemini transient failures`
-Test status: Frontend `cd frontend && npm run build` PASS; Backend `cd backend && .\mvnw.cmd test` PASS with 93 tests, 0 failures, 0 errors; manual browser verification PASS; AI-generated course displayed `AI Generated Course`; no DB migration changes; `CourseController` unchanged
-Git status: clean after push to `origin/main`
+Latest pushed commit: `9e36e6a docs: update build log after source badge fix`
+Previous pushed commit: `08fe631 fix: show course source badge`
+Test status: Backend `cd backend && .\mvnw.cmd test` PASS with 98 tests, 0 failures, 0 errors. New GET `/api/courses/{courseId}` endpoint returns safe course details plus ordered levels, preserves POST `/api/courses/generate`, and does not touch DB migrations, AI files, or frontend. Manual verification not run in this task.
+Git status: pending review for backend course fetch endpoint files
 
 ## Completed Features
 - [x] Project setup
@@ -43,6 +43,7 @@ Git status: clean after push to `origin/main`
 - [x] Gemini HTTP request/status diagnostics
 - [x] Gemini retry-once for transient 5xx / sourceType=AI manual verification
 - [x] Frontend AI/placeholder course source badge fix
+- [x] Backend course fetch endpoint
 - [ ] Course map
 - [ ] Level unlock logic
 - [ ] Lesson page
@@ -537,6 +538,7 @@ Git status: clean after push to `origin/main`
 | 30 | 2026-05-06 | Gemini HTTP request/status diagnostics | AI / Gemini HTTP Integration | GeminiException, GeminiHttpClient, CourseService, CourseServiceTest, GeminiHttpClientTest | Backend `cd backend && .\mvnw.cmd test` PASS; 88 tests total, 0 failures, 0 errors. Manual browser generation PASS. DB result for `hashmap gemini status diagnostic test` persisted `source_type=PLACEHOLDER`. Backend log showed `reasonCategory=GEMINI_REQUEST_FAILURE`, `httpStatusCode=429`, `httpStatusFamily=4xx`. | `e64c355 fix: improve gemini http diagnostics`. Normalized Gemini base URL path, added deterministic GeminiHttpClient tests, added safe HTTP status metadata in GeminiException and fallback logs. No frontend, no DB migration, no CourseController change. At that time manual real AI success was still blocked by Gemini 429 quota/rate-limit/usage-limit-style response. |
 | 31 | 2026-05-13 | Gemini retry-once for transient 5xx + real AI success verification | AI / Gemini course generation reliability | backend/src/main/java/com/codequest/course/CourseService.java; backend/src/test/java/com/codequest/course/CourseServiceTest.java; CodeQuest_Build_Log.md | Backend `cd backend && .\mvnw.cmd test` PASS; 93 tests total, 0 failures, 0 errors. Manual browser generation PASS. DB confirmed `graph dfs gemini retry test` persisted `source_type=AI`, `total_xp=375`, `level_count=4`, `total_level_xp=375`. Scope checks clean: no frontend diff, no DB migration diff, CourseController unchanged. | `4344e5b fix: retry gemini transient failures`. Added exactly one retry for transient Gemini 5xx request failures before placeholder fallback. Does not retry 400/401/403/404/429, parser validation failure, difficulty mismatch, or missing config. Frontend badge display bug found after this feature and fixed in the next feature. |
 | 32 | 2026-05-13 | Frontend AI/placeholder course source badge fix | Course Generation / Frontend + API Response | frontend/src/pages/DashboardShell.jsx; backend/src/main/java/com/codequest/course/dto/GenerateCourseResponse.java; backend/src/main/java/com/codequest/course/CourseService.java; backend/src/test/java/com/codequest/course/CourseServiceTest.java; CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS. Backend `cd backend && .\mvnw.cmd test` PASS; 93 tests total, 0 failures, 0 errors. Manual browser verification PASS: AI course displayed `AI Generated Course`. Scope checks clean: DB migration diff empty, CourseController diff empty. | `08fe631 fix: show course source badge`. Added `sourceType` to generate-course response, mapped it from CourseService, added tests for placeholder/AI response source type, and updated DashboardShell badge logic for cache hit, AI, placeholder, and unknown source values. Commit pushed; git status clean. |
+| 33 | 2026-05-13 | Backend course fetch endpoint | Course Generation / Course Map Foundation | backend/src/main/java/com/codequest/course/CourseController.java; backend/src/main/java/com/codequest/course/CourseService.java; backend/src/main/java/com/codequest/course/dto/CourseResponse.java; backend/src/main/java/com/codequest/course/dto/CourseLevelResponse.java; backend/src/test/java/com/codequest/course/CourseControllerTest.java; backend/src/test/java/com/codequest/course/CourseServiceTest.java; CodeQuest_Build_Log.md | Backend `cd backend && .\mvnw.cmd test` PASS; 98 tests total, 0 failures, 0 errors. Scope checks clean: DB migration diff empty, AI diff empty, frontend diff empty. | Pending commit suggestion: `feat: add course fetch endpoint`. Added authenticated GET `/api/courses/{courseId}` returning courseId, title, description, difficulty, sourceType, totalXp, and ordered levels with contentMarkdown. Missing course returns standard 404 ErrorDTO through existing global error handling. POST `/api/courses/generate` behavior preserved. No DB migrations, no frontend changes, no AI changes. |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -591,6 +593,8 @@ Git status: clean after push to `origin/main`
 | 2026-05-06 | `cd backend && .\mvnw.cmd test` after Gemini HTTP request/status diagnostics | PASS | Backend tests passed: 88 tests, 0 failures, 0 errors. Tests cover GeminiHttpClient URI construction, request JSON shape, success extraction, empty response handling, HTTP failure status mapping for 400/401/403/404/429/5xx, JSON sanitization, and CourseService safe fallback diagnostic message content. No real Gemini calls in tests. | Yes |
 | 2026-05-06 | `git diff -- frontend`, `git diff -- backend/src/main/resources/db/migration`, `git diff -- backend/src/main/java/com/codequest/course/CourseController.java` after Gemini HTTP request/status diagnostics | PASS | No frontend diff, no DB migration diff, no CourseController diff. | Yes |
 | 2026-05-06 | Manual browser course generation with Gemini HTTP status diagnostics | PASS | Browser generated placeholder course for `HashMap Gemini Status Diagnostic Test` without crashing. DB showed `source_type=PLACEHOLDER`; backend log showed safe `reasonCategory=GEMINI_REQUEST_FAILURE`, `httpStatusCode=429`, and `httpStatusFamily=4xx`. | Yes |
+| 2026-05-13 | `cd backend && .\mvnw.cmd test` after backend course fetch endpoint foundation | PASS | Backend tests passed: 98 tests, 0 failures, 0 errors. Added controller/service coverage for authenticated GET existing course, 404 missing course, 401 unauthenticated, ordered levels, and no Gemini/generation calls. | Yes |
+| 2026-05-13 | `git diff -- backend/src/main/resources/db/migration`, `git diff -- backend/src/main/java/com/codequest/ai`, `git diff -- frontend` after backend course fetch endpoint foundation | PASS | No DB migration diff, no AI diff, no frontend diff. | Yes |
 | 2026-05-13 | `cd backend && .\mvnw.cmd test` after Gemini retry-once 5xx reliability fix | PASS | Backend tests passed: 93 tests, 0 failures, 0 errors. Tests cover retry-once for transient 5xx/503, no retry for 403/429, parser fallback behavior, and safe retry log formatting. | Yes |
 | 2026-05-13 | `git diff -- frontend`, `git diff -- backend/src/main/resources/db/migration`, `git diff -- backend/src/main/java/com/codequest/course/CourseController.java` after Gemini retry-once 5xx reliability fix | PASS | No frontend diff, no DB migration diff, no CourseController diff. | Yes |
 | 2026-05-13 | Manual browser course generation + DB verification for `Graph DFS Gemini Retry Test` | PASS | Browser generated course. DB confirmed `source_type=AI`, `total_xp=375`, `level_count=4`, `total_level_xp=375`. | Yes |
@@ -2018,7 +2022,7 @@ Read all CodeQuest project resources and the current CodeQuest_Build_Log.md befo
 Project: CodeQuest — AI-assisted Java learning platform MVP
 Repo: Aana-1025/CodeQuest
 Branch: main
-Latest pushed commit: 08fe631 fix: show course source badge
+Latest pushed commit: 9e36e6a docs: update build log after source badge fix
 
 Very important workflow rule:
 We use Maven Wrapper, not plain Maven.
@@ -2065,6 +2069,7 @@ Completed backend features:
 - Gemini retry-once for transient 5xx failures
 - GenerateCourseResponse now exposes sourceType
 - CourseService maps sourceType in course generation response
+- Backend course fetch endpoint GET /api/courses/{courseId}
 
 Completed frontend features:
 - Login page
@@ -2077,19 +2082,18 @@ Completed frontend features:
 - AI/placeholder course source badge fix
 
 Latest completed feature:
-Frontend course source badge fix.
+Backend course fetch endpoint GET /api/courses/{courseId}.
 
 What was done:
-- `GenerateCourseResponse` now includes `sourceType`.
-- `CourseService` populates `sourceType`.
-- `CourseServiceTest` verifies response exposes `sourceType` for placeholder and AI-generated courses.
-- `DashboardShell` badge logic now distinguishes:
-  - `Cache Hit` when cacheHit=true
-  - `AI Generated Course` when sourceType=AI
-  - `New Placeholder Course` when sourceType=PLACEHOLDER and cacheHit=false
-  - `New Course` for missing/unknown sourceType
-- Manual browser verification confirmed AI course now shows `AI Generated Course`.
+- `CourseController` now exposes authenticated GET `/api/courses/{courseId}`.
+- `CourseService` fetches a persisted course by UUID and returns ordered levels.
+- Response includes `courseId`, `title`, `description`, `difficulty`, `sourceType`, `totalXp`, and ordered `levels`.
+- Each level includes `levelId`, `orderNumber`, `title`, `contentMarkdown`, `xpReward`, and `isBoss`.
+- Missing course returns the standard 404 ErrorDTO through existing global error handling.
+- POST `/api/courses/generate` behavior remains unchanged.
 - No DB migrations changed.
+- No frontend changes.
+- No AI files changed.
 - CourseController unchanged.
 - Backend AI retry logic unchanged.
 - Auth/user logic unchanged.
@@ -2191,21 +2195,20 @@ Database: PostgreSQL + Flyway
 AI: Gemini API
 Code execution: Piston API
 
-Current module: Course Generation / Frontend + API response polish
-Last completed feature: Frontend course source badge fix
-Latest commit: 08fe631 fix: show course source badge
-Previous commit: 4344e5b fix: retry gemini transient failures
-Git status: clean after push
+Current module: Course Generation / Course map foundation
+Last completed feature: Backend course fetch endpoint GET /api/courses/{courseId}
+Latest pushed commit: 9e36e6a docs: update build log after source badge fix
+Previous pushed commit: 08fe631 fix: show course source badge
+Git status: pending review for backend course fetch endpoint files
 Tests passed:
-- Frontend cd frontend && npm run build PASS
-- Backend cd backend && .\mvnw.cmd test PASS with 93 tests, 0 failures, 0 errors
+- Backend cd backend && .\mvnw.cmd test PASS with 98 tests, 0 failures, 0 errors
 
 Known bugs/blockers:
 - None blocking currently.
-- Previous frontend badge bug is fixed. UI now shows AI Generated Course for sourceType=AI.
+- Manual verification for the new GET course endpoint has not been run yet in this task.
 
 Next task:
-Course map foundation / backend course fetch endpoint GET /api/courses/{courseId}
+Frontend course map foundation or the next safest MVP task
 
 Important completed Auth details:
 - Register implemented.

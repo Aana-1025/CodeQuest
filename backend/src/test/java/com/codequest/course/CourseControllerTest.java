@@ -1,9 +1,12 @@
 package com.codequest.course;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -124,6 +127,60 @@ class CourseControllerTest {
         GenerateCourseResponse secondResponse = objectMapper.readValue(secondResponseBody, GenerateCourseResponse.class);
 
         assertEquals(firstResponse.courseId(), secondResponse.courseId());
+    }
+
+    @Test
+    void shouldFetchExistingCourseForAuthenticatedUser() throws Exception {
+        String accessToken = registerAndLogin("fetchcourse-" + System.currentTimeMillis() + "@example.com");
+
+        GenerateCourseRequest request = new GenerateCourseRequest("Graph Theory", CourseDifficulty.INTERMEDIATE, "Interview prep");
+        String generateResponseBody = mockMvc.perform(post("/api/courses/generate")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        GenerateCourseResponse generatedCourse = objectMapper.readValue(generateResponseBody, GenerateCourseResponse.class);
+
+        mockMvc.perform(get("/api/courses/{courseId}", generatedCourse.courseId())
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.courseId").value(generatedCourse.courseId().toString()))
+                .andExpect(jsonPath("$.title").value("Graph Theory"))
+                .andExpect(jsonPath("$.description").exists())
+                .andExpect(jsonPath("$.difficulty").value("INTERMEDIATE"))
+                .andExpect(jsonPath("$.sourceType").exists())
+                .andExpect(jsonPath("$.totalXp").isNumber())
+                .andExpect(jsonPath("$.levels.length()").value(3))
+                .andExpect(jsonPath("$.levels[0].levelId").exists())
+                .andExpect(jsonPath("$.levels[0].orderNumber").value(1))
+                .andExpect(jsonPath("$.levels[0].title").exists())
+                .andExpect(jsonPath("$.levels[0].contentMarkdown").exists())
+                .andExpect(jsonPath("$.levels[0].xpReward").isNumber())
+                .andExpect(jsonPath("$.levels[0].isBoss").exists());
+    }
+
+    @Test
+    void shouldReturn404WhenCourseMissing() throws Exception {
+        String accessToken = registerAndLogin("missingcourse-" + System.currentTimeMillis() + "@example.com");
+        UUID missingCourseId = UUID.randomUUID();
+
+        mockMvc.perform(get("/api/courses/{courseId}", missingCourseId)
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Course not found."))
+                .andExpect(jsonPath("$.path").value("/api/courses/" + missingCourseId));
+    }
+
+    @Test
+    void shouldReturn401WhenFetchingCourseWithoutToken() throws Exception {
+        mockMvc.perform(get("/api/courses/{courseId}", UUID.randomUUID()))
+                .andExpect(status().isUnauthorized());
     }
 
     private String registerAndLogin(String email) throws Exception {

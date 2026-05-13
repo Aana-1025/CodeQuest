@@ -20,6 +20,8 @@ import com.codequest.ai.GeminiService;
 import com.codequest.ai.ResponseParser;
 import com.codequest.common.exception.ApiException;
 import com.codequest.common.exception.ErrorCode;
+import com.codequest.course.dto.CourseLevelResponse;
+import com.codequest.course.dto.CourseResponse;
 import com.codequest.course.dto.CourseLevelSummaryResponse;
 import com.codequest.course.dto.GenerateCourseRequest;
 import com.codequest.course.dto.GenerateCourseResponse;
@@ -65,6 +67,33 @@ public class CourseService {
         return courseRepository.findByNormalizedTopicAndDifficulty(normalizedTopic, request.difficulty())
                 .map(course -> toGenerateCourseResponse(course, true))
                 .orElseGet(() -> createCourseWithSafeFallback(creator, normalizedTopic, request));
+    }
+
+    @Transactional(readOnly = true)
+    public CourseResponse getCourseById(UUID courseId) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Course not found."));
+
+        List<Level> orderedLevels = levelRepository.findByCourseIdOrderByOrderNumberAsc(course.getId());
+        if (orderedLevels.isEmpty()) {
+            orderedLevels = course.getLevels().stream()
+                    .sorted(Comparator.comparing(Level::getOrderNumber))
+                    .collect(Collectors.toList());
+        }
+
+        List<CourseLevelResponse> levels = orderedLevels.stream()
+                .map(this::toCourseLevelResponse)
+                .collect(Collectors.toList());
+
+        return new CourseResponse(
+                course.getId(),
+                course.getTitle(),
+                course.getDescription(),
+                course.getDifficulty(),
+                course.getSourceType(),
+                course.getTotalXp(),
+                levels
+        );
     }
 
     private GenerateCourseResponse createCourseWithSafeFallback(User creator, String normalizedTopic, GenerateCourseRequest request) {
@@ -241,6 +270,17 @@ public class CourseService {
                 level.getOrderNumber(),
                 level.isBoss(),
                 level.getXpReward()
+        );
+    }
+
+    private CourseLevelResponse toCourseLevelResponse(Level level) {
+        return new CourseLevelResponse(
+                level.getId(),
+                level.getOrderNumber(),
+                level.getTitle(),
+                level.getContentMarkdown(),
+                level.getXpReward(),
+                level.isBoss()
         );
     }
 

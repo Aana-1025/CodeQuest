@@ -2,6 +2,7 @@ package com.codequest.course;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
@@ -27,6 +28,9 @@ import com.codequest.ai.AiResponseValidationException;
 import com.codequest.ai.GeminiException;
 import com.codequest.ai.GeminiService;
 import com.codequest.ai.ResponseParser;
+import com.codequest.common.exception.ApiException;
+import com.codequest.common.exception.ErrorCode;
+import com.codequest.course.dto.CourseResponse;
 import com.codequest.course.dto.GenerateCourseRequest;
 import com.codequest.course.dto.GenerateCourseResponse;
 import com.codequest.level.Level;
@@ -468,6 +472,62 @@ class CourseServiceTest {
                 AiFallbackReason.REQUESTED_DIFFICULTY_MISMATCH,
                 courseService.determineFallbackReason(true, new IllegalArgumentException("AI difficulty did not match the requested difficulty."))
         );
+    }
+
+    @Test
+    void getCourseById_shouldReturnCourseWithOrderedLevelsWithoutCallingGemini() {
+        User creator = createUser();
+        Course course = new Course(
+                UUID.randomUUID(),
+                "graph theory",
+                "Graph Theory",
+                "A structured course on graph theory.",
+                creator,
+                CourseDifficulty.INTERMEDIATE,
+                false,
+                260,
+                CourseSourceType.AI,
+                Instant.now(),
+                Instant.now()
+        );
+
+        Level third = createLevel(course, "Graph Traversal Boss", 3, true, 120);
+        Level first = createLevel(course, "Introduction to Graphs", 1, false, 60);
+        Level second = createLevel(course, "Graph Basics", 2, false, 80);
+
+        when(courseRepository.findById(course.getId())).thenReturn(Optional.of(course));
+        when(levelRepository.findByCourseIdOrderByOrderNumberAsc(course.getId())).thenReturn(List.of(first, second, third));
+
+        CourseResponse response = courseService.getCourseById(course.getId());
+
+        assertEquals(course.getId(), response.courseId());
+        assertEquals("Graph Theory", response.title());
+        assertEquals(CourseDifficulty.INTERMEDIATE, response.difficulty());
+        assertEquals(CourseSourceType.AI, response.sourceType());
+        assertEquals(260, response.totalXp());
+        assertEquals(3, response.levels().size());
+        assertEquals(1, response.levels().get(0).orderNumber());
+        assertEquals("Introduction to Graphs", response.levels().get(0).title());
+        assertEquals("# Introduction to Graphs", response.levels().get(0).contentMarkdown());
+        assertEquals(3, response.levels().get(2).orderNumber());
+        assertTrue(response.levels().get(2).isBoss());
+
+        verify(geminiService, never()).isConfigured();
+        verify(geminiService, never()).generateCourseJson(any());
+        verify(responseParser, never()).parseCourseResponse(any());
+    }
+
+    @Test
+    void getCourseById_shouldThrowNotFoundWhenCourseMissing() {
+        UUID courseId = UUID.randomUUID();
+        when(courseRepository.findById(courseId)).thenReturn(Optional.empty());
+
+        ApiException exception = assertThrows(ApiException.class, () -> courseService.getCourseById(courseId));
+
+        assertEquals(ErrorCode.NOT_FOUND, exception.getErrorCode());
+        assertEquals("Course not found.", exception.getMessage());
+        verify(levelRepository, never()).findByCourseIdOrderByOrderNumberAsc(any());
+        verify(geminiService, never()).generateCourseJson(any());
     }
 
     private User createUser() {
