@@ -35,6 +35,8 @@ import com.codequest.course.dto.GenerateCourseRequest;
 import com.codequest.course.dto.GenerateCourseResponse;
 import com.codequest.level.Level;
 import com.codequest.level.LevelRepository;
+import com.codequest.quiz.Quiz;
+import com.codequest.quiz.QuizRepository;
 import com.codequest.user.User;
 import com.codequest.user.UserRank;
 import com.codequest.user.UserRole;
@@ -47,6 +49,9 @@ class CourseServiceTest {
 
     @Mock
     private LevelRepository levelRepository;
+
+    @Mock
+    private QuizRepository quizRepository;
 
     @Mock
     private GeminiService geminiService;
@@ -94,6 +99,7 @@ class CourseServiceTest {
         verify(geminiService).isConfigured();
         verify(geminiService, never()).generateCourseJson(any());
         verify(responseParser, never()).parseCourseResponse(any());
+        verify(quizRepository, never()).saveAll(any());
         verify(levelRepository).findByCourseIdOrderByOrderNumberAsc(savedCourse.getId());
     }
 
@@ -124,6 +130,7 @@ class CourseServiceTest {
         verify(geminiService, never()).isConfigured();
         verify(geminiService, never()).generateCourseJson(any());
         verify(responseParser, never()).parseCourseResponse(any());
+        verify(quizRepository, never()).saveAll(any());
         verify(levelRepository).findByCourseIdOrderByOrderNumberAsc(existingCourse.getId());
     }
 
@@ -218,14 +225,29 @@ class CourseServiceTest {
                                         false,
                                         70,
                                         List.of(),
-                                        List.of(),
+                                        List.of(
+                                                new com.codequest.ai.AiQuizQuestionResponse(
+                                                        "Which traversal uses a stack-friendly approach?",
+                                                        "Breadth-first search",
+                                                        "Depth-first search",
+                                                        "Binary search",
+                                                        "Merge sort",
+                                                        "B",
+                                                        "DFS naturally maps to stack-based traversal.",
+                                                        "dfs-fundamentals",
+                                                        20
+                                                )
+                                        ),
                                         List.of()
                                 )
                         )
                 ));
 
         ArgumentCaptor<Course> courseCaptor = ArgumentCaptor.forClass(Course.class);
+        ArgumentCaptor<List<Quiz>> quizCaptor = ArgumentCaptor.forClass(List.class);
         when(courseRepository.save(courseCaptor.capture()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(quizRepository.saveAll(quizCaptor.capture()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         GenerateCourseResponse response = courseService.generateCourse(creator, request);
@@ -233,6 +255,9 @@ class CourseServiceTest {
         assertFalse(response.cacheHit());
         assertEquals(CourseSourceType.AI, response.sourceType());
         assertEquals(CourseSourceType.AI, courseCaptor.getValue().getSourceType());
+        assertEquals(1, quizCaptor.getValue().size());
+        assertEquals("Which traversal uses a stack-friendly approach?", quizCaptor.getValue().get(0).getQuestion());
+        assertEquals(courseCaptor.getValue().getLevels().get(0).getId(), quizCaptor.getValue().get(0).getLevel().getId());
         verify(geminiService, times(2)).generateCourseJson(request);
         verify(responseParser).parseCourseResponse("{\"title\":\"Graph DFS\"}");
     }
@@ -259,6 +284,7 @@ class CourseServiceTest {
         assertEquals(CourseSourceType.PLACEHOLDER, courseCaptor.getValue().getSourceType());
         verify(geminiService, times(2)).generateCourseJson(request);
         verify(responseParser, never()).parseCourseResponse(any());
+        verify(quizRepository, never()).saveAll(any());
     }
 
     @Test
@@ -282,6 +308,7 @@ class CourseServiceTest {
         assertEquals(CourseSourceType.PLACEHOLDER, courseCaptor.getValue().getSourceType());
         verify(geminiService, times(1)).generateCourseJson(request);
         verify(responseParser, never()).parseCourseResponse(any());
+        verify(quizRepository, never()).saveAll(any());
     }
 
     @Test
@@ -305,6 +332,7 @@ class CourseServiceTest {
         assertEquals(CourseSourceType.PLACEHOLDER, courseCaptor.getValue().getSourceType());
         verify(geminiService, times(1)).generateCourseJson(request);
         verify(responseParser, never()).parseCourseResponse(any());
+        verify(quizRepository, never()).saveAll(any());
     }
 
     @Test
@@ -347,6 +375,7 @@ class CourseServiceTest {
                 courseService.determineFallbackReason(true, new AiResponseValidationException("title is required."))
         );
         verify(geminiService, times(1)).generateCourseJson(request);
+        verify(quizRepository, never()).saveAll(any());
     }
 
     @Test
@@ -371,7 +400,19 @@ class CourseServiceTest {
                                         false,
                                         80,
                                         List.of(),
-                                        List.of(),
+                                        List.of(
+                                                new com.codequest.ai.AiQuizQuestionResponse(
+                                                        "What best describes a graph edge?",
+                                                        "A sorting rule",
+                                                        "A connection between vertices",
+                                                        "A loop counter",
+                                                        "A stack frame",
+                                                        "B",
+                                                        "Edges connect two vertices in a graph.",
+                                                        "graph-basics",
+                                                        20
+                                                )
+                                        ),
                                         List.of()
                                 ),
                                 new AiLevelResponse(
@@ -400,6 +441,8 @@ class CourseServiceTest {
         ArgumentCaptor<Course> courseCaptor = ArgumentCaptor.forClass(Course.class);
         when(courseRepository.save(courseCaptor.capture()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+        when(quizRepository.saveAll(any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         GenerateCourseResponse response = courseService.generateCourse(creator, request);
         Course savedCourse = courseCaptor.getValue();
@@ -416,6 +459,7 @@ class CourseServiceTest {
         assertEquals(2, response.levels().get(1).orderNumber());
         assertEquals(3, response.levels().get(2).orderNumber());
         assertTrue(response.levels().get(2).isBoss());
+        verify(quizRepository).saveAll(any());
     }
 
     @Test
@@ -472,6 +516,7 @@ class CourseServiceTest {
                 AiFallbackReason.REQUESTED_DIFFICULTY_MISMATCH,
                 courseService.determineFallbackReason(true, new IllegalArgumentException("AI difficulty did not match the requested difficulty."))
         );
+        verify(quizRepository, never()).saveAll(any());
     }
 
     @Test
@@ -495,8 +540,13 @@ class CourseServiceTest {
         Level first = createLevel(course, "Introduction to Graphs", 1, false, 60);
         Level second = createLevel(course, "Graph Basics", 2, false, 80);
 
+        Quiz secondLevelQuiz = createQuiz(second, 1, "What is an adjacency list?", "A queue", "A graph representation", "A hash collision", "A binary tree", "B");
+        Quiz thirdLevelQuiz = createQuiz(third, 1, "Which traversal can use a queue?", "DFS", "BFS", "Merge sort", "Heapify", "B");
+
         when(courseRepository.findById(course.getId())).thenReturn(Optional.of(course));
         when(levelRepository.findByCourseIdOrderByOrderNumberAsc(course.getId())).thenReturn(List.of(first, second, third));
+        when(quizRepository.findByLevelIdInOrderByLevelIdAscOrderNumberAsc(List.of(first.getId(), second.getId(), third.getId())))
+                .thenReturn(List.of(secondLevelQuiz, thirdLevelQuiz));
 
         CourseResponse response = courseService.getCourseById(course.getId());
 
@@ -509,12 +559,38 @@ class CourseServiceTest {
         assertEquals(1, response.levels().get(0).orderNumber());
         assertEquals("Introduction to Graphs", response.levels().get(0).title());
         assertEquals("# Introduction to Graphs", response.levels().get(0).contentMarkdown());
+        assertEquals(0, response.levels().get(0).quizQuestions().size());
+        assertEquals(1, response.levels().get(1).quizQuestions().size());
+        assertEquals("What is an adjacency list?", response.levels().get(1).quizQuestions().get(0).question());
+        assertEquals("A graph representation", response.levels().get(1).quizQuestions().get(0).options().b());
+        assertEquals("graph-basics", response.levels().get(1).quizQuestions().get(0).conceptTag());
         assertEquals(3, response.levels().get(2).orderNumber());
         assertTrue(response.levels().get(2).isBoss());
 
         verify(geminiService, never()).isConfigured();
         verify(geminiService, never()).generateCourseJson(any());
         verify(responseParser, never()).parseCourseResponse(any());
+    }
+
+    @Test
+    void getCourseById_shouldReturnEmptyQuizQuestionsWhenNoQuizzesExist() {
+        User creator = createUser();
+        Course course = createCourse(creator, "binary search", "Binary Search");
+        List<Level> levels = createOrderedLevels(course);
+
+        when(courseRepository.findById(course.getId())).thenReturn(Optional.of(course));
+        when(levelRepository.findByCourseIdOrderByOrderNumberAsc(course.getId())).thenReturn(levels);
+        when(quizRepository.findByLevelIdInOrderByLevelIdAscOrderNumberAsc(List.of(
+                levels.get(0).getId(),
+                levels.get(1).getId(),
+                levels.get(2).getId()
+        ))).thenReturn(List.of());
+
+        CourseResponse response = courseService.getCourseById(course.getId());
+
+        assertEquals(3, response.levels().size());
+        assertTrue(response.levels().stream().allMatch(level -> level.quizQuestions().isEmpty()));
+        verify(geminiService, never()).generateCourseJson(any());
     }
 
     @Test
@@ -527,6 +603,7 @@ class CourseServiceTest {
         assertEquals(ErrorCode.NOT_FOUND, exception.getErrorCode());
         assertEquals("Course not found.", exception.getMessage());
         verify(levelRepository, never()).findByCourseIdOrderByOrderNumberAsc(any());
+        verify(quizRepository, never()).findByLevelIdInOrderByLevelIdAscOrderNumberAsc(any());
         verify(geminiService, never()).generateCourseJson(any());
     }
 
@@ -577,6 +654,27 @@ class CourseServiceTest {
                 orderNumber,
                 isBoss,
                 xpReward,
+                now,
+                now
+        );
+    }
+
+    private Quiz createQuiz(Level level, int orderNumber, String question, String optionA, String optionB,
+                            String optionC, String optionD, String correctAnswer) {
+        Instant now = Instant.now();
+        return new Quiz(
+                UUID.randomUUID(),
+                level,
+                orderNumber,
+                question,
+                optionA,
+                optionB,
+                optionC,
+                optionD,
+                correctAnswer,
+                "Explanation for " + question,
+                "graph-basics",
+                20,
                 now,
                 now
         );

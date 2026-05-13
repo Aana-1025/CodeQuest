@@ -2,8 +2,11 @@ package com.codequest.course;
 
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -16,6 +19,7 @@ import com.codequest.ai.AiCourseResponse;
 import com.codequest.ai.AiResponseValidationException;
 import com.codequest.ai.GeminiException;
 import com.codequest.ai.AiLevelResponse;
+import com.codequest.ai.AiQuizQuestionResponse;
 import com.codequest.ai.GeminiService;
 import com.codequest.ai.ResponseParser;
 import com.codequest.common.exception.ApiException;
@@ -27,6 +31,10 @@ import com.codequest.course.dto.GenerateCourseRequest;
 import com.codequest.course.dto.GenerateCourseResponse;
 import com.codequest.level.Level;
 import com.codequest.level.LevelRepository;
+import com.codequest.quiz.Quiz;
+import com.codequest.quiz.QuizRepository;
+import com.codequest.quiz.dto.QuizOptionsResponse;
+import com.codequest.quiz.dto.QuizQuestionResponse;
 import com.codequest.user.User;
 import com.codequest.user.UserRepository;
 
@@ -39,14 +47,16 @@ public class CourseService {
 
     private final CourseRepository courseRepository;
     private final LevelRepository levelRepository;
+    private final QuizRepository quizRepository;
     private final UserRepository userRepository;
     private final GeminiService geminiService;
     private final ResponseParser responseParser;
 
-    public CourseService(CourseRepository courseRepository, LevelRepository levelRepository, UserRepository userRepository,
-                         GeminiService geminiService, ResponseParser responseParser) {
+    public CourseService(CourseRepository courseRepository, LevelRepository levelRepository, QuizRepository quizRepository,
+                         UserRepository userRepository, GeminiService geminiService, ResponseParser responseParser) {
         this.courseRepository = courseRepository;
         this.levelRepository = levelRepository;
+        this.quizRepository = quizRepository;
         this.userRepository = userRepository;
         this.geminiService = geminiService;
         this.responseParser = responseParser;
@@ -81,8 +91,9 @@ public class CourseService {
                     .collect(Collectors.toList());
         }
 
+        Map<UUID, List<QuizQuestionResponse>> quizQuestionsByLevelId = getQuizQuestionsByLevelId(orderedLevels);
         List<CourseLevelResponse> levels = orderedLevels.stream()
-                .map(this::toCourseLevelResponse)
+                .map(level -> toCourseLevelResponse(level, quizQuestionsByLevelId.getOrDefault(level.getId(), List.of())))
                 .collect(Collectors.toList());
 
         return new CourseResponse(
@@ -238,6 +249,7 @@ public class CourseService {
         }
 
         Course savedCourse = courseRepository.save(course);
+        persistAiQuizzes(savedCourse.getLevels(), orderedAiLevels, now);
         return toGenerateCourseResponse(savedCourse, false);
     }
 
@@ -273,15 +285,111 @@ public class CourseService {
         );
     }
 
-    private CourseLevelResponse toCourseLevelResponse(Level level) {
+    private CourseLevelResponse toCourseLevelResponse(Level level, List<QuizQuestionResponse> quizQuestions) {
         return new CourseLevelResponse(
                 level.getId(),
                 level.getOrderNumber(),
                 level.getTitle(),
                 level.getContentMarkdown(),
                 level.getXpReward(),
-                level.isBoss()
+                level.isBoss(),
+                quizQuestions
         );
+    }
+
+    private void persistAiQuizzes(List<Level> savedLevels, List<AiLevelResponse> orderedAiLevels, Instant now) {
+        if (savedLevels.isEmpty() || orderedAiLevels.isEmpty()) {
+            return;
+        }
+
+        Map<Integer, Level> levelsByOrderNumber = savedLevels.stream()
+                .collect(Collectors.toMap(Level::getOrderNumber, level -> level));
+
+        List<Quiz> quizzesToPersist = orderedAiLevels.stream()
+                .flatMap(aiLevel -> buildQuizEntitiesForLevel(aiLevel, levelsByOrderNumber.get(aiLevel.orderNumber()), now).stream())
+                .toList();
+
+        if (!quizzesToPersist.isEmpty()) {
+            quizRepository.saveAll(quizzesToPersist);
+        }
+    }
+
+    private List<Quiz> buildQuizEntitiesForLevel(AiLevelResponse aiLevel, Level savedLevel, Instant now) {
+        if (savedLevel == null || aiLevel.quiz() == null || aiLevel.quiz().isEmpty()) {
+            return List.of();
+        }
+
+        List<AiQuizQuestionResponse> quizQuestions = aiLevel.quiz();
+        return java.util.stream.IntStream.range(0, quizQuestions.size())
+                .mapToObj(index -> toQuizEntity(savedLevel, quizQuestions.get(index), index + 1, now))
+                .toList();
+    }
+
+    private Quiz toQuizEntity(Level savedLevel, AiQuizQuestionResponse question, int orderNumber, Instant now) {
+        return new Quiz(
+                UUID.randomUUID(),
+                savedLevel,
+                orderNumber,
+                question.question().trim(),
+                question.optionA().trim(),
+                question.optionB().trim(),
+                question.optionC().trim(),
+                question.optionD().trim(),
+                question.correctAnswer().trim(),
+                trimToNull(question.explanation()),
+                trimToNull(question.conceptTag()),
+                question.xpReward(),
+                now,
+                now
+        );
+    }
+
+    private Map<UUID, List<QuizQuestionResponse>> getQuizQuestionsByLevelId(List<Level> orderedLevels) {
+        if (orderedLevels.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        List<UUID> levelIds = orderedLevels.stream()
+                .map(Level::getId)
+                .toList();
+
+        List<Quiz> quizzes = quizRepository.findByLevelIdInOrderByLevelIdAscOrderNumberAsc(levelIds);
+        if (quizzes.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        return quizzes.stream()
+                .collect(Collectors.groupingBy(
+                        quiz -> quiz.getLevel().getId(),
+                        LinkedHashMap::new,
+                        Collectors.mapping(this::toQuizQuestionResponse, Collectors.toList())
+                ));
+    }
+
+    private QuizQuestionResponse toQuizQuestionResponse(Quiz quiz) {
+        return new QuizQuestionResponse(
+                quiz.getId(),
+                quiz.getOrderNumber(),
+                quiz.getQuestion(),
+                new QuizOptionsResponse(
+                        quiz.getOptionA(),
+                        quiz.getOptionB(),
+                        quiz.getOptionC(),
+                        quiz.getOptionD()
+                ),
+                quiz.getExplanation(),
+                quiz.getConceptTag(),
+                quiz.getXpReward()
+        );
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private String normalizeTopic(String topic) {

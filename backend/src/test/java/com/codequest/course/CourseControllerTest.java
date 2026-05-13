@@ -19,8 +19,13 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.codequest.auth.dto.LoginRequest;
 import com.codequest.auth.dto.LoginResponse;
 import com.codequest.auth.dto.RegisterRequest;
+import com.codequest.course.Course;
 import com.codequest.course.dto.GenerateCourseRequest;
 import com.codequest.course.dto.GenerateCourseResponse;
+import com.codequest.level.Level;
+import com.codequest.level.LevelRepository;
+import com.codequest.quiz.Quiz;
+import com.codequest.quiz.QuizRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @SpringBootTest
@@ -33,6 +38,15 @@ class CourseControllerTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private CourseRepository courseRepository;
+
+    @Autowired
+    private LevelRepository levelRepository;
+
+    @Autowired
+    private QuizRepository quizRepository;
 
     @Test
     void shouldGenerateCourseForAuthenticatedUser() throws Exception {
@@ -160,7 +174,56 @@ class CourseControllerTest {
                 .andExpect(jsonPath("$.levels[0].title").exists())
                 .andExpect(jsonPath("$.levels[0].contentMarkdown").exists())
                 .andExpect(jsonPath("$.levels[0].xpReward").isNumber())
-                .andExpect(jsonPath("$.levels[0].isBoss").exists());
+                .andExpect(jsonPath("$.levels[0].isBoss").exists())
+                .andExpect(jsonPath("$.levels[0].quizQuestions").isArray())
+                .andExpect(jsonPath("$.levels[0].quizQuestions.length()").value(0));
+    }
+
+    @Test
+    void shouldFetchPersistedQuizQuestionsWithoutExposingCorrectAnswer() throws Exception {
+        String accessToken = registerAndLogin("fetchquiz-" + System.currentTimeMillis() + "@example.com");
+
+        GenerateCourseRequest request = new GenerateCourseRequest("Hash Maps", CourseDifficulty.BEGINNER, "Interview prep");
+        String generateResponseBody = mockMvc.perform(post("/api/courses/generate")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        GenerateCourseResponse generatedCourse = objectMapper.readValue(generateResponseBody, GenerateCourseResponse.class);
+        Course course = courseRepository.findById(generatedCourse.courseId()).orElseThrow();
+        Level firstLevel = levelRepository.findByCourseIdOrderByOrderNumberAsc(course.getId()).get(0);
+        quizRepository.save(new Quiz(
+                UUID.randomUUID(),
+                firstLevel,
+                1,
+                "Which data structure powers average O(1) lookups?",
+                "ArrayList",
+                "HashMap",
+                "LinkedList",
+                "Stack",
+                "B",
+                "HashMap uses hashing for average constant-time lookup.",
+                "hashing",
+                20,
+                java.time.Instant.now(),
+                java.time.Instant.now()
+        ));
+
+        mockMvc.perform(get("/api/courses/{courseId}", generatedCourse.courseId())
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.levels[0].quizQuestions").isArray())
+                .andExpect(jsonPath("$.levels[0].quizQuestions[0].quizId").exists())
+                .andExpect(jsonPath("$.levels[0].quizQuestions[0].orderNumber").value(1))
+                .andExpect(jsonPath("$.levels[0].quizQuestions[0].question").value("Which data structure powers average O(1) lookups?"))
+                .andExpect(jsonPath("$.levels[0].quizQuestions[0].options.A").value("ArrayList"))
+                .andExpect(jsonPath("$.levels[0].quizQuestions[0].options.B").value("HashMap"))
+                .andExpect(jsonPath("$.levels[0].quizQuestions[0].xpReward").value(20))
+                .andExpect(jsonPath("$.levels[0].quizQuestions[0].correctAnswer").doesNotExist());
     }
 
     @Test
