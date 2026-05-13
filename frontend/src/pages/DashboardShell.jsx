@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { generateCourse } from "../services/courseApi";
+import { generateCourse, getCourseById } from "../services/courseApi";
 import { getAccessToken } from "../utils/tokenStorage";
 
 const INITIAL_FORM = {
@@ -25,11 +25,38 @@ function getCourseBadgeLabel(generatedCourse) {
   return "New Course";
 }
 
+function getLevelTypeBadgeClass(level) {
+  return level.isBoss
+    ? "bg-amber-100 text-amber-800"
+    : "bg-slate-100 text-slate-700";
+}
+
+function getContentPreview(contentMarkdown) {
+  if (!contentMarkdown) {
+    return "No lesson preview available yet.";
+  }
+
+  const plainText = contentMarkdown
+    .replace(/[#*_`>-]/g, " ")
+    .replace(/\[(.*?)\]\((.*?)\)/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!plainText) {
+    return "No lesson preview available yet.";
+  }
+
+  return plainText.length <= 140 ? plainText : `${plainText.slice(0, 140).trim()}...`;
+}
+
 export default function DashboardShell({ profile, onBackHome }) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [generationLoading, setGenerationLoading] = useState(false);
   const [generationError, setGenerationError] = useState("");
   const [generatedCourse, setGeneratedCourse] = useState(null);
+  const [courseMapLoading, setCourseMapLoading] = useState(false);
+  const [courseMapError, setCourseMapError] = useState("");
+  const [courseMap, setCourseMap] = useState(null);
 
   const handleGenerateCourse = async (event) => {
     event.preventDefault();
@@ -57,12 +84,128 @@ export default function DashboardShell({ profile, onBackHome }) {
         goal: form.goal.trim(),
       });
       setGeneratedCourse(response);
+      setCourseMap(null);
+      setCourseMapError("");
     } catch (error) {
       setGenerationError(error.message || "Failed to generate course.");
     } finally {
       setGenerationLoading(false);
     }
   };
+
+  const handleOpenCourseMap = async () => {
+    if (!generatedCourse?.courseId) {
+      return;
+    }
+
+    const accessToken = getAccessToken();
+    if (!accessToken) {
+      setCourseMapError("Access token is missing.");
+      return;
+    }
+
+    setCourseMapLoading(true);
+    setCourseMapError("");
+
+    try {
+      const response = await getCourseById({
+        accessToken,
+        courseId: generatedCourse.courseId,
+      });
+      setCourseMap(response);
+    } catch (error) {
+      setCourseMapError(error.message || "Failed to load course map.");
+    } finally {
+      setCourseMapLoading(false);
+    }
+  };
+
+  const handleBackToDashboard = () => {
+    setCourseMapError("");
+    setCourseMap(null);
+  };
+
+  if (courseMap) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <div className="border-b border-slate-200 bg-white px-4 py-6 sm:px-8">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-semibold text-slate-900">Course Map</h1>
+              <p className="mt-1 text-sm text-slate-600">Explore your generated course structure and level flow.</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleBackToDashboard}
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
+              >
+                Back
+              </button>
+              {typeof onBackHome === "function" && (
+                <button
+                  onClick={onBackHome}
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
+                >
+                  Back to Home
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="px-4 py-8 sm:px-8">
+          <div className="mx-auto max-w-5xl space-y-6">
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h2 className="text-2xl font-semibold text-slate-900">{courseMap.title}</h2>
+                  <p className="mt-2 text-sm text-slate-600">{courseMap.description}</p>
+                  <p className="mt-3 text-xs text-slate-500">Course ID: {courseMap.courseId}</p>
+                </div>
+                <span className="inline-flex w-fit rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
+                  {courseMap.sourceType || "UNKNOWN"}
+                </span>
+              </div>
+
+              <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="rounded-xl bg-slate-50 p-4">
+                  <p className="text-sm text-slate-500">Difficulty</p>
+                  <p className="mt-1 text-base font-semibold text-slate-900">{courseMap.difficulty}</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-4">
+                  <p className="text-sm text-slate-500">Source Type</p>
+                  <p className="mt-1 text-base font-semibold text-slate-900">{courseMap.sourceType}</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-4">
+                  <p className="text-sm text-slate-500">Total XP</p>
+                  <p className="mt-1 text-base font-semibold text-slate-900">{courseMap.totalXp}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h3 className="text-xl font-semibold text-slate-900">Levels</h3>
+              <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+                {courseMap.levels.map((level) => (
+                  <div key={level.levelId ?? `${level.orderNumber}-${level.title}`} className="rounded-xl border border-slate-200 bg-slate-50 p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-semibold text-slate-500">Level {level.orderNumber}</span>
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${getLevelTypeBadgeClass(level)}`}>
+                        {level.isBoss ? "Boss" : "Standard"}
+                      </span>
+                    </div>
+                    <h4 className="mt-3 text-lg font-semibold text-slate-900">{level.title}</h4>
+                    <p className="mt-2 text-sm text-slate-600">XP Reward: {level.xpReward}</p>
+                    <p className="mt-3 text-sm leading-6 text-slate-600">{getContentPreview(level.contentMarkdown)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -200,18 +343,35 @@ export default function DashboardShell({ profile, onBackHome }) {
                   </span>
                 </div>
 
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleOpenCourseMap}
+                    disabled={courseMapLoading || !generatedCourse.courseId}
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                  >
+                    {courseMapLoading ? "Loading Course Map..." : "Open Course Map"}
+                  </button>
+                  {!generatedCourse.courseId && (
+                    <p className="text-sm text-slate-500">Course map becomes available after a course ID is present.</p>
+                  )}
+                </div>
+
+                {courseMapError && (
+                  <div
+                    className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+                    role="alert"
+                  >
+                    {courseMapError}
+                  </div>
+                )}
+
                 <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
                   {generatedCourse.levels.map((level) => (
                     <div key={level.levelId} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-sm font-semibold text-slate-500">Level {level.orderNumber}</span>
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                            level.isBoss
-                              ? "bg-amber-100 text-amber-800"
-                              : "bg-slate-100 text-slate-700"
-                          }`}
-                        >
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${getLevelTypeBadgeClass(level)}`}>
                           {level.isBoss ? "Boss" : "Standard"}
                         </span>
                       </div>

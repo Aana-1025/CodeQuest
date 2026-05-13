@@ -45,4 +45,23 @@ async function generateCourse({ accessToken, topic, difficulty, goal }) {
   return handleResponse(response);
 }
 
-export { generateCourse };
+async function getCourseById({ accessToken, courseId }) {
+  if (!accessToken) {
+    throw new Error("Access token is missing.");
+  }
+
+  if (!courseId) {
+    throw new Error("Course ID is missing.");
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/courses/${courseId}`, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+    },
+  });
+
+  return handleResponse(response);
+}
+
+export { generateCourse, getCourseById };

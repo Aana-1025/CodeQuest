@@ -5,15 +5,15 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Course Generation / Course map foundation
-Current feature: Backend course fetch endpoint foundation completed, tested, manually verified, committed, and pushed
-Last completed feature: Backend course fetch endpoint `GET /api/courses/{courseId}`
-Next feature: Frontend course map foundation or next safest MVP task
+Current module: Course Generation / Frontend course map foundation
+Current feature: Frontend Course Map foundation completed, tested, manually verified, pending commit
+Last completed feature: Frontend Course Map foundation
+Next feature: Lesson page foundation or next safest MVP task, but do not implement it yet
 Current branch: main
-Latest commit: `9e9ed01 feat: add course fetch endpoint`
-Previous commit: `9e36e6a docs: update build log after source badge fix`
-Test status: Backend `cd backend && .\mvnw.cmd test` PASS with 98 tests, 0 failures, 0 errors; manual API verification PASS for authenticated 200 fetch, random UUID 404, and unauthenticated 401; DB migration diff empty; AI diff empty; frontend diff empty
-Git status: clean after push to `origin/main` for the course fetch endpoint feature
+Latest commit: `4d02ef9 docs: update build log after course fetch endpoint`
+Previous commit: `9e9ed01 feat: add course fetch endpoint`
+Test status: Frontend `cd frontend && npm run build` PASS. Backend `cd backend && .\mvnw.cmd test` PASS with 98 tests, 0 failures, 0 errors. Manual browser verification PASS: Login -> generate/reuse course -> Open Course Map -> Course Map loaded from GET `/api/courses/{courseId}` with title, description, difficulty, sourceType, totalXp, ordered levels, XP reward, Boss/Standard badge, content preview, working Back button, and no visible secrets/tokens. Backend, DB migrations, AI, and backend course files unchanged.
+Git status: pending commit for frontend course map foundation files
 
 ## Completed Features
 - [x] Project setup
@@ -44,7 +44,7 @@ Git status: clean after push to `origin/main` for the course fetch endpoint feat
 - [x] Gemini retry-once for transient 5xx / sourceType=AI manual verification
 - [x] Frontend AI/placeholder course source badge fix
 - [x] Backend course fetch endpoint
-- [ ] Course map
+- [x] Course map
 - [ ] Level unlock logic
 - [ ] Lesson page
 - [ ] Flashcards
@@ -522,6 +522,9 @@ Git status: clean after push to `origin/main` for the course fetch endpoint feat
 - Backend course fetch endpoint note: AI files were not changed.
 - Backend course fetch endpoint note: Frontend files were not changed.
 - Backend course fetch endpoint note: Real Gemini env vars initially made two course controller tests non-deterministic during local testing; test isolation was fixed so backend tests pass with 98 tests and do not depend on real Gemini/network availability.
+- Frontend Course Map foundation note: No blocking issue is currently known.
+- Frontend Course Map foundation note: Changed files are limited to `frontend/src/services/courseApi.js` and `frontend/src/pages/DashboardShell.jsx`.
+- Frontend Course Map foundation note: Backend, DB migrations, AI, and backend course files remained unchanged.
 
 ## Feature History
 | # | Date | Feature | Module | Files changed | Tests | Commit/Notes |
@@ -559,6 +562,7 @@ Git status: clean after push to `origin/main` for the course fetch endpoint feat
 | 31 | 2026-05-13 | Gemini retry-once for transient 5xx + real AI success verification | AI / Gemini course generation reliability | backend/src/main/java/com/codequest/course/CourseService.java; backend/src/test/java/com/codequest/course/CourseServiceTest.java; CodeQuest_Build_Log.md | Backend `cd backend && .\mvnw.cmd test` PASS; 93 tests total, 0 failures, 0 errors. Manual browser generation PASS. DB confirmed `graph dfs gemini retry test` persisted `source_type=AI`, `total_xp=375`, `level_count=4`, `total_level_xp=375`. Scope checks clean: no frontend diff, no DB migration diff, CourseController unchanged. | `4344e5b fix: retry gemini transient failures`. Added exactly one retry for transient Gemini 5xx request failures before placeholder fallback. Does not retry 400/401/403/404/429, parser validation failure, difficulty mismatch, or missing config. Frontend badge display bug found after this feature and fixed in the next feature. |
 | 32 | 2026-05-13 | Frontend AI/placeholder course source badge fix | Course Generation / Frontend + API Response | frontend/src/pages/DashboardShell.jsx; backend/src/main/java/com/codequest/course/dto/GenerateCourseResponse.java; backend/src/main/java/com/codequest/course/CourseService.java; backend/src/test/java/com/codequest/course/CourseServiceTest.java; CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS. Backend `cd backend && .\mvnw.cmd test` PASS; 93 tests total, 0 failures, 0 errors. Manual browser verification PASS: AI course displayed `AI Generated Course`. Scope checks clean: DB migration diff empty, CourseController diff empty. | `08fe631 fix: show course source badge`. Added `sourceType` to generate-course response, mapped it from CourseService, added tests for placeholder/AI response source type, and updated DashboardShell badge logic for cache hit, AI, placeholder, and unknown source values. Commit pushed; git status clean. |
 | 33 | 2026-05-13 | Backend course fetch endpoint | Course Generation / Course Map Foundation | backend/src/main/java/com/codequest/course/CourseController.java; backend/src/main/java/com/codequest/course/CourseService.java; backend/src/main/java/com/codequest/course/dto/CourseResponse.java; backend/src/main/java/com/codequest/course/dto/CourseLevelResponse.java; backend/src/test/java/com/codequest/course/CourseControllerTest.java; backend/src/test/java/com/codequest/course/CourseServiceTest.java; CodeQuest_Build_Log.md | Backend `cd backend && .\mvnw.cmd test` PASS; 98 tests total, 0 failures, 0 errors. Manual API verification PASS: authenticated GET returned 200 with safe course + ordered levels, random valid UUID returned 404, unauthenticated request returned 401. Scope checks clean: DB migration diff empty, AI diff empty, frontend diff empty. | `feat: add course fetch endpoint`. Added authenticated GET `/api/courses/{courseId}` and safe course/level response DTOs. Preserved POST `/api/courses/generate`; no DB migration, AI, or frontend changes. Commit pushed; git status clean. |
+| 34 | 2026-05-13 | Frontend Course Map foundation | Course Generation / Frontend | frontend/src/services/courseApi.js; frontend/src/pages/DashboardShell.jsx; CodeQuest_Build_Log.md | Frontend `cd frontend && npm run build` PASS. Backend `cd backend && .\mvnw.cmd test` PASS; 98 tests total, 0 failures, 0 errors. Manual browser verification PASS: Login -> generate/reuse course -> Open Course Map -> Course Map loaded from GET `/api/courses/{courseId}` with ordered levels, content preview, and working Back button. | Pending commit suggestion: `feat: add frontend course map foundation`. Added explicit-click `Open Course Map` flow, frontend GET helper, local loading/error state, course map view, ordered level cards, and plain-text content previews. Backend, DB migrations, AI, and backend course files unchanged. |
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -622,6 +626,9 @@ Git status: clean after push to `origin/main` for the course fetch endpoint feat
 | 2026-05-13 | `git diff -- backend/src/main/java/com/codequest/course/CourseController.java` after source badge fix | PASS | Empty diff; CourseController unchanged. | Yes |
 | 2026-05-13 | Manual browser course generation after source badge fix | PASS | AI-generated Linked List course displayed `AI Generated Course` badge in DashboardShell. | Yes |
 | 2026-05-13 | `cd backend && .\mvnw.cmd test` after backend course fetch endpoint | PASS | Backend tests passed: 98 tests, 0 failures, 0 errors. Tests cover authenticated fetch, 404 not found, 401 unauthorized, ordered levels, and no Gemini calls. | Yes |
+| 2026-05-13 | `cd frontend && npm run build` after Frontend Course Map foundation | PASS | Frontend build passed after adding explicit-click course map fetch and Course Map view. | Yes |
+| 2026-05-13 | `cd backend && .\mvnw.cmd test` after Frontend Course Map foundation verification | PASS | Backend tests passed: 98 tests, 0 failures, 0 errors. Backend remained unchanged for this feature. | Yes |
+| 2026-05-13 | Manual browser verification after Frontend Course Map foundation | PASS | Login -> generate/reuse course -> Open Course Map loaded from GET `/api/courses/{courseId}`. Course Map showed title, description, difficulty, sourceType, totalXp, ordered levels, XP reward, Boss/Standard badge, content preview, working Back button, and no visible secrets/tokens. | Yes |
 | 2026-05-13 | Manual API: authenticated GET `/api/courses/{courseId}` | PASS | Returned 200 OK with `courseId`, `title`, `description`, `difficulty`, `sourceType=AI`, `totalXp=375`, and 4 ordered levels. | Yes |
 | 2026-05-13 | Manual API: random valid UUID fetch | PASS | Returned 404 for missing course. | Yes |
 | 2026-05-13 | Manual API: GET `/api/courses/{courseId}` without token | PASS | Returned 401 for unauthenticated request. | Yes |
@@ -697,6 +704,7 @@ Git status: clean after push to `origin/main` for the course fetch endpoint feat
 | 2026-05-13 | Backend course fetch endpoint unauthenticated request | GET `/api/courses/{courseId}` without Authorization header | 401 Unauthorized | Passed |
 | 2026-05-13 | Backend course fetch endpoint backend tests | `cd backend && .\mvnw.cmd test` | 98 tests, 0 failures, 0 errors, BUILD SUCCESS | Passed |
 | 2026-05-13 | Backend course fetch endpoint scope check | `git diff -- backend/src/main/resources/db/migration`, `git diff -- backend/src/main/java/com/codequest/ai`, `git diff -- frontend` | All diffs empty | Passed |
+| 2026-05-13 | Frontend Course Map foundation browser verification | Login -> generate/reuse course -> Open Course Map -> Back | Course Map loads from GET `/api/courses/{courseId}` and shows title, description, difficulty, sourceType, totalXp, ordered levels, XP reward, Boss/Standard badge, content preview, working Back button, and no visible secrets/tokens | Passed |
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -2228,8 +2236,8 @@ Read all CodeQuest project resources and the current CodeQuest_Build_Log.md befo
 Project: CodeQuest — AI-assisted Java learning platform MVP
 Repo: Aana-1025/CodeQuest
 Branch: main
-Latest pushed commit: feat: add course fetch endpoint
-Previous pushed commit: 9e36e6a docs: update build log after source badge fix
+Latest pushed commit: 4d02ef9 docs: update build log after course fetch endpoint
+Previous pushed commit: 9e9ed01 feat: add course fetch endpoint
 
 Very important workflow rule:
 We use Maven Wrapper, not plain Maven.
@@ -2287,36 +2295,39 @@ Completed frontend features:
 - Course generation API helper
 - Browser auth/profile/course-generation flow works
 - AI/placeholder course source badge fix
+- Frontend Course Map foundation
 
 Latest completed feature:
-Backend course fetch endpoint GET /api/courses/{courseId}.
+Frontend Course Map foundation.
 
 What was done:
-- Added authenticated GET /api/courses/{courseId}.
-- Controller stays thin and delegates to CourseService.
-- CourseService fetches persisted course by UUID.
-- Response includes courseId, title, description, difficulty, sourceType, totalXp, and ordered levels.
-- Level response includes levelId, orderNumber, title, contentMarkdown, xpReward, and isBoss.
-- Missing course returns 404 standard ErrorDTO.
-- Without token returns 401.
-- GET endpoint does not call Gemini or generation flow.
-- POST /api/courses/generate behavior is preserved.
-- No DB migrations changed.
-- No AI files changed.
-- No frontend files changed.
+- Added `getCourseById(courseId)` to the frontend course API helper using the existing bearer-token pattern.
+- DashboardShell now shows an explicit `Open Course Map` button only after a generated course result exists with a courseId.
+- Clicking `Open Course Map` calls GET `/api/courses/{courseId}` only on explicit click, not on page load.
+- Course Map view shows title, description, difficulty, sourceType, totalXp, and ordered levels.
+- Each level shows order number, title, XP reward, Boss/Standard badge, and a trimmed plain-text content preview.
+- Back button returns to the previous dashboard/generated-result view.
+- Existing course generation behavior and badge behavior remain unchanged.
+- Backend, DB migrations, AI files, and backend course files were not changed.
+- Frontend files changed:
+  - `frontend/src/services/courseApi.js`
+  - `frontend/src/pages/DashboardShell.jsx`
 
 Latest test results:
+cd frontend && npm run build
+PASS
 cd backend && .\mvnw.cmd test
 PASS
 98 tests, 0 failures, 0 errors
 
 Latest manual verification:
 - Register/login succeeded.
-- POST /api/courses/generate created/reused a course.
-- GET /api/courses/{courseId} returned 200 OK with safe course details and ordered levels.
-- Returned sourceType=AI, totalXp=375, and 4 ordered levels for the manual course.
-- Random valid UUID returned 404.
-- Request without token returned 401.
+- Generate/reuse course succeeded from DashboardShell.
+- Clicking `Open Course Map` loaded the course from GET `/api/courses/{courseId}`.
+- Course Map showed title, description, difficulty, sourceType, totalXp, and ordered levels.
+- Each level showed XP reward, Boss/Standard badge, and content preview.
+- Back button returned to the previous dashboard/generated-result view.
+- No secrets or tokens were visible.
 
 Latest git log should include:
 feat: add course fetch endpoint
@@ -2334,17 +2345,17 @@ Current important known notes:
 - Tests must stay deterministic and must not call real Gemini even when Gemini env vars are present locally.
 
 Next safest MVP task:
-Frontend course map foundation.
+Lesson page foundation or the next safest MVP task.
 
 Reason:
 - Backend can generate courses.
 - Backend can fetch a persisted course by courseId.
-- DashboardShell can display generated course results.
-- The next small step is to let the frontend open/display a fetched course map view using existing backend courseId.
+- DashboardShell can display generated course results and open a fetched course map view.
+- The next small step is to build the lesson page foundation on top of the existing course map flow.
 
 Important next-task boundaries:
-- Implement only frontend course map foundation if selected.
-- Do not implement lesson page yet.
+- Implement only Lesson Page Foundation if selected.
+- Do not implement quiz submit, notes saving, XP/progress, unlock logic, Piston/code execution, leaderboard, Docker, CI/CD, deployment, or Phase 2.
 - Do not implement flashcards, quiz, notes, weak concept detection, XP/rank/streak progress, leaderboard, Piston, Docker, CI/CD, deployment, or Phase 2 features.
 - Do not change DB migrations.
 - Do not touch Gemini/AI retry logic.
@@ -2357,7 +2368,8 @@ Important next-task boundaries:
   cd backend
   .\mvnw.cmd test
 
-Give me one strict Codex prompt for only the frontend course map foundation step.
+Give me one strict Codex prompt for only the Lesson Page Foundation step.
+Do not implement flashcards, quiz submit, notes saving, XP/progress, unlock logic, Piston, leaderboard, deployment, or Phase 2.
 Include exact files to inspect/touch, files not to touch, commands to run, manual browser verification steps, diff checks, and Build Log update instructions.
 ```
 
@@ -2402,26 +2414,27 @@ Database: PostgreSQL + Flyway
 AI: Gemini API
 Code execution: Piston API
 
-Current module: Course Generation / Course map foundation
-Last completed feature: Backend course fetch endpoint GET /api/courses/{courseId}
-Latest commit: 9e9ed01 feat: add course fetch endpoint
-Previous commit: 9e36e6a docs: update build log after source badge fix
-Git status: clean after push
+Current module: Course Generation / Frontend course map foundation
+Last completed feature: Frontend Course Map foundation
+Latest commit: 4d02ef9 docs: update build log after course fetch endpoint
+Previous commit: 9e9ed01 feat: add course fetch endpoint
+Git status: pending commit for frontend course map foundation files
 Tests passed:
+- Frontend cd frontend && npm run build PASS
 - Backend cd backend && .\mvnw.cmd test PASS with 98 tests, 0 failures, 0 errors
 
 Manual verification passed:
-- Authenticated GET /api/courses/{courseId} returned 200 OK with safe course details and ordered levels.
-- Random valid UUID returned 404.
-- Request without token returned 401.
+- Login, generate/reuse course, Open Course Map, and Back all worked in the browser.
+- Course Map loaded from GET /api/courses/{courseId}.
+- Course Map showed title, description, difficulty, sourceType, totalXp, ordered levels, XP reward, Boss/Standard badge, and content preview.
+- No secrets or tokens were visible.
 
 Known bugs/blockers:
 - None blocking currently.
-- Previous frontend badge bug is fixed. UI now shows AI Generated Course for sourceType=AI.
-- Course fetch endpoint is implemented and manually verified.
+- No blocking issue is currently known.
 
 Next task:
-Frontend course map foundation.
+Lesson page foundation or the next safest MVP task.
 
 Important completed Auth details:
 - Register implemented.
@@ -2453,9 +2466,9 @@ Important completed Frontend details:
 - DashboardShell displays generated course and levels.
 - DashboardShell now displays correct source badge:
   Cache Hit, AI Generated Course, New Placeholder Course, or New Course.
+- DashboardShell now supports explicit-click Course Map loading from GET /api/courses/{courseId}.
 - React Router not added.
 - Logout UI not implemented.
-- Course map UI not implemented yet.
 
 Important completed Local runtime / CORS details:
 - PostgreSQL 17 installed locally.
