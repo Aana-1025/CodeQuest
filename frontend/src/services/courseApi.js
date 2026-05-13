@@ -122,4 +122,31 @@ async function getNoteForLevel(levelId) {
   return handleResponse(response);
 }
 
-export { generateCourse, getCourseById, saveNoteForLevel, getNoteForLevel };
+async function submitQuizAnswer(quizQuestionId, selectedAnswer) {
+  const accessToken = getAccessToken();
+
+  if (!accessToken) {
+    const error = new Error("Access token is missing.");
+    error.status = 401;
+    throw error;
+  }
+
+  if (!quizQuestionId) {
+    throw new Error("Quiz question ID is missing.");
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/quizzes/${quizQuestionId}/submit`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      selectedAnswer,
+    }),
+  });
+
+  return handleResponse(response);
+}
+
+export { generateCourse, getCourseById, saveNoteForLevel, getNoteForLevel, submitQuizAnswer };

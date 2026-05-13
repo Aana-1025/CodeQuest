@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { generateCourse, getCourseById, getNoteForLevel, saveNoteForLevel } from "../services/courseApi";
+import { generateCourse, getCourseById, getNoteForLevel, saveNoteForLevel, submitQuizAnswer } from "../services/courseApi";
 import { getAccessToken } from "../utils/tokenStorage";
 
 const INITIAL_FORM = {
@@ -125,6 +125,14 @@ function normalizeQuestionOptions(question) {
   return [];
 }
 
+function getQuizQuestionId(question) {
+  if (!question || typeof question !== "object") {
+    return null;
+  }
+
+  return question.quizId ?? question.quizQuestionId ?? null;
+}
+
 function getFlashcardFront(card) {
   if (!card || typeof card !== "object") {
     return "Flashcard front is not available yet.";
@@ -169,6 +177,9 @@ export default function DashboardShell({ profile, onBackHome }) {
   const [courseMap, setCourseMap] = useState(null);
   const [selectedLevel, setSelectedLevel] = useState(null);
   const [quizSelections, setQuizSelections] = useState({});
+  const [quizSubmitLoading, setQuizSubmitLoading] = useState({});
+  const [quizSubmitErrors, setQuizSubmitErrors] = useState({});
+  const [quizSubmitResults, setQuizSubmitResults] = useState({});
   const [revealedFlashcards, setRevealedFlashcards] = useState({});
   const [noteContent, setNoteContent] = useState("");
   const [noteSaving, setNoteSaving] = useState(false);
@@ -180,6 +191,9 @@ export default function DashboardShell({ profile, onBackHome }) {
 
   useEffect(() => {
     setQuizSelections({});
+    setQuizSubmitLoading({});
+    setQuizSubmitErrors({});
+    setQuizSubmitResults({});
     setRevealedFlashcards({});
     setNoteContent("");
     setNoteSaving(false);
@@ -328,6 +342,84 @@ export default function DashboardShell({ profile, onBackHome }) {
       ...current,
       [questionIndex]: optionIndex,
     }));
+    setQuizSubmitErrors((current) => ({
+      ...current,
+      [questionIndex]: "",
+    }));
+    setQuizSubmitResults((current) => {
+      if (current[questionIndex] === undefined) {
+        return current;
+      }
+
+      const nextResults = { ...current };
+      delete nextResults[questionIndex];
+      return nextResults;
+    });
+  };
+
+  const handleSubmitQuizAnswer = async (question, questionIndex) => {
+    const selectedOptionIndex = quizSelections[questionIndex];
+    const quizQuestionId = getQuizQuestionId(question);
+
+    if (selectedOptionIndex === undefined) {
+      return;
+    }
+
+    if (!quizQuestionId) {
+      setQuizSubmitErrors((current) => ({
+        ...current,
+        [questionIndex]: "This quiz question is not available for scoring yet.",
+      }));
+      return;
+    }
+
+    const selectedAnswer = getOptionLabel(selectedOptionIndex);
+
+    setQuizSubmitLoading((current) => ({
+      ...current,
+      [questionIndex]: true,
+    }));
+    setQuizSubmitErrors((current) => ({
+      ...current,
+      [questionIndex]: "",
+    }));
+
+    try {
+      const response = await submitQuizAnswer(quizQuestionId, selectedAnswer);
+      setQuizSubmitResults((current) => ({
+        ...current,
+        [questionIndex]: response,
+      }));
+    } catch (error) {
+      let message = "Could not submit answer right now.";
+
+      if (error?.status === 400) {
+        message = "Please choose a valid option.";
+      } else if (error?.status === 401) {
+        message = "Please log in again to submit quiz answers.";
+      } else if (error?.status === 404) {
+        message = "This quiz question is no longer available.";
+      }
+
+      setQuizSubmitErrors((current) => ({
+        ...current,
+        [questionIndex]: message,
+      }));
+      setQuizSubmitResults((current) => {
+        if (current[questionIndex] === undefined) {
+          return current;
+        }
+
+        const nextResults = { ...current };
+        delete nextResults[questionIndex];
+        return nextResults;
+      });
+    } finally {
+      setQuizSubmitLoading((current) => ({
+        ...current,
+        [questionIndex]: false,
+      }));
+    }
   };
 
   const handleFlashcardToggle = (cardIndex) => {
@@ -550,6 +642,10 @@ export default function DashboardShell({ profile, onBackHome }) {
                   {quizQuestions.map((question, questionIndex) => {
                     const options = normalizeQuestionOptions(question);
                     const selectedOptionIndex = quizSelections[questionIndex];
+                    const quizResult = quizSubmitResults[questionIndex];
+                    const quizError = quizSubmitErrors[questionIndex];
+                    const isQuizSubmitting = Boolean(quizSubmitLoading[questionIndex]);
+                    const quizQuestionId = getQuizQuestionId(question);
 
                     return (
                       <div
@@ -565,37 +661,81 @@ export default function DashboardShell({ profile, onBackHome }) {
                         )}
 
                         {options.length > 0 ? (
-                          <div className="mt-4 grid grid-cols-1 gap-3">
-                            {options.map((option, optionIndex) => {
-                              const isSelected = selectedOptionIndex === optionIndex;
+                          <>
+                            <div className="mt-4 grid grid-cols-1 gap-3">
+                              {options.map((option, optionIndex) => {
+                                const isSelected = selectedOptionIndex === optionIndex;
 
-                              return (
-                                <button
-                                  key={`quiz-option-${questionIndex}-${optionIndex}`}
-                                  type="button"
-                                  onClick={() => handleQuizOptionSelect(questionIndex, optionIndex)}
-                                  className={`rounded-xl border px-4 py-3 text-left text-sm transition ${
-                                    isSelected
-                                      ? "border-slate-900 bg-white text-slate-900"
-                                      : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
-                                  }`}
-                                >
-                                  <span className="font-semibold">{getOptionLabel(optionIndex)}.</span>{" "}
-                                  {getOptionText(option)}
-                                </button>
-                              );
-                            })}
-                          </div>
+                                return (
+                                  <button
+                                    key={`quiz-option-${questionIndex}-${optionIndex}`}
+                                    type="button"
+                                    onClick={() => handleQuizOptionSelect(questionIndex, optionIndex)}
+                                    className={`rounded-xl border px-4 py-3 text-left text-sm transition ${
+                                      isSelected
+                                        ? "border-slate-900 bg-white text-slate-900"
+                                        : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
+                                    }`}
+                                  >
+                                    <span className="font-semibold">{getOptionLabel(optionIndex)}.</span>{" "}
+                                    {getOptionText(option)}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            <div className="mt-4 flex flex-wrap items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={() => handleSubmitQuizAnswer(question, questionIndex)}
+                                disabled={selectedOptionIndex === undefined || isQuizSubmitting || !quizQuestionId}
+                                className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                              >
+                                {isQuizSubmitting ? "Submitting..." : "Submit Answer"}
+                              </button>
+                              {!quizQuestionId && (
+                                <p className="text-sm text-slate-500">This quiz question cannot be submitted yet.</p>
+                              )}
+                            </div>
+                          </>
                         ) : (
                           <p className="mt-4 text-sm text-slate-600">Options are not available for this question yet.</p>
                         )}
 
-                        {selectedOptionIndex !== undefined && question.explanation && (
-                          <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
-                            <p className="text-sm font-semibold text-slate-700">Explanation</p>
-                            <p className="mt-2 text-sm leading-6 text-slate-600">{question.explanation}</p>
+                        {quizError && (
+                          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4">
+                            <p className="text-sm text-red-800">{quizError}</p>
                           </div>
                         )}
+
+                        {quizResult && (
+                          <div className={`mt-4 rounded-xl border p-4 ${
+                            quizResult.isCorrect
+                              ? "border-emerald-200 bg-emerald-50"
+                              : "border-amber-200 bg-amber-50"
+                          }`}>
+                            <p className={`text-sm font-semibold ${
+                              quizResult.isCorrect ? "text-emerald-800" : "text-amber-800"
+                            }`}>
+                              {quizResult.isCorrect ? "Correct" : "Incorrect"}
+                            </p>
+                            <p className="mt-2 text-sm text-slate-700">
+                              Selected answer: {quizResult.selectedAnswer}
+                            </p>
+                            {quizResult.concept && (
+                              <p className="mt-2 text-sm text-slate-700">
+                                Concept: {quizResult.concept}
+                              </p>
+                            )}
+                            {quizResult.explanation && (
+                              <div className="mt-3 rounded-xl border border-white/70 bg-white p-4">
+                                <p className="text-sm font-semibold text-slate-700">Explanation</p>
+                                <p className="mt-2 text-sm leading-6 text-slate-600">{quizResult.explanation}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                       </div>
                     );
                   })}
