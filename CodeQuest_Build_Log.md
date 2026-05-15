@@ -5,13 +5,13 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Backend / Progress foundation
-Current feature: Backend Progress / Level Complete Foundation completed, backend-tested, manually verified from PowerShell, committed, and pushed
-Latest commit: `f86b082 feat: add level completion progress foundation`
-Previous commit: `f78c70e docs: record frontend xp refresh completion`
+Current module: Backend / Progress + Level unlock foundation
+Current feature: Backend Level Unlock Logic Foundation completed, backend-tested, manually verified from PowerShell, committed, and pushed
+Latest commit: `12cae38 feat: enforce level unlock rules`
+Previous commit: `081a058 docs: record level completion progress foundation`
 Current branch: main
-Test status: Backend `cd backend && .\mvnw.cmd test` PASS with 159 tests, 0 failures, 0 errors. Manual PowerShell verification PASS before commit: login/profile started at XP 0, AI course fetch returned first level XP 100, first authenticated `POST /api/levels/{levelId}/complete` returned `completed=true`, `alreadyCompleted=false`, `xpAwarded=100`, and `totalXp=100`; GET `/api/user/profile` then showed XP 100; repeated completion returned `alreadyCompleted=true`, `xpAwarded=0`, and profile XP stayed 100; no-token request returned 401; random valid level UUID returned 404; response safety check showed only `levelId`, `completed`, `alreadyCompleted`, `xpAwarded`, `totalXp`, and `completedAt`. Scope checks PASS: frontend, AI, auth, course, quiz, flashcard, note, problem, leaderboard, package files, README, Docker, CI/CD, and existing migrations unchanged; backend changes limited to new `LevelController`, new progress package, V8 progress migration, and level/progress tests. Runtime bug fixed before commit: initial PostgreSQL 500 from `quiz_answers_json` JSONB vs Java String mapping was fixed by removing the unused `quizAnswersJson` entity field while keeping the nullable JSONB column in V8 for future schema alignment.
-Git status: clean after Backend Progress / Level Complete Foundation feature commit; Build Log docs update pending
+Test status: Backend `cd backend && .\mvnw.cmd test` PASS with 168 tests, 0 failures, 0 errors. Manual PowerShell verification PASS before commit: placeholder course generated without Gemini env vars; level 2 direct completion before level 1 returned 403 FORBIDDEN with standard ErrorDTO and safe message; boss direct completion before previous levels returned 403 FORBIDDEN; XP stayed 0 after locked attempts; level 1 completion returned `completed=true`, `alreadyCompleted=false`, `xpAwarded=50`, and `totalXp=50`; boss remained locked after only level 1; level 2 completion returned `xpAwarded=75` and `totalXp=125`; boss completion after previous levels returned `xpAwarded=100` and `totalXp=225`; repeating level 1 returned `alreadyCompleted=true`, `xpAwarded=0`, and `totalXp=225`; final profile XP matched expected 225; no-token request returned 401; random valid level UUID returned 404; response safety check showed only `levelId`, `completed`, `alreadyCompleted`, `xpAwarded`, `totalXp`, and `completedAt`. Scope checks PASS: frontend, AI, auth, quiz, flashcard, note, problem, leaderboard, migrations, package files, README, Docker, CI/CD, and common exception files unchanged; backend changes limited to level/progress repositories/services/controller Swagger annotation and focused level/progress tests. Error handling reused existing `ErrorCode.FORBIDDEN`; no new migration was added.
+Git status: clean after Backend Level Unlock Logic Foundation feature commit; Build Log docs update pending
 
 ## Completed Features
 - [x] Project setup
@@ -43,7 +43,7 @@ Git status: clean after Backend Progress / Level Complete Foundation feature com
 - [x] Frontend AI/placeholder course source badge fix
 - [x] Backend course fetch endpoint
 - [x] Course map
-- [ ] Level unlock logic
+- [x] Level unlock logic
 - [x] Lesson page
 - [x] Frontend Quiz Panel Foundation
 - [x] Frontend Flashcards Panel Foundation
@@ -405,12 +405,24 @@ Git status: clean after Backend Progress / Level Complete Foundation feature com
 - The progress feature intentionally does not implement rank recalculation, streak logic, weak concept detection, level unlock rules, boss prerequisites, progress percentage, course completion, leaderboard, achievements, anti-farming for quiz submits, frontend UI, Piston/code execution, deployment, or Phase 2 features.
 - The initial manual PowerShell verification found a PostgreSQL runtime bug: `quiz_answers_json` was `jsonb` in V8 but the entity mapped it as a Java `String`, causing Hibernate to bind a varchar and PostgreSQL to return SQLState 42804.
 - The JSONB runtime bug was fixed before commit by removing the unused `quizAnswersJson` field from the `Progress` entity while keeping the nullable `quiz_answers_json JSONB` column in V8 for future schema alignment.
+- Backend Level Unlock Logic Foundation is implemented.
+- `POST /api/levels/{levelId}/complete` now enforces unlock rules before creating new progress or awarding level XP.
+- Level order number 1 is unlocked by default.
+- Any level with order number greater than 1 is unlocked only when the authenticated user has completed all previous levels in the same course.
+- Boss levels use the same all-previous-levels rule and cannot be completed until every earlier level in the same course is completed by the authenticated user.
+- Already-completed levels remain idempotent and return `alreadyCompleted=true` with `xpAwarded=0` before rechecking unlock state.
+- Locked level completion returns standard 403 ErrorDTO using existing `ErrorCode.FORBIDDEN` and safe message `Complete previous levels before unlocking this level.`
+- Locked level requests do not create progress rows and do not change user XP.
+- Unlock state is user-scoped through authenticated `CurrentUserPrincipal` and existing progress rows; different users have independent unlock state.
+- No new Flyway migration was needed for level unlock logic because unlock state is derived from existing `levels` and `progress` data.
+- Backend level unlock logic intentionally does not implement frontend lock UI, progress percentage, course completion UI, rank recalculation, streak logic, weak concept detection, leaderboard, achievements, Piston/code execution, deployment, or Phase 2 features.
+- Backend tests after level unlock logic pass with 168 tests, 0 failures, 0 errors.
 - Backend tests after the progress feature and JSONB mapping fix pass with 159 tests, 0 failures, 0 errors.
 - Backend Quiz Attempt History/Fetch Foundation adds no migration and makes no frontend changes.
 - Backend Quiz Attempt Persistence Foundation does not change frontend files.
 - Backend Quiz Attempt Persistence Foundation does not change AI/Gemini, course generation/fetch, flashcards, or notes behavior.
 - Backend Quiz Attempt Persistence Foundation does not implement XP/progress/rank/streak, weak concept detection, level unlock, course completion, leaderboard, Piston/code execution, deployment, or Phase 2 features.
-- Quiz submit, quiz attempt persistence/history, quiz XP award/refresh, and backend level completion progress foundation are implemented; rank, streak, weak concept detection, level unlock logic, progress percentage/course completion UI, leaderboard, and code execution remain unimplemented.
+- Quiz submit, quiz attempt persistence/history, quiz XP award/refresh, backend level completion progress foundation, and backend level unlock enforcement are implemented; frontend lock UI, rank, streak, weak concept detection, progress percentage/course completion UI, leaderboard, and code execution remain unimplemented.
 - GeminiService + PromptBuilder foundation is implemented in the isolated backend `ai` module.
 - GeminiService + PromptBuilder foundation originally did not call Gemini over network and did not wire into `CourseService` or `CourseController`.
 - GeminiService + PromptBuilder foundation uses env-backed Gemini placeholders:
@@ -574,6 +586,7 @@ Git status: clean after Backend Progress / Level Complete Foundation feature com
 
 ## Bugs / Issues
 - None blocking currently.
+- Backend Level Unlock Logic Foundation note: No blocking issue after manual verification. Manual PowerShell verification confirmed locked level 2 returns 403 before level 1 completion, locked boss returns 403 before all previous levels are completed, locked attempts do not change XP, completing level 1 unlocks level 2, boss stays locked until level 2 is complete, completing level 2 then unlocks boss, repeat completion remains idempotent with `alreadyCompleted=true` and `xpAwarded=0`, final XP matched expected total 225, no-token request returned 401, random valid level UUID returned 404, and response safety check showed only safe fields. Backend tests passed with 168 tests, 0 failures, 0 errors. Scope stayed backend-only with expected changes to level/progress repositories/services/controller tests and no frontend, migration, AI, auth, quiz, flashcard, note, problem, leaderboard, package, README, Docker, CI/CD, or common exception changes.
 - Backend Progress / Level Complete Foundation note: No blocking issue after fix. Manual PowerShell verification confirmed first authenticated level completion created progress and awarded level XP, repeated completion returned `alreadyCompleted=true` with `xpAwarded=0`, profile XP did not increase on repeat, no-token request returned 401, random valid level UUID returned 404, and response safety check showed only safe fields. Backend tests passed with 159 tests, 0 failures, 0 errors. Scope stayed backend-only with new LevelController, progress package, V8 migration, and level/progress tests; frontend, AI, auth, course, quiz, flashcard, note, problem, leaderboard, package files, README, Docker, CI/CD, and existing migrations stayed unchanged. Rank, streak, weak concept detection, unlock logic, progress percentage, course completion, leaderboard, achievements, anti-farming, Piston/code execution, and Phase 2 remain unimplemented.
 - Resolved during Backend Progress / Level Complete Foundation: Initial manual PowerShell verification of `POST /api/levels/{levelId}/complete` returned 500. Backend logs showed PostgreSQL SQLState 42804: `column "quiz_answers_json" is of type jsonb but expression is of type character varying`. Root cause was an unused Java `String quizAnswersJson` entity mapping against a PostgreSQL JSONB column. Fix: removed the unused entity field and constructor argument so Hibernate no longer binds a varchar for the JSONB column; kept nullable `quiz_answers_json JSONB` in V8 for future schema alignment. Backend tests still passed with 159 tests and manual verification passed after the fix.
 - Frontend XP Refresh After Correct Quiz Submit note: No blocking issue. Manual browser verification confirmed starting XP was visible, incorrect submit did not claim XP increased, correct submit refreshed profile/dashboard XP after backend award, repeated correct submit refreshed XP again according to MVP repeated-award behavior, quiz result remained safe, `correctAnswer` and `userId` were not visible, tokens/secrets/raw backend errors were not shown, and existing dashboard, course map, lesson, quiz submit, flashcards, notes preload/save, attempt history, and back-button flows remained working. Backend, migrations, package files, AI, auth API, course API, and backend files were unchanged. Rank/progress percentage/streak/weak concept/unlock logic remains unimplemented.
@@ -813,6 +826,7 @@ Git status: clean after Backend Progress / Level Complete Foundation feature com
 | 50 | 2026-05-15 | Frontend XP Refresh After Correct Quiz Submit | Frontend / Profile + Quiz | frontend/src/App.jsx; frontend/src/pages/DashboardShell.jsx | Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: starting XP visible; incorrect quiz submit did not claim XP increased; correct submit refreshed profile/dashboard XP; repeated correct submit refreshed XP again; `correctAnswer`, `userId`, tokens, and secrets were not visible; existing course map, lesson, quiz submit, flashcards, notes, attempt history, and back buttons still worked. Scope checks clean: backend, migrations, package files, authApi, courseApi, and backend files unchanged. | `97e5493 feat: refresh xp after correct quiz submit`. Added shared profile refresh callback from App.jsx to DashboardShell and refreshed the authenticated profile after successful correct quiz submits. Profile/XP remain in React state only; no localStorage/sessionStorage persistence, no backend, migration, AI, package, rank, streak, progress, weak concept, unlock, anti-farming, or Phase 2 work. |
 
 | 51 | 2026-05-16 | Backend Progress / Level Complete Foundation | Backend / Progress + Level | backend/src/main/java/com/codequest/level/LevelController.java; backend/src/main/java/com/codequest/progress/Progress.java; backend/src/main/java/com/codequest/progress/ProgressRepository.java; backend/src/main/java/com/codequest/progress/ProgressService.java; backend/src/main/java/com/codequest/progress/dto/LevelCompletionResponse.java; backend/src/main/resources/db/migration/V8__create_progress_table.sql; backend/src/test/java/com/codequest/level/LevelControllerTest.java; backend/src/test/java/com/codequest/progress/ProgressServiceTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 159 tests, 0 failures, 0 errors. Manual PowerShell verification PASS: first completion awarded level XP and created completed progress; repeat completion returned `alreadyCompleted=true`, `xpAwarded=0`, and no XP increase; no-token request returned 401; random valid level UUID returned 404; response safety check exposed only safe fields. Initial PostgreSQL JSONB/varchar mapping bug was fixed before commit and reverified. | `f86b082 feat: add level completion progress foundation`. Added V8 progress table, authenticated POST `/api/levels/{levelId}/complete`, progress entity/repository/service, safe response DTO, idempotent completion behavior, first-completion XP award, and focused level/progress tests. No frontend, AI/Gemini, auth, course generation, quiz submit/history, flashcard, note, problem, leaderboard, package, existing migration, README, Docker, CI/CD, rank, streak, weak concept, unlock, course completion, anti-farming, Piston, deployment, or Phase 2 work. |
+| 52 | 2026-05-16 | Backend Level Unlock Logic Foundation | Backend / Progress + Level | backend/src/main/java/com/codequest/level/LevelController.java; backend/src/main/java/com/codequest/level/LevelRepository.java; backend/src/main/java/com/codequest/progress/ProgressRepository.java; backend/src/main/java/com/codequest/progress/ProgressService.java; backend/src/test/java/com/codequest/level/LevelControllerTest.java; backend/src/test/java/com/codequest/progress/ProgressServiceTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 168 tests, 0 failures, 0 errors. Manual PowerShell verification PASS: locked level 2 returned 403 before level 1, locked boss returned 403 before previous levels, locked attempts did not change XP, level 1/level 2/boss completed in order with XP 50/75/100, repeat level 1 returned `alreadyCompleted=true` and `xpAwarded=0`, final XP check returned true for expected 225, no-token returned 401, random valid UUID returned 404, and success responses exposed only safe fields. | `12cae38 feat: enforce level unlock rules`. Added backend unlock enforcement to the existing level completion flow. Level 1 is unlocked by default; later levels and boss levels require all earlier course levels completed by the same authenticated user. Reused existing `FORBIDDEN` ErrorDTO handling for locked levels. No frontend, migration, AI/Gemini, auth, quiz, flashcard, note, problem, leaderboard, common exception, package, README, Docker, CI/CD, rank, streak, weak concept, progress percentage, Piston, deployment, or Phase 2 work. |
 
 
 ## Test Results Log
@@ -905,6 +919,7 @@ Git status: clean after Backend Progress / Level Complete Foundation feature com
 
 | 2026-05-15 | `cd frontend && npm run build` after Frontend XP Refresh After Correct Quiz Submit | PASS | Frontend build passed after adding profile refresh callback and quiz-submit XP refresh messaging. | Yes |
 | 2026-05-16 | `cd backend && .\mvnw.cmd test` after Backend Progress / Level Complete Foundation | PASS | Backend tests passed with 159 tests, 0 failures, 0 errors after adding V8 progress table, level completion endpoint, progress service, and focused level/progress tests. Initial manual PostgreSQL JSONB/varchar runtime bug was fixed before commit by removing unused `quizAnswersJson` entity mapping. | Yes |
+| 2026-05-16 | `cd backend && .\mvnw.cmd test` after Backend Level Unlock Logic Foundation | PASS | Backend tests passed with 168 tests, 0 failures, 0 errors after adding level unlock enforcement, repository count queries, 403 locked-level handling, and focused level/progress tests. Initial controller fixture failures were fixed by seeding earlier levels in locked-level tests. | Yes |
 
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
@@ -997,6 +1012,7 @@ Git status: clean after Backend Progress / Level Complete Foundation feature com
 
 | 2026-05-15 | Frontend XP Refresh After Correct Quiz Submit | Start backend with PostgreSQL/JWT env vars -> start frontend -> register/login new user -> confirm starting XP visible -> open AI course with quiz questions -> submit incorrect answer -> submit correct answer -> submit same correct answer again -> inspect quiz result/profile XP/safety/existing flows -> scope checks | Starting XP was visible; incorrect submit showed Incorrect and did not claim XP increased; correct submit showed Correct and refreshed profile/dashboard XP; repeated correct submit refreshed XP again according to backend MVP behavior; `correctAnswer`, `userId`, tokens, secrets, and raw backend errors were not visible; existing login/register, protected profile loading, dashboard, generate course, course map, lesson, quiz submit, flashcards, notes preload/save, quiz attempt history, and back buttons remained working; backend/package/authApi/courseApi diffs stayed empty. | Passed |
 | 2026-05-16 | Backend Progress / Level Complete Foundation | PowerShell-only backend check: login existing progress test user -> GET `/api/courses/{courseId}` -> choose first level with `xpReward=100` -> GET `/api/user/profile` starting XP 0 -> POST `/api/levels/{levelId}/complete` -> GET profile -> repeat same POST -> GET profile -> no-token POST -> random valid UUID POST -> response safety JSON check | First completion returned `completed=true`, `alreadyCompleted=false`, `xpAwarded=100`, `totalXp=100`, and `completedAt`; profile XP became 100; repeat completion returned `completed=true`, `alreadyCompleted=true`, `xpAwarded=0`, and `totalXp=100`; profile XP stayed 100; no-token request returned 401; random valid level UUID returned 404; response JSON contained only `levelId`, `completed`, `alreadyCompleted`, `xpAwarded`, `totalXp`, and `completedAt`. Initial 500 caused by `quiz_answers_json` JSONB vs varchar mapping was fixed and the same manual flow passed after restart. | Passed |
+| 2026-05-16 | Backend Level Unlock Logic Foundation | PowerShell-only backend check: start backend without Gemini env vars -> register/login fresh user -> generate placeholder course -> save level 1, level 2, and boss IDs -> check starting XP 0 -> attempt level 2 before level 1 -> attempt boss before previous levels -> complete level 1 -> attempt boss again before level 2 -> complete level 2 -> complete boss -> repeat level 1 -> final profile XP check -> no-token POST -> random valid UUID POST -> response safety JSON check | Locked level 2 returned 403 FORBIDDEN with standard ErrorDTO and safe message; locked boss returned 403 before previous levels; XP stayed 0 after locked attempts; level 1 completed with `xpAwarded=50` and `totalXp=50`; boss still returned 403 after only level 1; level 2 completed with `xpAwarded=75` and `totalXp=125`; boss completed with `xpAwarded=100` and `totalXp=225`; repeat level 1 returned `alreadyCompleted=true`, `xpAwarded=0`, and `totalXp=225`; final profile XP matched expected 225; no-token returned 401; random valid UUID returned 404; success responses contained only `levelId`, `completed`, `alreadyCompleted`, `xpAwarded`, `totalXp`, and `completedAt`. | Passed |
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -1028,7 +1044,7 @@ Before committing any Codex-generated change, always do this:
    ```
 
 5. Manually test the exact implemented feature when runtime configuration allows it:
-   - For backend endpoints, use Swagger, Postman, Thunder Client, or curl.
+   - For backend-only endpoints, prefer PowerShell API checks with exact commands and expected outputs.
    - For frontend tasks, test the exact browser flow.
    - Test one success case.
    - Test one important failure/cache case where practical.
@@ -2926,7 +2942,7 @@ Important boundaries:
 - Existing quizQuestions behavior remains stable.
 - Frontend was not changed in this feature.
 - AI PromptBuilder, GeminiHttpClient, GeminiService, and ResponseParser were not changed in this feature.
-- Notes saving, quiz submit, scoring, answer persistence, XP/progress, weak concept detection, and level unlock logic are still not implemented.
+- At that feature stage, notes saving, quiz submit, scoring, answer persistence, XP/progress, weak concept detection, and level unlock logic were still not implemented; later features implemented notes, quiz submit/scoring, attempt persistence/history, quiz XP award/refresh, backend progress foundation, and backend level unlock enforcement.
 
 ## Frontend Real Quiz/Flashcards Display Compatibility Manual Test Commands
 Use these after the frontend compatibility fix `eb46a9e fix: support backend quiz options shape`.
@@ -4656,7 +4672,7 @@ Important boundaries:
 - Response DTOs are safe and do not expose `correctAnswer`, `userId`, raw entities, tokens, passwords, roles, refresh tokens, token hashes, or secrets.
 - POST `/api/quizzes/{quizQuestionId}/submit` behavior and response shape remain unchanged.
 - Frontend attempt history UI is implemented and displays current-user attempt history from GET `/api/quizzes/attempts`.
-- XP/progress/rank/streak, weak concept detection, level unlock logic, Piston/code execution, deployment, and Phase 2 remain unimplemented.
+- At that feature stage, XP/progress/rank/streak, weak concept detection, level unlock logic, Piston/code execution, deployment, and Phase 2 were still unimplemented; later features implemented quiz XP award/refresh, backend progress foundation, and backend level unlock enforcement. Rank, streak, weak concept detection, Piston/code execution, deployment, and Phase 2 remain unimplemented.
 
 
 ## Backend Progress / Level Complete Foundation Manual Test Commands
@@ -5001,6 +5017,459 @@ Important boundaries:
 - Rank, streak, progress percentage, weak concept detection, unlock logic, boss prerequisites, course completion, leaderboard, achievements, anti-farming, Piston/code execution, deployment, and Phase 2 remain unimplemented.
 
 
+
+
+## Backend Level Unlock Logic Foundation Manual Test Commands
+Use these after the backend level unlock logic task `12cae38 feat: enforce level unlock rules`.
+
+This is a backend-only feature, so manual verification should be done from PowerShell/API checks, not browser UI.
+
+### Automated verification
+```powershell
+cd backend
+.\mvnw.cmd test
+cd ..
+```
+
+Expected after this feature:
+```text
+Tests run: 168
+Failures: 0
+Errors: 0
+BUILD SUCCESS
+```
+
+### Scope checks
+```powershell
+git diff -- frontend
+git diff -- backend/src/main/java/com/codequest/ai
+git diff -- backend/src/main/java/com/codequest/auth
+git diff -- backend/src/main/java/com/codequest/quiz
+git diff -- backend/src/main/java/com/codequest/flashcard
+git diff -- backend/src/main/java/com/codequest/note
+git diff -- backend/src/main/java/com/codequest/problem
+git diff -- backend/src/main/java/com/codequest/leaderboard
+git diff -- backend/src/main/resources/db/migration
+git diff -- backend/src/main/java/com/codequest/progress
+git diff -- backend/src/main/java/com/codequest/level
+git diff -- backend/src/main/java/com/codequest/course
+git diff -- backend/src/main/java/com/codequest/common/exception
+```
+
+Expected:
+```text
+Frontend diff is empty.
+AI/auth/quiz/flashcard/note/problem/leaderboard diffs are empty.
+Migration diff is empty.
+Course and common exception diffs are empty.
+Progress and level diffs are expected before commit.
+No package/dependency diffs.
+```
+
+### Backend env/run
+Start backend with local PostgreSQL/JWT env vars. Remove Gemini env vars so placeholder course generation is predictable.
+
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject
+
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
+$env:DATABASE_USERNAME="postgres"
+$env:DATABASE_PASSWORD="<your-local-postgres-password>"
+$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
+
+Remove-Item Env:GEMINI_API_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:GEMINI_MODEL -ErrorAction SilentlyContinue
+Remove-Item Env:GEMINI_BASE_URL -ErrorAction SilentlyContinue
+
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+Expected:
+```text
+Flyway validates V1 through V8 successfully.
+Tomcat started on port 8080.
+Started CodeQuestApplication.
+```
+
+### Manual PowerShell verification
+From another PowerShell terminal:
+
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject
+$baseUrl = "http://localhost:8080"
+```
+
+Register and login a fresh user:
+```powershell
+$email = "unlock_test_" + (Get-Date -Format "yyyyMMddHHmmss") + "@example.com"
+
+$registerBody = @{
+  name = "Unlock Tester"
+  email = $email
+  password = "StrongPass123"
+} | ConvertTo-Json
+
+$registerResponse = Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/register" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body $registerBody
+
+$registerResponse
+
+$loginBody = @{
+  email = $email
+  password = "StrongPass123"
+} | ConvertTo-Json
+
+$loginResponse = Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/login" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body $loginBody
+
+$accessToken = $loginResponse.accessToken
+$headers = @{ Authorization = "Bearer $accessToken" }
+
+$loginResponse | Select-Object userId, name, email, rank, xp, streak, tokenType, expiresInSeconds
+```
+
+Generate a predictable placeholder course:
+```powershell
+$topic = "Unlock Manual Test " + (Get-Date -Format "yyyyMMddHHmmss")
+
+$courseBody = @{
+  topic = $topic
+  difficulty = "BEGINNER"
+  goal = "Test unlock logic"
+} | ConvertTo-Json
+
+$courseResponse = Invoke-RestMethod `
+  -Uri "$baseUrl/api/courses/generate" `
+  -Method Post `
+  -Headers $headers `
+  -ContentType "application/json" `
+  -Body $courseBody
+
+$courseId = $courseResponse.courseId
+$courseResponse | Select-Object courseId, title, sourceType, cacheHit
+```
+
+Fetch course details and save level IDs:
+```powershell
+$courseDetails = Invoke-RestMethod `
+  -Uri "$baseUrl/api/courses/$courseId" `
+  -Method Get `
+  -Headers $headers
+
+$courseDetails.levels | Select-Object levelId, orderNumber, title, xpReward, isBoss
+
+$level1 = $courseDetails.levels | Where-Object { $_.orderNumber -eq 1 }
+$level2 = $courseDetails.levels | Where-Object { $_.orderNumber -eq 2 }
+$boss = $courseDetails.levels | Where-Object { $_.isBoss -eq $true } | Select-Object -First 1
+
+$level1Id = $level1.levelId
+$level2Id = $level2.levelId
+$bossId = $boss.levelId
+
+$level1Xp = $level1.xpReward
+$level2Xp = $level2.xpReward
+$bossXp = $boss.xpReward
+
+"Level1: $level1Id XP=$level1Xp"
+"Level2: $level2Id XP=$level2Xp"
+"Boss: $bossId XP=$bossXp"
+```
+
+Check starting XP:
+```powershell
+$profileBefore = Invoke-RestMethod `
+  -Uri "$baseUrl/api/user/profile" `
+  -Method Get `
+  -Headers $headers
+
+$startingXp = $profileBefore.xp
+$profileBefore | Select-Object xp, rank, streak
+```
+
+Try locked level 2 before level 1:
+```powershell
+try {
+  Invoke-RestMethod `
+    -Uri "$baseUrl/api/levels/$level2Id/complete" `
+    -Method Post `
+    -Headers $headers
+} catch {
+  "STATUS: " + $_.Exception.Response.StatusCode.value__
+  $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+  "BODY:"
+  $reader.ReadToEnd()
+}
+```
+
+Expected:
+```text
+STATUS: 403
+code: FORBIDDEN
+message: Complete previous levels before unlocking this level.
+```
+
+Confirm XP unchanged:
+```powershell
+$profileAfterLockedLevel2 = Invoke-RestMethod `
+  -Uri "$baseUrl/api/user/profile" `
+  -Method Get `
+  -Headers $headers
+
+$profileAfterLockedLevel2.xp -eq $startingXp
+```
+
+Expected:
+```text
+True
+```
+
+Try locked boss before previous levels:
+```powershell
+try {
+  Invoke-RestMethod `
+    -Uri "$baseUrl/api/levels/$bossId/complete" `
+    -Method Post `
+    -Headers $headers
+} catch {
+  "STATUS: " + $_.Exception.Response.StatusCode.value__
+  $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+  "BODY:"
+  $reader.ReadToEnd()
+}
+```
+
+Expected:
+```text
+STATUS: 403
+```
+
+Confirm XP unchanged:
+```powershell
+$profileAfterLockedBoss = Invoke-RestMethod `
+  -Uri "$baseUrl/api/user/profile" `
+  -Method Get `
+  -Headers $headers
+
+$profileAfterLockedBoss.xp -eq $startingXp
+```
+
+Expected:
+```text
+True
+```
+
+Complete level 1:
+```powershell
+$completeLevel1 = Invoke-RestMethod `
+  -Uri "$baseUrl/api/levels/$level1Id/complete" `
+  -Method Post `
+  -Headers $headers
+
+$completeLevel1
+```
+
+Expected:
+```text
+completed=true
+alreadyCompleted=false
+xpAwarded=$level1Xp
+totalXp=$startingXp + $level1Xp
+completedAt present
+```
+
+Try boss again before level 2:
+```powershell
+try {
+  Invoke-RestMethod `
+    -Uri "$baseUrl/api/levels/$bossId/complete" `
+    -Method Post `
+    -Headers $headers
+} catch {
+  "STATUS: " + $_.Exception.Response.StatusCode.value__
+  $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+  "BODY:"
+  $reader.ReadToEnd()
+}
+```
+
+Expected:
+```text
+STATUS: 403
+```
+
+Complete level 2:
+```powershell
+$completeLevel2 = Invoke-RestMethod `
+  -Uri "$baseUrl/api/levels/$level2Id/complete" `
+  -Method Post `
+  -Headers $headers
+
+$completeLevel2
+```
+
+Expected:
+```text
+completed=true
+alreadyCompleted=false
+xpAwarded=$level2Xp
+```
+
+Complete boss:
+```powershell
+$completeBoss = Invoke-RestMethod `
+  -Uri "$baseUrl/api/levels/$bossId/complete" `
+  -Method Post `
+  -Headers $headers
+
+$completeBoss
+```
+
+Expected:
+```text
+completed=true
+alreadyCompleted=false
+xpAwarded=$bossXp
+```
+
+Repeat level 1:
+```powershell
+$repeatLevel1 = Invoke-RestMethod `
+  -Uri "$baseUrl/api/levels/$level1Id/complete" `
+  -Method Post `
+  -Headers $headers
+
+$repeatLevel1
+```
+
+Expected:
+```text
+completed=true
+alreadyCompleted=true
+xpAwarded=0
+totalXp unchanged
+```
+
+Final XP check:
+```powershell
+$profileAfter = Invoke-RestMethod `
+  -Uri "$baseUrl/api/user/profile" `
+  -Method Get `
+  -Headers $headers
+
+$profileAfter | Select-Object xp, rank, streak
+
+$expectedXp = $startingXp + $level1Xp + $level2Xp + $bossXp
+"Expected XP: $expectedXp"
+"Actual XP: $($profileAfter.xp)"
+$profileAfter.xp -eq $expectedXp
+```
+
+Expected:
+```text
+True
+```
+
+No-token check:
+```powershell
+try {
+  Invoke-RestMethod `
+    -Uri "$baseUrl/api/levels/$level1Id/complete" `
+    -Method Post
+} catch {
+  $_.Exception.Response.StatusCode.value__
+}
+```
+
+Expected:
+```text
+401
+```
+
+Missing level check:
+```powershell
+$randomLevelId = [guid]::NewGuid().ToString()
+
+try {
+  Invoke-RestMethod `
+    -Uri "$baseUrl/api/levels/$randomLevelId/complete" `
+    -Method Post `
+    -Headers $headers
+} catch {
+  $_.Exception.Response.StatusCode.value__
+}
+```
+
+Expected:
+```text
+404
+```
+
+Safety check:
+```powershell
+$completeLevel1 | ConvertTo-Json -Depth 5
+$completeLevel2 | ConvertTo-Json -Depth 5
+$completeBoss | ConvertTo-Json -Depth 5
+$repeatLevel1 | ConvertTo-Json -Depth 5
+```
+
+Expected success response fields only:
+```text
+levelId
+completed
+alreadyCompleted
+xpAwarded
+totalXp
+completedAt
+```
+
+Must not show:
+```text
+userId
+password
+passwordHash
+password_hash
+role
+token
+accessToken
+refreshToken
+tokenHash
+secret
+```
+
+Observed latest manual result:
+```text
+Locked level 2 before level 1 returned 403 FORBIDDEN.
+Locked boss before previous levels returned 403 FORBIDDEN.
+XP stayed 0 after locked attempts.
+Level 1 completed with xpAwarded=50 and totalXp=50.
+Boss still returned 403 after only level 1.
+Level 2 completed with xpAwarded=75 and totalXp=125.
+Boss completed with xpAwarded=100 and totalXp=225.
+Repeat level 1 returned alreadyCompleted=true, xpAwarded=0, totalXp=225.
+Final expected XP 225 matched actual XP 225.
+No-token request returned 401.
+Random valid level UUID returned 404.
+Success responses exposed only levelId, completed, alreadyCompleted, xpAwarded, totalXp, and completedAt.
+```
+
+Important boundaries:
+- No frontend lock UI was implemented.
+- No DB migration was added.
+- Existing V8 progress migration was not changed.
+- AI/Gemini, auth, quiz, flashcard, note, problem, leaderboard, common exception, package files, README, Docker, CI/CD, and deployment were not changed.
+- Existing first-completion XP award and repeat idempotency behavior were preserved.
+- Locked level attempts do not create progress and do not award XP.
+- Unlock state is scoped to the authenticated user only.
+- Existing `FORBIDDEN` ErrorDTO handling is reused.
+- Rank, streak, weak concept detection, progress percentage, course completion UI, leaderboard, achievements, Piston/code execution, and Phase 2 features remain unimplemented.
+
 ## Next Chat Prompt
 Paste this prompt into a fresh ChatGPT Project chat whenever the current chat becomes slow or confusing.
 
@@ -5054,79 +5523,122 @@ For Codex specifically, inspect:
 
 Current latest state:
 - Phase: MVP
-- Current module: Backend / Progress foundation
-- Latest completed feature: Backend Progress / Level Complete Foundation
-- Latest feature commit: f86b082 feat: add level completion progress foundation
-- Previous docs commit: f78c70e docs: record frontend xp refresh completion
-- Build Log docs update for Backend Progress / Level Complete Foundation may be pending unless I already committed:
-  docs: record level completion progress foundation
+- Current module: Backend / Progress + Level unlock foundation
+- Latest completed feature: Backend Level Unlock Logic Foundation
+- Latest feature commit: 12cae38 feat: enforce level unlock rules
+- Previous docs commit: 081a058 docs: record level completion progress foundation
+- Build Log docs update for Backend Level Unlock Logic Foundation may be pending unless I already committed:
+  docs: record level unlock logic foundation
 - Backend tests after feature passed:
   cd backend
   .\mvnw.cmd test
-  159 tests, 0 failures, 0 errors
+  168 tests, 0 failures, 0 errors
 - Manual PowerShell verification passed:
-  - login/profile started at XP 0 and rank BEGINNER
-  - course fetch returned first level with XP 100
-  - first POST /api/levels/{levelId}/complete returned completed=true, alreadyCompleted=false, xpAwarded=100, totalXp=100
-  - profile XP became 100 after first completion
-  - repeated POST /api/levels/{levelId}/complete returned alreadyCompleted=true and xpAwarded=0
-  - profile XP stayed 100 after repeat completion
-  - no-token request returned 401
+  - placeholder course generated without Gemini env vars
+  - locked level 2 returned 403 before level 1
+  - locked boss returned 403 before previous levels
+  - locked attempts did not change XP
+  - level 1 completed with 50 XP
+  - boss still stayed locked after only level 1
+  - level 2 completed with 75 XP
+  - boss completed with 100 XP
+  - repeat level 1 returned alreadyCompleted=true and xpAwarded=0
+  - final XP expected 225 and actual 225 matched
+  - no-token returned 401
   - random valid level UUID returned 404
-  - response safety check showed only levelId, completed, alreadyCompleted, xpAwarded, totalXp, completedAt
-  - no userId, password, passwordHash, token, refreshToken, tokenHash, role, or secrets were exposed
+  - success responses exposed only safe fields
 - Scope checks passed:
-  - frontend unchanged
-  - AI unchanged
-  - auth unchanged
-  - course unchanged
-  - quiz unchanged
-  - flashcard unchanged
-  - note unchanged
-  - problem unchanged
-  - leaderboard unchanged
-  - package files unchanged
-  - README/Docker/CI unchanged
-  - existing migrations unchanged
-  - backend changes limited to new LevelController, new progress package, V8 progress migration, and level/progress tests
-- Runtime bug fixed before commit:
-  - initial POST /api/levels/{levelId}/complete returned 500
-  - backend log root cause was PostgreSQL SQLState 42804: quiz_answers_json was JSONB but Java mapping sent varchar
-  - fix removed unused quizAnswersJson String mapping from Progress entity
-  - V8 keeps nullable quiz_answers_json JSONB for schema alignment
-  - backend tests still passed and manual verification passed after restart
+  - no frontend changes
+  - no migrations
+  - no AI/Gemini changes
+  - no auth/quiz/flashcard/note/problem/leaderboard/common exception/package/README/Docker/CI/CD changes
+  - changes were limited to level/progress repos/services/controller Swagger annotation and focused tests
 
-Current implemented progress behavior:
-- V8 creates `progress` table.
-- POST /api/levels/{levelId}/complete is authenticated.
-- It uses CurrentUserPrincipal only and accepts no userId.
-- First completion creates progress row, marks completed, sets completedAt, and awards level.xpReward to user XP.
-- Repeat completion for same user/level is idempotent: no duplicate progress row and no repeat XP.
-- Different users can complete the same level independently.
-- Response DTO fields: levelId, completed, alreadyCompleted, xpAwarded, totalXp, completedAt.
-- Response does not expose userId, password fields, tokens, roles, token hashes, refresh tokens, or secrets.
-- Rank, streak, weak concept detection, level unlock rules, boss prerequisites, progress percentage, course completion, leaderboard, achievements, anti-farming, Piston/code execution, frontend progress UI, deployment, Docker, CI/CD, README/screenshots/demo video remain unimplemented.
+Implemented so far:
+- Project setup
+- Backend health
+- DB/Flyway
+- Swagger/OpenAPI
+- Global ErrorDTO/GlobalExceptionHandler
+- Auth register/login
+- JWT/refresh/logout
+- User profile
+- Frontend auth/protected routes/dashboard shell
+- Local backend runtime and CORS
+- Course generation foundation
+- Frontend course generation UI
+- GeminiService/PromptBuilder
+- ResponseParser validation
+- Gemini course generation wiring with safe fallback
+- Gemini compatibility/diagnostics/retry-once
+- SourceType badge fix
+- Backend course fetch
+- Frontend course map
+- Lesson page
+- Frontend quiz/flashcards panels
+- Backend quiz/flashcard persistence/fetch
+- Frontend real quiz/flashcards compatibility fix
+- Backend notes POST/GET
+- Frontend notes editor/preload
+- Backend quiz submit/scoring
+- Frontend quiz submit integration
+- Backend quiz attempt persistence/history
+- Frontend quiz attempt history display
+- Backend quiz XP award
+- Frontend XP refresh after correct quiz submit
+- Backend progress / level complete foundation
+- Backend level unlock logic foundation
 
-Recommended next safest MVP task:
-Choose one narrow feature only. Good candidates:
-1. Backend Rank Update Foundation after XP changes
-2. Backend Level Unlock Logic Foundation
-3. Frontend Level Complete Integration / Progress Display
-4. Backend Progress Fetch Endpoint
-Pick the safest next MVP slice after checking git status and Build Log.
+Important current behavior:
+- `POST /api/levels/{levelId}/complete` is authenticated.
+- Current user comes only from JWT / CurrentUserPrincipal.
+- Level 1 is unlocked by default.
+- Later levels and boss levels require all previous levels in the same course completed by the same user.
+- Locked attempts return 403 ErrorDTO using FORBIDDEN and do not award XP/create progress.
+- First unlocked completion creates progress and awards level XP.
+- Repeated same-user same-level completion is idempotent and awards 0 XP.
+- Missing level returns 404.
+- No-token returns 401.
+- Response fields stay safe: `levelId`, `completed`, `alreadyCompleted`, `xpAwarded`, `totalXp`, `completedAt`.
 
-Important:
-Do not redesign anything.
-Do not invent new features.
-MVP first.
-Give me one strict Codex prompt only.
-The prompt must include:
-- exact files Codex may touch
-- exact files Codex must not touch
-- automated commands
-- detailed PowerShell manual verification steps for backend-only tasks or browser steps for frontend tasks
-- diff safety checks
-- Build Log update instructions after verification
+Still not implemented:
+- Frontend lock/unlock UI on course map
+- Frontend level complete button integration
+- Backend progress fetch endpoint
+- Frontend progress percentage/course completion display
+- Rank recalculation/final rank system
+- Streak system
+- Weak concept detection
+- Piston run code
+- Code submit
+- Code submissions history
+- AI code review
+- Leaderboard
+- Docker
+- CI/CD
+- Deployment
+- README/screenshots/demo/resume bullets
+
+Next task candidates:
+1. Frontend Level Complete Integration + Course Map Lock UI
+2. Backend Progress Fetch Endpoint
+3. Frontend Progress Display Foundation
+4. Backend Rank Update Foundation after XP changes
+Choose one narrow MVP slice only. Do not combine unrelated tasks.
+
+Before giving Codex a prompt:
+- Ask me to run:
+  git status --short
+  git log --oneline -3
+- If Build Log docs commit is pending, tell me to commit it first.
+- Then give one strict Codex prompt with:
+  - current state
+  - exact feature scope
+  - files Codex may touch
+  - files Codex must not touch
+  - tests
+  - diff safety checks
+  - manual verification steps
 ```
 
 ## New Chat Continuation Summary Template
@@ -5139,33 +5651,39 @@ Frontend: React + Vite + Tailwind
 Database: PostgreSQL + Flyway
 AI: Gemini API through GeminiService only
 Code execution: Piston API only; never execute user code inside backend
-Current module: Backend / Progress foundation
-Last completed feature: Backend Progress / Level Complete Foundation
-Latest feature commit: f86b082 feat: add level completion progress foundation
-Previous docs commit: f78c70e docs: record frontend xp refresh completion
-Tests passed: Backend `cd backend && .\mvnw.cmd test` PASS with 159 tests, 0 failures, 0 errors
-Manual verification: PowerShell backend verification PASS. First level completion awarded level XP and created progress, repeat completion was idempotent and awarded 0 XP, no-token returned 401, missing level returned 404, and response safety check exposed only safe fields.
-Known bugs: None blocking. Initial manual 500 during progress feature was fixed before commit by removing unused String mapping for JSONB `quiz_answers_json` from Progress entity while keeping nullable JSONB column in V8.
-Next task candidates: Backend Rank Update Foundation after XP changes, Backend Level Unlock Logic Foundation, Frontend Level Complete Integration / Progress Display, or Backend Progress Fetch Endpoint. Choose one narrow MVP slice only.
-Rules: Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Prompts, Build Log, and AGENTS.md. Do not redesign anything. Do not add Phase 2 features. Use Maven Wrapper only: `cd backend && .\mvnw.cmd test`. For backend-only features, give detailed PowerShell manual verification steps. For frontend features, give browser manual verification steps.
+Current module: Backend / Progress + Level unlock foundation
+Last completed feature: Backend Level Unlock Logic Foundation
+Latest feature commit: 12cae38 feat: enforce level unlock rules
+Previous docs commit: 081a058 docs: record level completion progress foundation
+Tests passed: Backend `cd backend && .\mvnw.cmd test` PASS with 168 tests, 0 failures, 0 errors
+Manual verification: PowerShell backend verification PASS. Locked level 2 returned 403 before level 1, locked boss returned 403 before previous levels, locked attempts did not change XP, level 1/level 2/boss completed in order with XP 50/75/100, repeat level 1 was idempotent with `xpAwarded=0`, final XP expected 225 matched actual 225, no-token returned 401, missing level returned 404, and success responses exposed only safe fields.
+Known bugs: None blocking. Existing progress JSONB/varchar bug was fixed before commit in the previous progress feature. Level unlock feature reused existing FORBIDDEN ErrorDTO handling and required no DB migration.
+Next task candidates: Frontend Level Complete Integration + Course Map Lock UI, Backend Progress Fetch Endpoint, Frontend Progress Display Foundation, or Backend Rank Update Foundation after XP changes. Choose one narrow MVP slice only.
+Rules: Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Prompts, Build Log, and AGENTS.md. Do not redesign anything. Do not add Phase 2 features. Use Maven Wrapper only: `cd backend && .\mvnw.cmd test`. For backend-only features, give detailed PowerShell manual verification steps. For frontend features, give browser manual verification steps. For full-stack changes, give both PowerShell API checks and browser checks.
 ```
 
+
 ## Latest Safe Continuation Notes
-- Latest feature commit pushed to main: `f86b082 feat: add level completion progress foundation`.
-- Previous docs commit on main: `f78c70e docs: record frontend xp refresh completion`.
-- Backend tests after the progress feature passed with 159 tests, 0 failures, 0 errors.
-- Manual PowerShell verification after the progress feature passed.
-- The new progress endpoint is POST `/api/levels/{levelId}/complete`.
-- V8 migration creates the progress table.
-- First level completion awards XP once and creates progress.
-- Repeated same-user same-level completion is idempotent and awards 0 XP.
+- Latest feature commit pushed to main: `12cae38 feat: enforce level unlock rules`.
+- Previous docs commit on main: `081a058 docs: record level completion progress foundation`.
+- Backend tests after the level unlock feature passed with 168 tests, 0 failures, 0 errors.
+- Manual PowerShell verification after the level unlock feature passed.
+- The existing progress endpoint is POST `/api/levels/{levelId}/complete`.
+- V8 migration creates the progress table and remains unchanged by the unlock feature.
+- Level 1 is unlocked by default.
+- Any later level requires all previous levels in the same course to be completed by the same authenticated user.
+- Boss levels follow the same all-previous-levels rule.
+- Locked level attempts return 403 FORBIDDEN with standard ErrorDTO and safe message.
+- Locked level attempts do not create progress rows and do not award XP.
+- First unlocked level completion awards XP once and creates progress.
+- Repeated same-user same-level completion remains idempotent and awards 0 XP.
 - Current user is derived from JWT / `CurrentUserPrincipal` only.
 - Response is safe and does not expose userId, password, role, tokens, refresh tokens, token hashes, or secrets.
-- The initial PostgreSQL JSONB/varchar runtime bug was fixed before commit.
+- No frontend lock UI is implemented yet.
+- No backend progress fetch endpoint is implemented yet.
 - Rank system is still not implemented.
 - Streak system is still not implemented.
 - Weak concept detection is still not implemented.
-- Level unlock logic is still not implemented.
 - Progress percentage/course completion UI is still not implemented.
 - Piston run code is still not implemented.
 - Code submit is still not implemented.
