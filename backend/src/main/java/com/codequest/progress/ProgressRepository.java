@@ -1,5 +1,6 @@
 package com.codequest.progress;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -13,6 +14,8 @@ public interface ProgressRepository extends JpaRepository<Progress, UUID> {
     Optional<Progress> findByUserIdAndLevelId(UUID userId, UUID levelId);
 
     long countByUserIdAndLevelId(UUID userId, UUID levelId);
+
+    List<Progress> findByUserIdAndLevelCourseIdAndCompletedTrue(UUID userId, UUID courseId);
 
     @Query("""
             select count(p)

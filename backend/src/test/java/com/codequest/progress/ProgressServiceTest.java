@@ -13,6 +13,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -25,8 +26,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.codequest.common.exception.ApiException;
 import com.codequest.common.exception.ErrorCode;
+import com.codequest.course.Course;
+import com.codequest.course.CourseDifficulty;
+import com.codequest.course.CourseRepository;
+import com.codequest.course.CourseSourceType;
 import com.codequest.level.Level;
 import com.codequest.level.LevelRepository;
+import com.codequest.progress.dto.CourseProgressResponse;
+import com.codequest.progress.dto.LevelProgressResponse;
 import com.codequest.progress.dto.LevelCompletionResponse;
 import com.codequest.user.User;
 import com.codequest.user.UserRank;
@@ -43,13 +50,16 @@ class ProgressServiceTest {
     private LevelRepository levelRepository;
 
     @Mock
+    private CourseRepository courseRepository;
+
+    @Mock
     private UserRepository userRepository;
 
     private ProgressService progressService;
 
     @BeforeEach
     void setUp() {
-        progressService = new ProgressService(progressRepository, levelRepository, userRepository);
+        progressService = new ProgressService(progressRepository, levelRepository, courseRepository, userRepository);
     }
 
     @Test
@@ -347,6 +357,126 @@ class ProgressServiceTest {
         assertNotNull(response.completedAt());
     }
 
+    @Test
+    void getCourseProgress_shouldReturnEmptyProgressForNewUserCourse() {
+        User user = createUser("empty-progress@example.com");
+        Course course = createCourse();
+        Level firstLevel = createLevel(course, 1, false, 50, "First Level");
+        Level secondLevel = createLevel(course, 2, false, 75, "Second Level");
+        Level bossLevel = createLevel(course, 3, true, 100, "Boss Level");
+
+        when(courseRepository.findById(course.getId())).thenReturn(Optional.of(course));
+        when(levelRepository.findByCourseIdOrderByOrderNumberAsc(course.getId())).thenReturn(List.of(firstLevel, secondLevel, bossLevel));
+        when(progressRepository.findByUserIdAndLevelCourseIdAndCompletedTrue(user.getId(), course.getId())).thenReturn(List.of());
+
+        CourseProgressResponse response = progressService.getCourseProgress(user.getId(), course.getId());
+
+        assertEquals(course.getId(), response.courseId());
+        assertEquals(0, response.completedLevels());
+        assertEquals(3, response.totalLevels());
+        assertEquals(0, response.progressPercent());
+        assertFalse(response.courseCompleted());
+        assertLevelProgress(response.levels().get(0), firstLevel, false, true, null);
+        assertLevelProgress(response.levels().get(1), secondLevel, false, false, null);
+        assertLevelProgress(response.levels().get(2), bossLevel, false, false, null);
+    }
+
+    @Test
+    void getCourseProgress_shouldReturnUpdatedStateAfterCompletingLevelOne() {
+        User user = createUser("one-level-progress@example.com");
+        Course course = createCourse();
+        Level firstLevel = createLevel(course, 1, false, 50, "First Level");
+        Level secondLevel = createLevel(course, 2, false, 75, "Second Level");
+        Level bossLevel = createLevel(course, 3, true, 100, "Boss Level");
+        Instant completedAt = Instant.parse("2026-05-16T10:15:30Z");
+        Progress firstProgress = createCompletedProgress(user, firstLevel, completedAt);
+
+        when(courseRepository.findById(course.getId())).thenReturn(Optional.of(course));
+        when(levelRepository.findByCourseIdOrderByOrderNumberAsc(course.getId())).thenReturn(List.of(firstLevel, secondLevel, bossLevel));
+        when(progressRepository.findByUserIdAndLevelCourseIdAndCompletedTrue(user.getId(), course.getId())).thenReturn(List.of(firstProgress));
+
+        CourseProgressResponse response = progressService.getCourseProgress(user.getId(), course.getId());
+
+        assertEquals(1, response.completedLevels());
+        assertEquals(3, response.totalLevels());
+        assertEquals(33, response.progressPercent());
+        assertFalse(response.courseCompleted());
+        assertLevelProgress(response.levels().get(0), firstLevel, true, true, completedAt);
+        assertLevelProgress(response.levels().get(1), secondLevel, false, true, null);
+        assertLevelProgress(response.levels().get(2), bossLevel, false, false, null);
+    }
+
+    @Test
+    void getCourseProgress_shouldReturnCompletedCourseStateAfterAllLevelsCompleted() {
+        User user = createUser("all-levels-progress@example.com");
+        Course course = createCourse();
+        Level firstLevel = createLevel(course, 1, false, 50, "First Level");
+        Level secondLevel = createLevel(course, 2, false, 75, "Second Level");
+        Level bossLevel = createLevel(course, 3, true, 100, "Boss Level");
+
+        when(courseRepository.findById(course.getId())).thenReturn(Optional.of(course));
+        when(levelRepository.findByCourseIdOrderByOrderNumberAsc(course.getId())).thenReturn(List.of(firstLevel, secondLevel, bossLevel));
+        when(progressRepository.findByUserIdAndLevelCourseIdAndCompletedTrue(user.getId(), course.getId())).thenReturn(List.of(
+                createCompletedProgress(user, firstLevel, Instant.parse("2026-05-16T10:00:00Z")),
+                createCompletedProgress(user, secondLevel, Instant.parse("2026-05-16T10:10:00Z")),
+                createCompletedProgress(user, bossLevel, Instant.parse("2026-05-16T10:20:00Z"))
+        ));
+
+        CourseProgressResponse response = progressService.getCourseProgress(user.getId(), course.getId());
+
+        assertEquals(3, response.completedLevels());
+        assertEquals(3, response.totalLevels());
+        assertEquals(100, response.progressPercent());
+        assertTrue(response.courseCompleted());
+        assertTrue(response.levels().stream().allMatch(LevelProgressResponse::completed));
+        assertTrue(response.levels().stream().allMatch(LevelProgressResponse::unlocked));
+        assertTrue(response.levels().stream().allMatch(level -> level.completedAt() != null));
+    }
+
+    @Test
+    void getCourseProgress_shouldKeepProgressIndependentPerUser() {
+        User firstUser = createUser("first-course-progress@example.com");
+        User secondUser = createUser("second-course-progress@example.com");
+        Course course = createCourse();
+        Level firstLevel = createLevel(course, 1, false, 50, "First Level");
+        Level secondLevel = createLevel(course, 2, false, 75, "Second Level");
+        Level bossLevel = createLevel(course, 3, true, 100, "Boss Level");
+
+        when(courseRepository.findById(course.getId())).thenReturn(Optional.of(course));
+        when(levelRepository.findByCourseIdOrderByOrderNumberAsc(course.getId())).thenReturn(List.of(firstLevel, secondLevel, bossLevel));
+        when(progressRepository.findByUserIdAndLevelCourseIdAndCompletedTrue(firstUser.getId(), course.getId())).thenReturn(List.of(
+                createCompletedProgress(firstUser, firstLevel, Instant.parse("2026-05-16T11:00:00Z"))
+        ));
+        when(progressRepository.findByUserIdAndLevelCourseIdAndCompletedTrue(secondUser.getId(), course.getId())).thenReturn(List.of());
+
+        CourseProgressResponse firstResponse = progressService.getCourseProgress(firstUser.getId(), course.getId());
+        CourseProgressResponse secondResponse = progressService.getCourseProgress(secondUser.getId(), course.getId());
+
+        assertEquals(1, firstResponse.completedLevels());
+        assertTrue(firstResponse.levels().get(1).unlocked());
+        assertEquals(0, secondResponse.completedLevels());
+        assertFalse(secondResponse.levels().get(1).unlocked());
+        assertFalse(secondResponse.levels().get(2).unlocked());
+        assertTrue(secondResponse.levels().stream().allMatch(level -> !level.completed()));
+        assertTrue(secondResponse.levels().stream().allMatch(level -> level.completedAt() == null));
+    }
+
+    @Test
+    void getCourseProgress_shouldThrowNotFoundWhenCourseMissing() {
+        User user = createUser("missing-course-progress@example.com");
+        UUID missingCourseId = UUID.randomUUID();
+
+        when(courseRepository.findById(missingCourseId)).thenReturn(Optional.empty());
+
+        ApiException exception = assertThrows(
+                ApiException.class,
+                () -> progressService.getCourseProgress(user.getId(), missingCourseId)
+        );
+
+        assertEquals(ErrorCode.NOT_FOUND, exception.getErrorCode());
+        assertEquals("Course not found.", exception.getMessage());
+    }
+
     private User createUser(String email) {
         Instant now = Instant.now();
         User user = new User(UUID.randomUUID(), "Progress User", email, "hashed-password");
@@ -359,25 +489,33 @@ class ProgressServiceTest {
         return user;
     }
 
-    private Level createLevel(int orderNumber, boolean isBoss, int xpReward) {
+    private Course createCourse() {
         Instant now = Instant.now();
-        com.codequest.course.Course course = new com.codequest.course.Course(
+        return new Course(
                 UUID.randomUUID(),
                 "progress-course-" + UUID.randomUUID(),
                 "Progress Course",
                 "Progress Course Description",
                 createUser("course-owner-" + UUID.randomUUID() + "@example.com"),
-                com.codequest.course.CourseDifficulty.BEGINNER,
+                CourseDifficulty.BEGINNER,
                 false,
                 225,
-                com.codequest.course.CourseSourceType.PLACEHOLDER,
+                CourseSourceType.PLACEHOLDER,
                 now,
                 now
         );
+    }
+
+    private Level createLevel(int orderNumber, boolean isBoss, int xpReward) {
+        return createLevel(createCourse(), orderNumber, isBoss, xpReward, "Level Completion Basics");
+    }
+
+    private Level createLevel(Course course, int orderNumber, boolean isBoss, int xpReward, String title) {
+        Instant now = Instant.now();
         return new Level(
                 UUID.randomUUID(),
                 course,
-                "Level Completion Basics",
+                title,
                 "# Level Completion Basics",
                 orderNumber,
                 isBoss,
@@ -385,5 +523,35 @@ class ProgressServiceTest {
                 now,
                 now
         );
+    }
+
+    private Progress createCompletedProgress(User user, Level level, Instant completedAt) {
+        return new Progress(
+                UUID.randomUUID(),
+                user,
+                level,
+                true,
+                null,
+                completedAt,
+                completedAt.minusSeconds(60),
+                completedAt
+        );
+    }
+
+    private void assertLevelProgress(
+            LevelProgressResponse response,
+            Level level,
+            boolean completed,
+            boolean unlocked,
+            Instant completedAt
+    ) {
+        assertEquals(level.getId(), response.levelId());
+        assertEquals(level.getOrderNumber(), response.orderNumber());
+        assertEquals(level.getTitle(), response.title());
+        assertEquals(level.isBoss(), response.isBoss());
+        assertEquals(level.getXpReward(), response.xpReward());
+        assertEquals(completed, response.completed());
+        assertEquals(unlocked, response.unlocked());
+        assertEquals(completedAt, response.completedAt());
     }
 }
