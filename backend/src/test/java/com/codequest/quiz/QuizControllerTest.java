@@ -1,6 +1,7 @@
 package com.codequest.quiz;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -198,6 +199,89 @@ class QuizControllerTest {
                 .andExpect(status().isOk());
 
         assertEquals(attemptCountBefore + 2, quizAttemptRepository.countByQuizId(quiz.getId()));
+    }
+
+    @Test
+    void shouldReturnAuthenticatedUsersQuizAttemptHistoryOrderedNewestFirstAndSafe() throws Exception {
+        LoginResponse firstUserLogin = registerAndLogin("quizhistory-first-" + System.currentTimeMillis() + "@example.com");
+        LoginResponse secondUserLogin = registerAndLogin("quizhistory-second-" + System.currentTimeMillis() + "@example.com");
+
+        User firstUser = userRepository.findByEmail(firstUserLogin.email()).orElseThrow();
+        User secondUser = userRepository.findByEmail(secondUserLogin.email()).orElseThrow();
+
+        Quiz firstQuiz = createQuizForUser(firstUser, "B");
+        Quiz secondQuiz = createQuizForUser(secondUser, "D");
+
+        mockMvc.perform(post("/api/quizzes/{quizQuestionId}/submit", firstQuiz.getId())
+                        .header("Authorization", "Bearer " + firstUserLogin.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "selectedAnswer": "A"
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        Thread.sleep(5);
+
+        mockMvc.perform(post("/api/quizzes/{quizQuestionId}/submit", firstQuiz.getId())
+                        .header("Authorization", "Bearer " + firstUserLogin.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "selectedAnswer": "B"
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/quizzes/{quizQuestionId}/submit", secondQuiz.getId())
+                        .header("Authorization", "Bearer " + secondUserLogin.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "selectedAnswer": "D"
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/quizzes/attempts")
+                        .header("Authorization", "Bearer " + firstUserLogin.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.attempts.length()").value(2))
+                .andExpect(jsonPath("$.attempts[0].quizQuestionId").value(firstQuiz.getId().toString()))
+                .andExpect(jsonPath("$.attempts[0].selectedAnswer").value("B"))
+                .andExpect(jsonPath("$.attempts[0].isCorrect").value(true))
+                .andExpect(jsonPath("$.attempts[0].question").value("Which option is correct?"))
+                .andExpect(jsonPath("$.attempts[0].concept").value("Quiz Security"))
+                .andExpect(jsonPath("$.attempts[0].explanation").value("Correct answers should come from the backend only."))
+                .andExpect(jsonPath("$.attempts[0].levelId").isNotEmpty())
+                .andExpect(jsonPath("$.attempts[0].levelTitle").value("Quiz Submit Level"))
+                .andExpect(jsonPath("$.attempts[0].courseId").isNotEmpty())
+                .andExpect(jsonPath("$.attempts[0].courseTitle").value("Quiz Submit Course"))
+                .andExpect(jsonPath("$.attempts[0].correctAnswer").doesNotExist())
+                .andExpect(jsonPath("$.attempts[0].userId").doesNotExist())
+                .andExpect(jsonPath("$.attempts[0].token").doesNotExist())
+                .andExpect(jsonPath("$.attempts[0].password").doesNotExist())
+                .andExpect(jsonPath("$.attempts[0].role").doesNotExist())
+                .andExpect(jsonPath("$.attempts[0].refreshToken").doesNotExist())
+                .andExpect(jsonPath("$.attempts[1].selectedAnswer").value("A"))
+                .andExpect(jsonPath("$.attempts[1].quizQuestionId").value(firstQuiz.getId().toString()));
+    }
+
+    @Test
+    void shouldReturnEmptyQuizAttemptHistoryForAuthenticatedUserWithoutAttempts() throws Exception {
+        LoginResponse loginResponse = registerAndLogin("quizhistory-empty-" + System.currentTimeMillis() + "@example.com");
+
+        mockMvc.perform(get("/api/quizzes/attempts")
+                        .header("Authorization", "Bearer " + loginResponse.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.attempts.length()").value(0));
+    }
+
+    @Test
+    void shouldReturn401WhenFetchingQuizAttemptHistoryWithoutAuthentication() throws Exception {
+        mockMvc.perform(get("/api/quizzes/attempts"))
+                .andExpect(status().isUnauthorized());
     }
 
     private Quiz createQuizForUser(User user, String correctAnswer) {

@@ -4,6 +4,7 @@ import java.util.UUID;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.codequest.common.security.CurrentUserPrincipal;
+import com.codequest.quiz.dto.QuizAttemptHistoryResponse;
 import com.codequest.quiz.dto.SubmitQuizAnswerRequest;
 import com.codequest.quiz.dto.SubmitQuizAnswerResponse;
 
@@ -27,6 +29,19 @@ public class QuizController {
 
     public QuizController(QuizService quizService) {
         this.quizService = quizService;
+    }
+
+    @GetMapping("/attempts")
+    @Operation(summary = "Get quiz attempt history", description = "Return the authenticated user's quiz attempt history ordered newest first")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Quiz attempt history returned successfully"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing token")
+    })
+    public ResponseEntity<QuizAttemptHistoryResponse> getQuizAttemptHistory(
+            @AuthenticationPrincipal CurrentUserPrincipal currentUser
+    ) {
+        QuizAttemptHistoryResponse response = quizService.getAttemptHistory(currentUser.userId());
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/{quizQuestionId}/submit")

@@ -2,6 +2,7 @@ package com.codequest.quiz;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -14,6 +15,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -26,7 +28,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.codequest.common.exception.ApiException;
 import com.codequest.common.exception.ErrorCode;
 import com.codequest.level.Level;
+import com.codequest.quiz.dto.QuizAttemptHistoryItemResponse;
+import com.codequest.quiz.dto.QuizAttemptHistoryResponse;
 import com.codequest.quiz.dto.SubmitQuizAnswerResponse;
+import com.codequest.course.Course;
+import com.codequest.course.CourseDifficulty;
+import com.codequest.course.CourseSourceType;
 import com.codequest.user.User;
 import com.codequest.user.UserRank;
 import com.codequest.user.UserRepository;
@@ -188,6 +195,74 @@ class QuizServiceTest {
         verify(quizAttemptRepository, never()).save(any(QuizAttempt.class));
     }
 
+    @Test
+    void getAttemptHistory_shouldReturnCurrentUserAttemptsOrderedNewestFirst() {
+        User user = createUser();
+        QuizAttempt newestAttempt = createAttempt(user, "A", true, Instant.parse("2026-05-15T10:16:30Z"), "Newest Question", "Newest Concept", "Newest Explanation", "Newest Level", "Newest Course");
+        QuizAttempt olderAttempt = createAttempt(user, "C", false, Instant.parse("2026-05-15T09:16:30Z"), "Older Question", "Older Concept", "Older Explanation", "Older Level", "Older Course");
+        when(quizAttemptRepository.findByUserIdOrderByAttemptedAtDesc(user.getId())).thenReturn(List.of(newestAttempt, olderAttempt));
+
+        QuizAttemptHistoryResponse response = quizService.getAttemptHistory(user.getId());
+
+        assertEquals(2, response.attempts().size());
+        assertIterableEquals(
+                List.of(newestAttempt.getId(), olderAttempt.getId()),
+                response.attempts().stream().map(QuizAttemptHistoryItemResponse::attemptId).toList()
+        );
+        assertEquals("Newest Question", response.attempts().get(0).question());
+        assertEquals("Newest Level", response.attempts().get(0).levelTitle());
+        assertEquals("Newest Course", response.attempts().get(0).courseTitle());
+    }
+
+    @Test
+    void getAttemptHistory_shouldReturnOnlyCurrentUserAttempts() {
+        User currentUser = createUser();
+        User anotherUser = createUser();
+        QuizAttempt currentUserAttempt = createAttempt(currentUser, "B", true, Instant.parse("2026-05-15T11:16:30Z"), "Current User Question", "Concept", "Explanation", "Level", "Course");
+        QuizAttempt anotherUserAttempt = createAttempt(anotherUser, "D", false, Instant.parse("2026-05-15T12:16:30Z"), "Another User Question", "Other Concept", "Other Explanation", "Other Level", "Other Course");
+        when(quizAttemptRepository.findByUserIdOrderByAttemptedAtDesc(currentUser.getId())).thenReturn(List.of(currentUserAttempt));
+
+        QuizAttemptHistoryResponse response = quizService.getAttemptHistory(currentUser.getId());
+
+        assertEquals(1, response.attempts().size());
+        assertEquals(currentUserAttempt.getId(), response.attempts().get(0).attemptId());
+        assertFalse(response.attempts().stream().anyMatch(attempt -> anotherUserAttempt.getId().equals(attempt.attemptId())));
+        verify(quizAttemptRepository).findByUserIdOrderByAttemptedAtDesc(currentUser.getId());
+    }
+
+    @Test
+    void getAttemptHistory_shouldReturnEmptyAttemptsWhenUserHasNoHistory() {
+        UUID userId = UUID.randomUUID();
+        when(quizAttemptRepository.findByUserIdOrderByAttemptedAtDesc(userId)).thenReturn(List.of());
+
+        QuizAttemptHistoryResponse response = quizService.getAttemptHistory(userId);
+
+        assertTrue(response.attempts().isEmpty());
+    }
+
+    @Test
+    void getAttemptHistory_shouldMapSafeUsefulFieldsWithoutCorrectAnswer() {
+        User user = createUser();
+        QuizAttempt attempt = createAttempt(user, "C", false, Instant.parse("2026-05-15T13:16:30Z"), "Safe Question", "Safe Concept", "Safe Explanation", "Safe Level", "Safe Course");
+        when(quizAttemptRepository.findByUserIdOrderByAttemptedAtDesc(user.getId())).thenReturn(List.of(attempt));
+
+        QuizAttemptHistoryResponse response = quizService.getAttemptHistory(user.getId());
+        QuizAttemptHistoryItemResponse item = response.attempts().get(0);
+
+        assertEquals(attempt.getId(), item.attemptId());
+        assertEquals(attempt.getQuiz().getId(), item.quizQuestionId());
+        assertEquals("C", item.selectedAnswer());
+        assertFalse(item.isCorrect());
+        assertEquals(Instant.parse("2026-05-15T13:16:30Z"), item.attemptedAt());
+        assertEquals("Safe Question", item.question());
+        assertEquals("Safe Concept", item.concept());
+        assertEquals("Safe Explanation", item.explanation());
+        assertEquals(attempt.getQuiz().getLevel().getId(), item.levelId());
+        assertEquals("Safe Level", item.levelTitle());
+        assertEquals(attempt.getQuiz().getLevel().getCourse().getId(), item.courseId());
+        assertEquals("Safe Course", item.courseTitle());
+    }
+
     private Quiz createQuiz(String correctAnswer, String explanation, String conceptTag) {
         Instant now = Instant.now();
         Level level = new Level(
@@ -230,5 +305,59 @@ class QuizServiceTest {
         user.setCreatedAt(now);
         user.setUpdatedAt(now);
         return user;
+    }
+
+    private QuizAttempt createAttempt(User user, String selectedAnswer, boolean isCorrect, Instant attemptedAt,
+                                      String question, String conceptTag, String explanation, String levelTitle,
+                                      String courseTitle) {
+        Course course = new Course(
+                UUID.randomUUID(),
+                "attempt-history-topic-" + UUID.randomUUID(),
+                courseTitle,
+                "Course description",
+                user,
+                CourseDifficulty.BEGINNER,
+                false,
+                50,
+                CourseSourceType.AI,
+                attemptedAt.minusSeconds(60),
+                attemptedAt.minusSeconds(60)
+        );
+        Level level = new Level(
+                UUID.randomUUID(),
+                course,
+                levelTitle,
+                "# " + levelTitle,
+                1,
+                false,
+                50,
+                attemptedAt.minusSeconds(30),
+                attemptedAt.minusSeconds(30)
+        );
+        Quiz quiz = new Quiz(
+                UUID.randomUUID(),
+                level,
+                1,
+                question,
+                "Option A",
+                "Option B",
+                "Option C",
+                "Option D",
+                "A",
+                explanation,
+                conceptTag,
+                20,
+                attemptedAt.minusSeconds(15),
+                attemptedAt.minusSeconds(15)
+        );
+
+        return new QuizAttempt(
+                UUID.randomUUID(),
+                user,
+                quiz,
+                selectedAnswer,
+                isCorrect,
+                attemptedAt
+        );
     }
 }

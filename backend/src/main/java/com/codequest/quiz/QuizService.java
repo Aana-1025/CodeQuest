@@ -1,6 +1,7 @@
 package com.codequest.quiz;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -9,6 +10,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.codequest.common.exception.ApiException;
 import com.codequest.common.exception.ErrorCode;
+import com.codequest.course.Course;
+import com.codequest.level.Level;
+import com.codequest.quiz.dto.QuizAttemptHistoryItemResponse;
+import com.codequest.quiz.dto.QuizAttemptHistoryResponse;
 import com.codequest.quiz.dto.SubmitQuizAnswerResponse;
 import com.codequest.user.User;
 import com.codequest.user.UserRepository;
@@ -58,6 +63,16 @@ public class QuizService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public QuizAttemptHistoryResponse getAttemptHistory(UUID userId) {
+        List<QuizAttemptHistoryItemResponse> attempts = quizAttemptRepository.findByUserIdOrderByAttemptedAtDesc(userId)
+                .stream()
+                .map(this::mapAttemptHistoryItem)
+                .toList();
+
+        return new QuizAttemptHistoryResponse(attempts);
+    }
+
     private String normalizeSelectedAnswer(String selectedAnswer) {
         return selectedAnswer.trim().toUpperCase(Locale.ROOT);
     }
@@ -67,5 +82,26 @@ public class QuizService {
                 || "B".equals(selectedAnswer)
                 || "C".equals(selectedAnswer)
                 || "D".equals(selectedAnswer);
+    }
+
+    private QuizAttemptHistoryItemResponse mapAttemptHistoryItem(QuizAttempt attempt) {
+        Quiz quiz = attempt.getQuiz();
+        Level level = quiz.getLevel();
+        Course course = level.getCourse();
+
+        return new QuizAttemptHistoryItemResponse(
+                attempt.getId(),
+                quiz.getId(),
+                attempt.getSelectedAnswer(),
+                attempt.isCorrect(),
+                attempt.getAttemptedAt(),
+                quiz.getQuestion(),
+                quiz.getConceptTag(),
+                quiz.getExplanation(),
+                level.getId(),
+                level.getTitle(),
+                course.getId(),
+                course.getTitle()
+        );
     }
 }
