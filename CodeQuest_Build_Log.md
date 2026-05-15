@@ -5,13 +5,13 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Backend / XP award foundation
-Current feature: Backend XP Award Foundation for Quiz Submit completed, test-verified, manually verified, committed, and pushed
-Latest commit: `15321f1 feat: award xp for correct quiz submit`
-Previous commit: `a0ec8d4 docs: record frontend quiz attempt history completion`
+Current module: Frontend / XP refresh after quiz submit
+Current feature: Frontend XP Refresh After Correct Quiz Submit completed, build-verified, manually verified, committed, and pushed
+Latest commit: `97e5493 feat: refresh xp after correct quiz submit`
+Previous commit: `bd3d199 docs: record backend xp award completion`
 Current branch: main
-Test status: Backend `cd backend && .\mvnw.cmd test` PASS with 147 tests, 0 failures, 0 errors. Manual API verification PASS: starting XP was 0; incorrect answer did not change XP; correct answer awarded quiz `xpReward` and profile XP became 10; response still hid `correctAnswer` and `userId`; repeated correct submit, invalid answer, missing quiz, and no-token checks were included in the manual verification flow before commit. Scope checks PASS: frontend, DB migrations, AI, course, flashcard, note, and user files unchanged; backend diff limited to `QuizService.java`, `QuizServiceTest.java`, and `QuizControllerTest.java`.
-Git status: clean after backend XP award feature commit; Build Log docs update pending
+Test status: Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS before commit: starting XP was visible, incorrect submit did not claim XP increased, correct submit refreshed the in-memory profile/dashboard XP display, repeated correct submit refreshed XP again according to the backend MVP repeated-award behavior, quiz result stayed safe, `correctAnswer` and `userId` were not visible in quiz result, tokens/secrets were not shown, and existing dashboard/lesson/quiz/flashcards/notes/attempt-history flows remained working. Scope checks PASS: backend, DB migrations, package files, AI, course API, auth API, and backend files unchanged; frontend diff limited to `App.jsx` and `DashboardShell.jsx`.
+Git status: clean after frontend XP refresh feature commit; Build Log docs update pending
 
 ## Completed Features
 - [x] Project setup
@@ -60,6 +60,7 @@ Git status: clean after backend XP award feature commit; Build Log docs update p
 - [x] Backend Quiz Attempt History/Fetch Foundation
 - [x] Frontend Quiz Attempt History Display Foundation
 - [x] Backend XP Award Foundation for Quiz Submit
+- [x] Frontend XP Refresh After Correct Quiz Submit
 - [ ] Flashcards
 - [x] Notes
 - [x] Backend Quiz submit/scoring endpoint
@@ -373,6 +374,15 @@ Git status: clean after backend XP award feature commit; Build Log docs update p
 - Quiz submit response still does not expose `correctAnswer`, `userId`, full user objects, tokens, passwords, roles, token hashes, refresh tokens, or secrets.
 - XP award derives the user only from the authenticated `CurrentUserPrincipal`; userId is never accepted from request body, query params, headers, or path.
 - Rank, streak, progress percentage, weak concept detection, level unlock, course completion, leaderboard, achievements, and anti-duplicate XP rules remain out of scope.
+- Frontend XP Refresh After Correct Quiz Submit is implemented.
+- `App.jsx` remains the owner of authenticated profile state.
+- `App.jsx` exposes a shared profile refresh callback to `DashboardShell` so quiz submits can update the in-memory profile state after backend XP award.
+- After a correct quiz submit, DashboardShell refreshes GET `/api/user/profile` through existing safe auth/profile flow and updates the dashboard/profile XP display.
+- After an incorrect quiz submit, the frontend does not claim XP increased.
+- If profile refresh after a correct submit fails, the quiz result remains visible and the UI shows a safe fallback message instead of a raw backend error.
+- Frontend XP refresh does not store profile/XP updates in localStorage or sessionStorage.
+- Frontend XP refresh does not display `correctAnswer`, `userId` in quiz result, tokens, passwords, roles, token hashes, refresh tokens, or secrets.
+- Frontend XP refresh added no backend, DB migration, AI/Gemini, package, React Router, rank, streak, progress, weak concept, unlock, leaderboard, or anti-farming changes.
 - Backend Quiz Attempt History/Fetch Foundation adds no migration and makes no frontend changes.
 - Backend Quiz Attempt Persistence Foundation does not change frontend files.
 - Backend Quiz Attempt Persistence Foundation does not change AI/Gemini, course generation/fetch, flashcards, or notes behavior.
@@ -541,6 +551,7 @@ Git status: clean after backend XP award feature commit; Build Log docs update p
 
 ## Bugs / Issues
 - None blocking currently.
+- Frontend XP Refresh After Correct Quiz Submit note: No blocking issue. Manual browser verification confirmed starting XP was visible, incorrect submit did not claim XP increased, correct submit refreshed profile/dashboard XP after backend award, repeated correct submit refreshed XP again according to MVP repeated-award behavior, quiz result remained safe, `correctAnswer` and `userId` were not visible, tokens/secrets/raw backend errors were not shown, and existing dashboard, course map, lesson, quiz submit, flashcards, notes preload/save, attempt history, and back-button flows remained working. Backend, migrations, package files, AI, auth API, course API, and backend files were unchanged. Rank/progress percentage/streak/weak concept/unlock logic remains unimplemented.
 - Backend XP Award Foundation note: No blocking issue. Manual API verification confirmed wrong answer left XP unchanged, correct answer awarded quiz `xpReward`, submit response still did not expose `correctAnswer` or `userId`, and the feature remained backend-only with no frontend, migration, AI, course, flashcard, note, or user entity changes. Repeated correct submits intentionally award XP again for MVP and may need deduplication/anti-farming rules later. Rank/progress/streak/weak concept/unlock logic remains unimplemented.
 - Frontend Quiz Attempt History Display Foundation note: No blocking issue. Manual browser verification confirmed attempt history cards render after quiz submissions, newest-first ordering is visible, selected answer/correctness/timestamp/question/course/level/concept/explanation display safely, muted attemptId and quizQuestionId display, and `correctAnswer`, `userId`, tokens, passwords, and secrets are not visible. Backend, migrations, package files, AI, course, flashcard, note, and backend quiz files were unchanged. XP/progress/rank/streak/weak concept/unlock logic remains unimplemented.
 - Backend Quiz Attempt History/Fetch Foundation note: No blocking issue. Manual API verification confirmed first user history returned only first user attempts ordered newest-first, response hid `correctAnswer` and `userId`, second user initially received empty `attempts`, second user saw only their own new attempt after submitting, first user history did not include second user attempt, no-token GET returned 401, and frontend/migration/AI/course/flashcard/note diffs were empty. XP/progress/rank/streak/weak concept/unlock logic remains unimplemented.
@@ -774,6 +785,8 @@ Git status: clean after backend XP award feature commit; Build Log docs update p
 | 48 | 2026-05-15 | Frontend Quiz Attempt History Display Foundation | Frontend / Quiz | frontend/src/services/courseApi.js; frontend/src/pages/DashboardShell.jsx | Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: DashboardShell attempt history loaded through GET `/api/quizzes/attempts`; newest-first attempts rendered with selected answer, Correct/Incorrect badge, attempted timestamp, question, concept, explanation, course title, and level title; `correctAnswer`, `userId`, tokens, passwords, and secrets were not visible. Scope checks clean: backend, DB migrations, package files, AI, course, flashcard, note, and backend quiz files unchanged. | `c227bc1 feat: display quiz attempt history`. Added authenticated `getQuizAttemptHistory()` helper and read-only Quiz Attempt History dashboard section with explicit Load/Refresh button, loading/empty/error states, safe attempt cards, and local component state only. No backend, migration, AI/Gemini, package, React Router, XP/progress, weak concept, unlock, Piston, deployment, or Phase 2 work. |
 | 49 | 2026-05-15 | Backend XP Award Foundation for Quiz Submit | Backend / Quiz + User XP | backend/src/main/java/com/codequest/quiz/QuizService.java; backend/src/test/java/com/codequest/quiz/QuizServiceTest.java; backend/src/test/java/com/codequest/quiz/QuizControllerTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 147 tests, 0 failures, 0 errors. Manual API verification PASS: starting XP 0; incorrect answer A left XP unchanged; correct answer C awarded 10 XP; response hid `correctAnswer` and `userId`; repeated correct submit was verified as MVP behavior; invalid/missing/no-token paths were checked for no XP award. Scope checks clean: frontend, migrations, AI, course, flashcard, note, and user diffs empty; quiz diff expected. | `15321f1 feat: award xp for correct quiz submit`. Added backend XP award on correct quiz submit using authenticated current user only. Attempt persistence and safe submit response shape remain unchanged. Incorrect/invalid/missing/unauthenticated submits do not award XP. Repeated correct submits award XP again for MVP; no rank, streak, progress, weak concept, unlock, leaderboard, frontend, migration, AI, or Phase 2 work. |
 
+| 50 | 2026-05-15 | Frontend XP Refresh After Correct Quiz Submit | Frontend / Profile + Quiz | frontend/src/App.jsx; frontend/src/pages/DashboardShell.jsx | Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: starting XP visible; incorrect quiz submit did not claim XP increased; correct submit refreshed profile/dashboard XP; repeated correct submit refreshed XP again; `correctAnswer`, `userId`, tokens, and secrets were not visible; existing course map, lesson, quiz submit, flashcards, notes, attempt history, and back buttons still worked. Scope checks clean: backend, migrations, package files, authApi, courseApi, and backend files unchanged. | `97e5493 feat: refresh xp after correct quiz submit`. Added shared profile refresh callback from App.jsx to DashboardShell and refreshed the authenticated profile after successful correct quiz submits. Profile/XP remain in React state only; no localStorage/sessionStorage persistence, no backend, migration, AI, package, rank, streak, progress, weak concept, unlock, anti-farming, or Phase 2 work. |
+
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -863,6 +876,8 @@ Git status: clean after backend XP award feature commit; Build Log docs update p
 
 | 2026-05-15 | `cd backend && .\mvnw.cmd test` after Backend XP Award Foundation for Quiz Submit | PASS | Backend tests passed with 147 tests, 0 failures, 0 errors after adding correct-answer XP award to quiz submit. | Yes |
 
+| 2026-05-15 | `cd frontend && npm run build` after Frontend XP Refresh After Correct Quiz Submit | PASS | Frontend build passed after adding profile refresh callback and quiz-submit XP refresh messaging. | Yes |
+
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
 |---|---|---|---|---|
@@ -951,6 +966,8 @@ Git status: clean after backend XP award feature commit; Build Log docs update p
 | 2026-05-15 | Backend Quiz Attempt History/Fetch Foundation | Start backend with PostgreSQL/JWT env vars -> register/login user 1 -> submit A and B attempts -> GET `/api/quizzes/attempts` -> inspect newest-first ordering and safe response -> register/login user 2 -> GET empty history -> user 2 submit C -> GET user 2 history -> recheck user 1 history -> no-token GET -> scope checks | User 1 history returned B then A newest-first; response included safe attempt/context fields and did not contain `correctAnswer` or `userId`; user 2 initially received empty `attempts`; user 2 history after submit showed only C; user 1 history still showed only B and A; no-token request returned 401; frontend/migration/AI/course/flashcard/note diffs were empty; no XP/progress/unlock behavior changed. | Passed |
 
 | 2026-05-15 | Backend XP Award Foundation for Quiz Submit | Start backend with PostgreSQL/JWT env vars -> register/login new user -> GET `/api/user/profile` starting XP 0 -> local SQL selected quiz `823a0793-a227-4474-9bde-a6c99f2ab832` with correct answer C and xpReward 10 -> submit wrong answer A -> profile XP unchanged -> submit correct answer C -> response safety check -> profile XP became 10 -> repeated correct submit -> invalid answer Z -> missing quiz UUID -> no-token submit -> scope checks | Wrong answer returned `isCorrect=false` and XP stayed 0; correct answer returned `isCorrect=true`, response did not contain `correctAnswer` or `userId`, and XP increased to 10; repeated correct submit awards XP again for MVP; invalid answer returns 400 with no XP change; missing quiz returns 404 with no XP change; no-token returns 401 with no XP change; frontend/migration/AI/course/flashcard/note/user diffs remain empty. | Passed |
+
+| 2026-05-15 | Frontend XP Refresh After Correct Quiz Submit | Start backend with PostgreSQL/JWT env vars -> start frontend -> register/login new user -> confirm starting XP visible -> open AI course with quiz questions -> submit incorrect answer -> submit correct answer -> submit same correct answer again -> inspect quiz result/profile XP/safety/existing flows -> scope checks | Starting XP was visible; incorrect submit showed Incorrect and did not claim XP increased; correct submit showed Correct and refreshed profile/dashboard XP; repeated correct submit refreshed XP again according to backend MVP behavior; `correctAnswer`, `userId`, tokens, secrets, and raw backend errors were not visible; existing login/register, protected profile loading, dashboard, generate course, course map, lesson, quiz submit, flashcards, notes preload/save, quiz attempt history, and back buttons remained working; backend/package/authApi/courseApi diffs stayed empty. | Passed |
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -4634,47 +4651,43 @@ Important workflow:
 - Do not update CodeQuest_Build_Log.md during implementation unless I ask after verification.
 
 Current state:
-- Latest feature commit: 15321f1 feat: award xp for correct quiz submit
-- Previous docs commit: a0ec8d4 docs: record frontend quiz attempt history completion
+- Latest feature commit: 97e5493 feat: refresh xp after correct quiz submit
+- Previous docs commit: bd3d199 docs: record backend xp award completion
+- Frontend XP Refresh After Correct Quiz Submit is complete.
+- Frontend build passes with cd frontend && npm run build.
+- App.jsx owns authenticated profile state and passes a profile refresh callback into DashboardShell.
+- After a correct quiz submit, DashboardShell refreshes GET /api/user/profile so dashboard/profile XP updates after backend XP award.
+- Incorrect submit does not claim XP increased.
+- If refresh fails after a correct submit, quiz result remains visible and a safe fallback message appears.
 - Backend XP Award Foundation for Quiz Submit is complete.
-- Backend tests pass with 147 tests, 0 failures, 0 errors.
-- POST /api/quizzes/{quizQuestionId}/submit is authenticated and scores against backend-only correctAnswer.
-- Successful authenticated submits still persist QuizAttempt rows.
-- Correct answers now award quiz.xpReward to the authenticated current user's xp.
-- Incorrect answers do not award XP.
-- Invalid selectedAnswer returns 400 and does not award XP.
-- Missing quiz returns 404 and does not award XP.
-- No-token submit returns 401 and does not award XP.
-- Repeated correct submits award XP again for MVP; no deduplication is implemented yet.
-- Submit response shape remains safe: quizQuestionId, selectedAnswer, isCorrect, explanation, concept.
-- Submit response does not expose correctAnswer or userId.
-- Backend GET /api/quizzes/attempts returns current-user attempt history newest-first.
-- Frontend quiz submit and frontend quiz attempt history display are complete.
-- Frontend attempt history displays selected answer, correctness, attempted timestamp, question, concept, explanation, course and level context.
-- Notes, quiz persistence/fetch, flashcards persistence/fetch, course map, lesson page, AI course generation with safe fallback, and Gemini retry-once reliability are complete.
-- Rank/streak/progress percentage/weak concept detection/level unlock/course completion/leaderboard/Piston/deployment are still not implemented.
+- Correct authenticated quiz submits award quiz.xpReward to the authenticated current user's xp.
+- Incorrect/invalid/missing/no-token submits do not award XP.
+- Repeated correct submits award XP again for MVP; no deduplication/anti-farming is implemented yet.
+- Quiz submit response remains safe and does not expose correctAnswer or userId.
+- Backend quiz attempt persistence and GET /api/quizzes/attempts history are complete.
+- Frontend quiz submit, frontend quiz attempt history display, notes preload/save, flashcards display, course map, lesson page, and AI course generation with safe Gemini fallback/retry are complete.
+- Rank system, progress percentage, streak system, weak concept detection, level unlock logic, course completion, leaderboard, Piston/code execution, deployment, README/screenshots/demo video remain unimplemented.
 
 Next safest MVP task suggestion:
 Choose exactly one small slice. Recommended next slice:
-Frontend Profile XP Refresh/Display after Quiz Submit
-OR Backend Progress Foundation
-OR Rank Foundation.
-
-If choosing Frontend Profile XP Refresh/Display:
-- Make it frontend-only.
-- After a quiz submit result returns, refresh GET /api/user/profile or update a safe profile state so DashboardShell/Protected Area can show current XP.
-- Do not change backend.
-- Do not add migrations.
-- Do not implement rank, streak, progress, unlock, weak concept detection, leaderboard, or anti-duplicate XP.
-- Do not expose correctAnswer, userId, tokens, passwords, or secrets.
-- Use existing tokenStorage/auth API patterns.
-- Run cd frontend && npm run build.
-- Manual browser verification should confirm XP shown in UI updates after correct quiz submit and does not update after wrong submit.
+Backend Progress Foundation
+OR Backend Rank Foundation
+OR Frontend profile XP polish only if UI needs minor cleanup.
 
 If choosing Backend Progress Foundation:
 - Keep it backend-only and very small.
-- Define one minimal progress model/endpoint only if API contracts support it.
-- Do not combine with frontend UI, rank, streak, weak concept detection, unlock, leaderboard, or deployment.
+- Inspect docs/API contracts first.
+- Do not combine with frontend UI, rank, streak, weak concept detection, level unlock, leaderboard, deployment, or Phase 2 features.
+- Prefer a minimal read-only or persist-on-submit foundation only if the schema/contracts already support it.
+- Use authenticated CurrentUserPrincipal only; never accept userId from client.
+- Do not expose correctAnswer, tokens, passwords, roles, token hashes, refresh tokens, or secrets.
+- Run cd backend && .\mvnw.cmd test.
+
+If choosing Backend Rank Foundation:
+- Keep it backend-only and small.
+- Only implement rank thresholds if they are clearly defined in docs/contracts.
+- Do not combine with frontend UI, unlock, streak, weak concept detection, leaderboard, or deployment.
+- Run cd backend && .\mvnw.cmd test.
 
 Always keep scope narrow and ask for Build Log update only after commit.
 ```
@@ -4690,40 +4703,36 @@ Database: PostgreSQL + Flyway
 AI: Gemini API
 Code execution: Piston API
 
-Current module: Frontend / Quiz attempt history display foundation
-Last completed feature: Frontend Quiz Attempt History Display Foundation
-Latest feature commit: c227bc1 feat: display quiz attempt history
-Previous commit: 46817eb docs: record quiz attempt history completion
-Git status: clean after frontend quiz attempt history display feature commit; Build Log docs update pending until this file is committed
+Current module: Frontend / XP refresh after correct quiz submit
+Last completed feature: Frontend XP Refresh After Correct Quiz Submit
+Latest feature commit: 97e5493 feat: refresh xp after correct quiz submit
+Previous commit: bd3d199 docs: record backend xp award completion
+Git status: clean after frontend XP refresh feature commit; Build Log docs update pending until this file is committed
 Tests passed:
 - Frontend cd frontend && npm run build PASS
 
 Manual verification passed:
 - Backend was started with PostgreSQL/JWT env vars.
-- Existing AI course with quiz rows was used.
-- User 1 registered/logged in and received a valid access token.
-- A valid quizId was selected from GET /api/courses/{courseId}.
-- User 1 submitted selectedAnswer A and then B.
-- GET /api/quizzes/attempts for user 1 returned attempts newest-first: B before A.
-- History response contained safe fields including attemptId, quizQuestionId, selectedAnswer, isCorrect, attemptedAt, question, concept, explanation, levelId, levelTitle, courseId, and courseTitle.
-- History response did not contain correctAnswer.
-- History response did not contain userId.
-- User 2 registered/logged in and initially received empty attempts.
-- User 2 submitted selectedAnswer C and then saw only C in their history.
-- User 1 history still showed only user 1 attempts, not user 2's C attempt.
-- No-token GET /api/quizzes/attempts returned 401.
-- Frontend, DB migration, AI, course, flashcard, and note diffs were empty.
-- Frontend attempt history display manual browser verification passed after commit c227bc1.
-- DashboardShell displayed attempt cards with selected answer, correctness badge, timestamp, question, course/level context, concept, explanation, and muted attempt/quiz ids.
-- Frontend attempt history did not show correctAnswer, userId, tokens, passwords, or secrets.
-- No XP/progress/rank/streak/weak concept/unlock logic changed.
+- Frontend was started with npm run dev.
+- New user registered/logged in.
+- Starting XP was visible in dashboard/profile area.
+- AI quiz course/lesson flow was used for quiz submit testing.
+- Incorrect submit showed Incorrect and did not claim XP increased.
+- Correct submit showed Correct and refreshed the profile/dashboard XP display.
+- Repeated correct submit refreshed XP again according to current backend MVP repeated-award behavior.
+- Quiz result did not show correctAnswer.
+- Quiz result did not show userId.
+- Tokens, refresh tokens, passwords, secrets, and raw backend errors were not visible.
+- Existing login/register, protected profile loading, dashboard, generate course, course map, lesson, quiz submit, flashcards, notes preload/save, quiz attempt history load/refresh, and back buttons remained working.
+- Backend, DB migrations, package files, authApi, courseApi, and backend files remained unchanged.
 
 Known bugs/blockers:
 - None blocking currently.
-- No blocking issue is currently known.
+- Repeated correct submit intentionally awards XP again for MVP; anti-farming/deduplication is deferred.
+- Rank system, progress percentage, streak system, weak concept detection, and level unlock logic are still not implemented.
 
 Next task:
-Backend XP/progress foundation, level unlock logic foundation, weak concept detection foundation, or next safest MVP task depending on the master plan. Prefer one small foundation at a time.
+Backend Progress Foundation, Backend Rank Foundation, or another one-small-slice MVP task depending on the master plan. Prefer one small foundation at a time.
 
 Important workflow:
 - Use Maven Wrapper only: cd backend && .\mvnw.cmd test
