@@ -1,5 +1,6 @@
 package com.codequest.quiz;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -51,11 +52,15 @@ class QuizControllerTest {
     @Autowired
     private QuizRepository quizRepository;
 
+    @Autowired
+    private QuizAttemptRepository quizAttemptRepository;
+
     @Test
     void shouldReturnIsCorrectTrueWhenAuthenticatedUserSubmitsCorrectAnswer() throws Exception {
         LoginResponse loginResponse = registerAndLogin("quizcorrect-" + System.currentTimeMillis() + "@example.com");
         User user = userRepository.findByEmail(loginResponse.email()).orElseThrow();
         Quiz quiz = createQuizForUser(user, "C");
+        long attemptCountBefore = quizAttemptRepository.countByQuizId(quiz.getId());
 
         mockMvc.perform(post("/api/quizzes/{quizQuestionId}/submit", quiz.getId())
                         .header("Authorization", "Bearer " + loginResponse.accessToken())
@@ -77,6 +82,8 @@ class QuizControllerTest {
                 .andExpect(jsonPath("$.password").doesNotExist())
                 .andExpect(jsonPath("$.role").doesNotExist())
                 .andExpect(jsonPath("$.refreshToken").doesNotExist());
+
+        assertEquals(attemptCountBefore + 1, quizAttemptRepository.countByQuizId(quiz.getId()));
     }
 
     @Test
@@ -84,6 +91,7 @@ class QuizControllerTest {
         LoginResponse loginResponse = registerAndLogin("quizwrong-" + System.currentTimeMillis() + "@example.com");
         User user = userRepository.findByEmail(loginResponse.email()).orElseThrow();
         Quiz quiz = createQuizForUser(user, "B");
+        long attemptCountBefore = quizAttemptRepository.countByQuizId(quiz.getId());
 
         mockMvc.perform(post("/api/quizzes/{quizQuestionId}/submit", quiz.getId())
                         .header("Authorization", "Bearer " + loginResponse.accessToken())
@@ -98,12 +106,15 @@ class QuizControllerTest {
                 .andExpect(jsonPath("$.selectedAnswer").value("A"))
                 .andExpect(jsonPath("$.isCorrect").value(false))
                 .andExpect(jsonPath("$.correctAnswer").doesNotExist());
+
+        assertEquals(attemptCountBefore + 1, quizAttemptRepository.countByQuizId(quiz.getId()));
     }
 
     @Test
     void shouldReturn404WhenQuizQuestionIsMissing() throws Exception {
         LoginResponse loginResponse = registerAndLogin("quizmissing-" + System.currentTimeMillis() + "@example.com");
         UUID missingQuizId = UUID.randomUUID();
+        long attemptCountBefore = quizAttemptRepository.count();
 
         mockMvc.perform(post("/api/quizzes/{quizQuestionId}/submit", missingQuizId)
                         .header("Authorization", "Bearer " + loginResponse.accessToken())
@@ -118,6 +129,8 @@ class QuizControllerTest {
                 .andExpect(jsonPath("$.code").value("NOT_FOUND"))
                 .andExpect(jsonPath("$.message").value("Quiz question not found."))
                 .andExpect(jsonPath("$.path").value("/api/quizzes/" + missingQuizId + "/submit"));
+
+        assertEquals(attemptCountBefore, quizAttemptRepository.count());
     }
 
     @Test
@@ -125,6 +138,7 @@ class QuizControllerTest {
         LoginResponse loginResponse = registerAndLogin("quizinvalid-" + System.currentTimeMillis() + "@example.com");
         User user = userRepository.findByEmail(loginResponse.email()).orElseThrow();
         Quiz quiz = createQuizForUser(user, "D");
+        long attemptCountBefore = quizAttemptRepository.countByQuizId(quiz.getId());
 
         mockMvc.perform(post("/api/quizzes/{quizQuestionId}/submit", quiz.getId())
                         .header("Authorization", "Bearer " + loginResponse.accessToken())
@@ -136,10 +150,14 @@ class QuizControllerTest {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+        assertEquals(attemptCountBefore, quizAttemptRepository.countByQuizId(quiz.getId()));
     }
 
     @Test
     void shouldReturn401WhenSubmittingQuizAnswerWithoutAuthentication() throws Exception {
+        long attemptCountBefore = quizAttemptRepository.count();
+
         mockMvc.perform(post("/api/quizzes/{quizQuestionId}/submit", UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -148,6 +166,38 @@ class QuizControllerTest {
                                 }
                                 """))
                 .andExpect(status().isUnauthorized());
+
+        assertEquals(attemptCountBefore, quizAttemptRepository.count());
+    }
+
+    @Test
+    void shouldCreateRepeatedAttemptRowsForRepeatedSubmits() throws Exception {
+        LoginResponse loginResponse = registerAndLogin("quizrepeat-" + System.currentTimeMillis() + "@example.com");
+        User user = userRepository.findByEmail(loginResponse.email()).orElseThrow();
+        Quiz quiz = createQuizForUser(user, "A");
+        long attemptCountBefore = quizAttemptRepository.countByQuizId(quiz.getId());
+
+        mockMvc.perform(post("/api/quizzes/{quizQuestionId}/submit", quiz.getId())
+                        .header("Authorization", "Bearer " + loginResponse.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "selectedAnswer": "A"
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/quizzes/{quizQuestionId}/submit", quiz.getId())
+                        .header("Authorization", "Bearer " + loginResponse.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "selectedAnswer": "B"
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        assertEquals(attemptCountBefore + 2, quizAttemptRepository.countByQuizId(quiz.getId()));
     }
 
     private Quiz createQuizForUser(User user, String correctAnswer) {

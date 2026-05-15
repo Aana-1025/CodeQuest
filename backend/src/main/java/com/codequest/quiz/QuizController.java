@@ -42,7 +42,7 @@ public class QuizController {
             @PathVariable("quizQuestionId") UUID quizQuestionId,
             @Valid @RequestBody SubmitQuizAnswerRequest request
     ) {
-        SubmitQuizAnswerResponse response = quizService.submitAnswer(quizQuestionId, request.selectedAnswer());
+        SubmitQuizAnswerResponse response = quizService.submitAnswer(currentUser.userId(), quizQuestionId, request.selectedAnswer());
         return ResponseEntity.ok(response);
     }
 }
