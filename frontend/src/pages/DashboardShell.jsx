@@ -187,7 +187,7 @@ function getAttemptStatusClass(isCorrect) {
     : "border-amber-200 bg-amber-50 text-amber-800";
 }
 
-export default function DashboardShell({ profile, onBackHome }) {
+export default function DashboardShell({ profile, onRefreshProfile, onBackHome }) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [generationLoading, setGenerationLoading] = useState(false);
   const [generationError, setGenerationError] = useState("");
@@ -200,6 +200,7 @@ export default function DashboardShell({ profile, onBackHome }) {
   const [quizSubmitLoading, setQuizSubmitLoading] = useState({});
   const [quizSubmitErrors, setQuizSubmitErrors] = useState({});
   const [quizSubmitResults, setQuizSubmitResults] = useState({});
+  const [quizSubmitProfileMessages, setQuizSubmitProfileMessages] = useState({});
   const [revealedFlashcards, setRevealedFlashcards] = useState({});
   const [noteContent, setNoteContent] = useState("");
   const [noteSaving, setNoteSaving] = useState(false);
@@ -218,6 +219,7 @@ export default function DashboardShell({ profile, onBackHome }) {
     setQuizSubmitLoading({});
     setQuizSubmitErrors({});
     setQuizSubmitResults({});
+    setQuizSubmitProfileMessages({});
     setRevealedFlashcards({});
     setNoteContent("");
     setNoteSaving(false);
@@ -370,6 +372,15 @@ export default function DashboardShell({ profile, onBackHome }) {
       ...current,
       [questionIndex]: "",
     }));
+    setQuizSubmitProfileMessages((current) => {
+      if (current[questionIndex] === undefined) {
+        return current;
+      }
+
+      const nextMessages = { ...current };
+      delete nextMessages[questionIndex];
+      return nextMessages;
+    });
     setQuizSubmitResults((current) => {
       if (current[questionIndex] === undefined) {
         return current;
@@ -407,12 +418,33 @@ export default function DashboardShell({ profile, onBackHome }) {
       ...current,
       [questionIndex]: "",
     }));
+    setQuizSubmitProfileMessages((current) => ({
+      ...current,
+      [questionIndex]: "",
+    }));
 
     try {
       const response = await submitQuizAnswer(quizQuestionId, selectedAnswer);
+
+      let profileMessage = "";
+      if (response?.isCorrect && typeof onRefreshProfile === "function") {
+        try {
+          const refreshedProfile = await onRefreshProfile();
+          if (typeof refreshedProfile?.xp === "number") {
+            profileMessage = `XP updated. Current XP: ${refreshedProfile.xp}`;
+          }
+        } catch {
+          profileMessage = "Answer submitted, but profile XP could not be refreshed. Reload profile to see latest XP.";
+        }
+      }
+
       setQuizSubmitResults((current) => ({
         ...current,
         [questionIndex]: response,
+      }));
+      setQuizSubmitProfileMessages((current) => ({
+        ...current,
+        [questionIndex]: profileMessage,
       }));
     } catch (error) {
       let message = "Could not submit answer right now.";
@@ -429,6 +461,15 @@ export default function DashboardShell({ profile, onBackHome }) {
         ...current,
         [questionIndex]: message,
       }));
+      setQuizSubmitProfileMessages((current) => {
+        if (current[questionIndex] === undefined) {
+          return current;
+        }
+
+        const nextMessages = { ...current };
+        delete nextMessages[questionIndex];
+        return nextMessages;
+      });
       setQuizSubmitResults((current) => {
         if (current[questionIndex] === undefined) {
           return current;
@@ -682,13 +723,14 @@ export default function DashboardShell({ profile, onBackHome }) {
                 </div>
               ) : (
                 <div className="mt-5 space-y-4">
-                  {quizQuestions.map((question, questionIndex) => {
-                    const options = normalizeQuestionOptions(question);
-                    const selectedOptionIndex = quizSelections[questionIndex];
-                    const quizResult = quizSubmitResults[questionIndex];
-                    const quizError = quizSubmitErrors[questionIndex];
-                    const isQuizSubmitting = Boolean(quizSubmitLoading[questionIndex]);
-                    const quizQuestionId = getQuizQuestionId(question);
+                    {quizQuestions.map((question, questionIndex) => {
+                      const options = normalizeQuestionOptions(question);
+                      const selectedOptionIndex = quizSelections[questionIndex];
+                      const quizResult = quizSubmitResults[questionIndex];
+                      const quizProfileMessage = quizSubmitProfileMessages[questionIndex];
+                      const quizError = quizSubmitErrors[questionIndex];
+                      const isQuizSubmitting = Boolean(quizSubmitLoading[questionIndex]);
+                      const quizQuestionId = getQuizQuestionId(question);
 
                     return (
                       <div
@@ -751,11 +793,11 @@ export default function DashboardShell({ profile, onBackHome }) {
                           </div>
                         )}
 
-                        {quizResult && (
-                          <div className={`mt-4 rounded-xl border p-4 ${
-                            quizResult.isCorrect
-                              ? "border-emerald-200 bg-emerald-50"
-                              : "border-amber-200 bg-amber-50"
+                          {quizResult && (
+                            <div className={`mt-4 rounded-xl border p-4 ${
+                              quizResult.isCorrect
+                                ? "border-emerald-200 bg-emerald-50"
+                                : "border-amber-200 bg-amber-50"
                           }`}>
                             <p className={`text-sm font-semibold ${
                               quizResult.isCorrect ? "text-emerald-800" : "text-amber-800"
@@ -770,14 +812,17 @@ export default function DashboardShell({ profile, onBackHome }) {
                                 Concept: {quizResult.concept}
                               </p>
                             )}
-                            {quizResult.explanation && (
-                              <div className="mt-3 rounded-xl border border-white/70 bg-white p-4">
-                                <p className="text-sm font-semibold text-slate-700">Explanation</p>
-                                <p className="mt-2 text-sm leading-6 text-slate-600">{quizResult.explanation}</p>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                              {quizResult.explanation && (
+                                <div className="mt-3 rounded-xl border border-white/70 bg-white p-4">
+                                  <p className="text-sm font-semibold text-slate-700">Explanation</p>
+                                  <p className="mt-2 text-sm leading-6 text-slate-600">{quizResult.explanation}</p>
+                                </div>
+                              )}
+                              {quizProfileMessage && (
+                                <p className="mt-3 text-sm text-slate-700">{quizProfileMessage}</p>
+                              )}
+                            </div>
+                          )}
 
                       </div>
                     );

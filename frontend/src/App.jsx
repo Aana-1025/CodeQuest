@@ -24,24 +24,37 @@ function App() {
     setActivePage("protected");
   };
 
-  const handleLoadProfile = async () => {
+  const refreshProfile = async ({ clearProfile = false } = {}) => {
     const token = getAccessToken();
     if (!token) {
-      setProfileError("Access token is missing.");
-      return;
+      const error = new Error("Access token is missing.");
+      setProfileError(error.message);
+      throw error;
     }
 
     setProfileLoading(true);
     setProfileError("");
-    setProfile(null);
+    if (clearProfile) {
+      setProfile(null);
+    }
 
     try {
       const data = await getCurrentUserProfile(token);
       setProfile(data);
+      return data;
     } catch (error) {
       setProfileError(error.message || "Failed to load profile.");
+      throw error;
     } finally {
       setProfileLoading(false);
+    }
+  };
+
+  const handleLoadProfile = async () => {
+    try {
+      await refreshProfile({ clearProfile: true });
+    } catch {
+      // The shared refresh helper already updates the visible error state.
     }
   };
 
@@ -185,7 +198,7 @@ function App() {
   }
 
   if (activePage === "dashboard") {
-    return <DashboardShell profile={profile} onBackHome={() => setActivePage("home")} />;
+    return <DashboardShell profile={profile} onRefreshProfile={refreshProfile} onBackHome={() => setActivePage("home")} />;
   }
 
   return renderHome();
