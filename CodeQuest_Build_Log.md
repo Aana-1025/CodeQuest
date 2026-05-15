@@ -5,13 +5,13 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Frontend / XP refresh after quiz submit
-Current feature: Frontend XP Refresh After Correct Quiz Submit completed, build-verified, manually verified, committed, and pushed
-Latest commit: `97e5493 feat: refresh xp after correct quiz submit`
-Previous commit: `bd3d199 docs: record backend xp award completion`
+Current module: Backend / Progress foundation
+Current feature: Backend Progress / Level Complete Foundation completed, backend-tested, manually verified from PowerShell, committed, and pushed
+Latest commit: `f86b082 feat: add level completion progress foundation`
+Previous commit: `f78c70e docs: record frontend xp refresh completion`
 Current branch: main
-Test status: Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS before commit: starting XP was visible, incorrect submit did not claim XP increased, correct submit refreshed the in-memory profile/dashboard XP display, repeated correct submit refreshed XP again according to the backend MVP repeated-award behavior, quiz result stayed safe, `correctAnswer` and `userId` were not visible in quiz result, tokens/secrets were not shown, and existing dashboard/lesson/quiz/flashcards/notes/attempt-history flows remained working. Scope checks PASS: backend, DB migrations, package files, AI, course API, auth API, and backend files unchanged; frontend diff limited to `App.jsx` and `DashboardShell.jsx`.
-Git status: clean after frontend XP refresh feature commit; Build Log docs update pending
+Test status: Backend `cd backend && .\mvnw.cmd test` PASS with 159 tests, 0 failures, 0 errors. Manual PowerShell verification PASS before commit: login/profile started at XP 0, AI course fetch returned first level XP 100, first authenticated `POST /api/levels/{levelId}/complete` returned `completed=true`, `alreadyCompleted=false`, `xpAwarded=100`, and `totalXp=100`; GET `/api/user/profile` then showed XP 100; repeated completion returned `alreadyCompleted=true`, `xpAwarded=0`, and profile XP stayed 100; no-token request returned 401; random valid level UUID returned 404; response safety check showed only `levelId`, `completed`, `alreadyCompleted`, `xpAwarded`, `totalXp`, and `completedAt`. Scope checks PASS: frontend, AI, auth, course, quiz, flashcard, note, problem, leaderboard, package files, README, Docker, CI/CD, and existing migrations unchanged; backend changes limited to new `LevelController`, new progress package, V8 progress migration, and level/progress tests. Runtime bug fixed before commit: initial PostgreSQL 500 from `quiz_answers_json` JSONB vs Java String mapping was fixed by removing the unused `quizAnswersJson` entity field while keeping the nullable JSONB column in V8 for future schema alignment.
+Git status: clean after Backend Progress / Level Complete Foundation feature commit; Build Log docs update pending
 
 ## Completed Features
 - [x] Project setup
@@ -61,6 +61,7 @@ Git status: clean after frontend XP refresh feature commit; Build Log docs updat
 - [x] Frontend Quiz Attempt History Display Foundation
 - [x] Backend XP Award Foundation for Quiz Submit
 - [x] Frontend XP Refresh After Correct Quiz Submit
+- [x] Backend Progress / Level Complete Foundation
 - [ ] Flashcards
 - [x] Notes
 - [x] Backend Quiz submit/scoring endpoint
@@ -175,7 +176,7 @@ Git status: clean after frontend XP refresh feature commit; Build Log docs updat
   - `DATABASE_USERNAME=postgres`
   - `DATABASE_PASSWORD=<local postgres password>`
   - `JWT_SECRET=dev-only-change-this-secret-dev-only-change-this-secret`
-- Flyway successfully applies/validates V1, V2, V3, V4, V5, and V6 migrations against local PostgreSQL.
+- Flyway successfully applies/validates V1 through V8 migrations against local PostgreSQL.
 - Running `.\mvnw.cmd spring-boot:run` without configured datasource environment variables still fails because the default profile has no datasource URL. This is expected and not a feature bug.
 - Local frontend-backend CORS is configured in Spring Security.
 - CORS allows only local Vite development origins:
@@ -251,7 +252,7 @@ Git status: clean after frontend XP refresh feature commit; Build Log docs updat
 - Lesson Flashcards panel was already compatible with backend `flashcards` shape using `front` and `back`; no backend change was needed for the compatibility fix.
 - Real Gemini BEGINNER AI course manual verification confirmed persisted quiz questions and flashcards render in the Lesson view.
 - Manual ADVANCED `Greedy Algorithm` test fell back to placeholder with safe `PARSER_VALIDATION_FAILURE`; this is not an API key/frontend issue and can be investigated later through safe parser diagnostics if needed.
-- Frontend quiz submit UI, answer persistence, XP/progress persistence, level unlock logic, Piston/code execution, leaderboard, Docker, CI/CD, deployment, and Phase 2 features remain unimplemented.
+- At that earlier stage, frontend quiz submit UI, answer persistence, XP/progress persistence, level unlock logic, Piston/code execution, leaderboard, Docker, CI/CD, deployment, and Phase 2 features were still unimplemented; later features implemented frontend quiz submit, quiz attempt persistence/history, quiz XP award/refresh, and backend level completion progress foundation.
 - Backend Quiz Persistence/Fetch Foundation is implemented.
 - V4 Flyway migration creates the `quizzes` table.
 - Quiz questions are persisted only from already parsed and validated AI output on successful AI course generation.
@@ -383,11 +384,33 @@ Git status: clean after frontend XP refresh feature commit; Build Log docs updat
 - Frontend XP refresh does not store profile/XP updates in localStorage or sessionStorage.
 - Frontend XP refresh does not display `correctAnswer`, `userId` in quiz result, tokens, passwords, roles, token hashes, refresh tokens, or secrets.
 - Frontend XP refresh added no backend, DB migration, AI/Gemini, package, React Router, rank, streak, progress, weak concept, unlock, leaderboard, or anti-farming changes.
+- Backend Progress / Level Complete Foundation is implemented.
+- V8 Flyway migration `V8__create_progress_table.sql` creates the `progress` table.
+- `progress` stores one row per authenticated user and level using `user_id` and `level_id`.
+- `progress` includes `completed`, `score`, nullable `quiz_answers_json`, `completed_at`, `created_at`, and `updated_at` for schema alignment.
+- `progress` enforces `UNIQUE(user_id, level_id)` so the same user cannot create duplicate completion rows for the same level.
+- `progress` includes indexes for user/level lookup according to the MVP database rules.
+- Backend level completion endpoint is POST `/api/levels/{levelId}/complete`.
+- POST `/api/levels/{levelId}/complete` is authenticated and uses `@AuthenticationPrincipal CurrentUserPrincipal`.
+- POST `/api/levels/{levelId}/complete` accepts only `levelId` from the path and no request body.
+- POST `/api/levels/{levelId}/complete` never accepts `userId` from request body, query params, headers, or path.
+- First completion for an authenticated user and level creates one progress row, marks it completed, sets `completedAt`, and awards `level.xpReward` to the authenticated user's XP.
+- Repeating completion for the same authenticated user and level is idempotent: no duplicate progress row is created, `alreadyCompleted=true` is returned, and `xpAwarded=0`.
+- Different users can complete the same level independently and receive first-completion XP independently.
+- Missing level IDs return standard 404 ErrorDTO behavior.
+- No-token completion requests return 401 through the existing Spring Security flow.
+- Level completion response is safe and includes only `levelId`, `completed`, `alreadyCompleted`, `xpAwarded`, `totalXp`, and `completedAt`.
+- Level completion response must not expose `userId`, password fields, roles, tokens, refresh tokens, token hashes, secrets, or raw entities.
+- `ProgressService.completeLevel(...)` is transactional so progress creation and user XP update are atomic.
+- The progress feature intentionally does not implement rank recalculation, streak logic, weak concept detection, level unlock rules, boss prerequisites, progress percentage, course completion, leaderboard, achievements, anti-farming for quiz submits, frontend UI, Piston/code execution, deployment, or Phase 2 features.
+- The initial manual PowerShell verification found a PostgreSQL runtime bug: `quiz_answers_json` was `jsonb` in V8 but the entity mapped it as a Java `String`, causing Hibernate to bind a varchar and PostgreSQL to return SQLState 42804.
+- The JSONB runtime bug was fixed before commit by removing the unused `quizAnswersJson` field from the `Progress` entity while keeping the nullable `quiz_answers_json JSONB` column in V8 for future schema alignment.
+- Backend tests after the progress feature and JSONB mapping fix pass with 159 tests, 0 failures, 0 errors.
 - Backend Quiz Attempt History/Fetch Foundation adds no migration and makes no frontend changes.
 - Backend Quiz Attempt Persistence Foundation does not change frontend files.
 - Backend Quiz Attempt Persistence Foundation does not change AI/Gemini, course generation/fetch, flashcards, or notes behavior.
 - Backend Quiz Attempt Persistence Foundation does not implement XP/progress/rank/streak, weak concept detection, level unlock, course completion, leaderboard, Piston/code execution, deployment, or Phase 2 features.
-- Answer persistence, XP/progress, weak concept detection, and level unlock logic remain unimplemented.
+- Quiz submit, quiz attempt persistence/history, quiz XP award/refresh, and backend level completion progress foundation are implemented; rank, streak, weak concept detection, level unlock logic, progress percentage/course completion UI, leaderboard, and code execution remain unimplemented.
 - GeminiService + PromptBuilder foundation is implemented in the isolated backend `ai` module.
 - GeminiService + PromptBuilder foundation originally did not call Gemini over network and did not wire into `CourseService` or `CourseController`.
 - GeminiService + PromptBuilder foundation uses env-backed Gemini placeholders:
@@ -551,6 +574,8 @@ Git status: clean after frontend XP refresh feature commit; Build Log docs updat
 
 ## Bugs / Issues
 - None blocking currently.
+- Backend Progress / Level Complete Foundation note: No blocking issue after fix. Manual PowerShell verification confirmed first authenticated level completion created progress and awarded level XP, repeated completion returned `alreadyCompleted=true` with `xpAwarded=0`, profile XP did not increase on repeat, no-token request returned 401, random valid level UUID returned 404, and response safety check showed only safe fields. Backend tests passed with 159 tests, 0 failures, 0 errors. Scope stayed backend-only with new LevelController, progress package, V8 migration, and level/progress tests; frontend, AI, auth, course, quiz, flashcard, note, problem, leaderboard, package files, README, Docker, CI/CD, and existing migrations stayed unchanged. Rank, streak, weak concept detection, unlock logic, progress percentage, course completion, leaderboard, achievements, anti-farming, Piston/code execution, and Phase 2 remain unimplemented.
+- Resolved during Backend Progress / Level Complete Foundation: Initial manual PowerShell verification of `POST /api/levels/{levelId}/complete` returned 500. Backend logs showed PostgreSQL SQLState 42804: `column "quiz_answers_json" is of type jsonb but expression is of type character varying`. Root cause was an unused Java `String quizAnswersJson` entity mapping against a PostgreSQL JSONB column. Fix: removed the unused entity field and constructor argument so Hibernate no longer binds a varchar for the JSONB column; kept nullable `quiz_answers_json JSONB` in V8 for future schema alignment. Backend tests still passed with 159 tests and manual verification passed after the fix.
 - Frontend XP Refresh After Correct Quiz Submit note: No blocking issue. Manual browser verification confirmed starting XP was visible, incorrect submit did not claim XP increased, correct submit refreshed profile/dashboard XP after backend award, repeated correct submit refreshed XP again according to MVP repeated-award behavior, quiz result remained safe, `correctAnswer` and `userId` were not visible, tokens/secrets/raw backend errors were not shown, and existing dashboard, course map, lesson, quiz submit, flashcards, notes preload/save, attempt history, and back-button flows remained working. Backend, migrations, package files, AI, auth API, course API, and backend files were unchanged. Rank/progress percentage/streak/weak concept/unlock logic remains unimplemented.
 - Backend XP Award Foundation note: No blocking issue. Manual API verification confirmed wrong answer left XP unchanged, correct answer awarded quiz `xpReward`, submit response still did not expose `correctAnswer` or `userId`, and the feature remained backend-only with no frontend, migration, AI, course, flashcard, note, or user entity changes. Repeated correct submits intentionally award XP again for MVP and may need deduplication/anti-farming rules later. Rank/progress/streak/weak concept/unlock logic remains unimplemented.
 - Frontend Quiz Attempt History Display Foundation note: No blocking issue. Manual browser verification confirmed attempt history cards render after quiz submissions, newest-first ordering is visible, selected answer/correctness/timestamp/question/course/level/concept/explanation display safely, muted attemptId and quizQuestionId display, and `correctAnswer`, `userId`, tokens, passwords, and secrets are not visible. Backend, migrations, package files, AI, course, flashcard, note, and backend quiz files were unchanged. XP/progress/rank/streak/weak concept/unlock logic remains unimplemented.
@@ -787,6 +812,8 @@ Git status: clean after frontend XP refresh feature commit; Build Log docs updat
 
 | 50 | 2026-05-15 | Frontend XP Refresh After Correct Quiz Submit | Frontend / Profile + Quiz | frontend/src/App.jsx; frontend/src/pages/DashboardShell.jsx | Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: starting XP visible; incorrect quiz submit did not claim XP increased; correct submit refreshed profile/dashboard XP; repeated correct submit refreshed XP again; `correctAnswer`, `userId`, tokens, and secrets were not visible; existing course map, lesson, quiz submit, flashcards, notes, attempt history, and back buttons still worked. Scope checks clean: backend, migrations, package files, authApi, courseApi, and backend files unchanged. | `97e5493 feat: refresh xp after correct quiz submit`. Added shared profile refresh callback from App.jsx to DashboardShell and refreshed the authenticated profile after successful correct quiz submits. Profile/XP remain in React state only; no localStorage/sessionStorage persistence, no backend, migration, AI, package, rank, streak, progress, weak concept, unlock, anti-farming, or Phase 2 work. |
 
+| 51 | 2026-05-16 | Backend Progress / Level Complete Foundation | Backend / Progress + Level | backend/src/main/java/com/codequest/level/LevelController.java; backend/src/main/java/com/codequest/progress/Progress.java; backend/src/main/java/com/codequest/progress/ProgressRepository.java; backend/src/main/java/com/codequest/progress/ProgressService.java; backend/src/main/java/com/codequest/progress/dto/LevelCompletionResponse.java; backend/src/main/resources/db/migration/V8__create_progress_table.sql; backend/src/test/java/com/codequest/level/LevelControllerTest.java; backend/src/test/java/com/codequest/progress/ProgressServiceTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 159 tests, 0 failures, 0 errors. Manual PowerShell verification PASS: first completion awarded level XP and created completed progress; repeat completion returned `alreadyCompleted=true`, `xpAwarded=0`, and no XP increase; no-token request returned 401; random valid level UUID returned 404; response safety check exposed only safe fields. Initial PostgreSQL JSONB/varchar mapping bug was fixed before commit and reverified. | `f86b082 feat: add level completion progress foundation`. Added V8 progress table, authenticated POST `/api/levels/{levelId}/complete`, progress entity/repository/service, safe response DTO, idempotent completion behavior, first-completion XP award, and focused level/progress tests. No frontend, AI/Gemini, auth, course generation, quiz submit/history, flashcard, note, problem, leaderboard, package, existing migration, README, Docker, CI/CD, rank, streak, weak concept, unlock, course completion, anti-farming, Piston, deployment, or Phase 2 work. |
+
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -877,6 +904,7 @@ Git status: clean after frontend XP refresh feature commit; Build Log docs updat
 | 2026-05-15 | `cd backend && .\mvnw.cmd test` after Backend XP Award Foundation for Quiz Submit | PASS | Backend tests passed with 147 tests, 0 failures, 0 errors after adding correct-answer XP award to quiz submit. | Yes |
 
 | 2026-05-15 | `cd frontend && npm run build` after Frontend XP Refresh After Correct Quiz Submit | PASS | Frontend build passed after adding profile refresh callback and quiz-submit XP refresh messaging. | Yes |
+| 2026-05-16 | `cd backend && .\mvnw.cmd test` after Backend Progress / Level Complete Foundation | PASS | Backend tests passed with 159 tests, 0 failures, 0 errors after adding V8 progress table, level completion endpoint, progress service, and focused level/progress tests. Initial manual PostgreSQL JSONB/varchar runtime bug was fixed before commit by removing unused `quizAnswersJson` entity mapping. | Yes |
 
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
@@ -968,6 +996,7 @@ Git status: clean after frontend XP refresh feature commit; Build Log docs updat
 | 2026-05-15 | Backend XP Award Foundation for Quiz Submit | Start backend with PostgreSQL/JWT env vars -> register/login new user -> GET `/api/user/profile` starting XP 0 -> local SQL selected quiz `823a0793-a227-4474-9bde-a6c99f2ab832` with correct answer C and xpReward 10 -> submit wrong answer A -> profile XP unchanged -> submit correct answer C -> response safety check -> profile XP became 10 -> repeated correct submit -> invalid answer Z -> missing quiz UUID -> no-token submit -> scope checks | Wrong answer returned `isCorrect=false` and XP stayed 0; correct answer returned `isCorrect=true`, response did not contain `correctAnswer` or `userId`, and XP increased to 10; repeated correct submit awards XP again for MVP; invalid answer returns 400 with no XP change; missing quiz returns 404 with no XP change; no-token returns 401 with no XP change; frontend/migration/AI/course/flashcard/note/user diffs remain empty. | Passed |
 
 | 2026-05-15 | Frontend XP Refresh After Correct Quiz Submit | Start backend with PostgreSQL/JWT env vars -> start frontend -> register/login new user -> confirm starting XP visible -> open AI course with quiz questions -> submit incorrect answer -> submit correct answer -> submit same correct answer again -> inspect quiz result/profile XP/safety/existing flows -> scope checks | Starting XP was visible; incorrect submit showed Incorrect and did not claim XP increased; correct submit showed Correct and refreshed profile/dashboard XP; repeated correct submit refreshed XP again according to backend MVP behavior; `correctAnswer`, `userId`, tokens, secrets, and raw backend errors were not visible; existing login/register, protected profile loading, dashboard, generate course, course map, lesson, quiz submit, flashcards, notes preload/save, quiz attempt history, and back buttons remained working; backend/package/authApi/courseApi diffs stayed empty. | Passed |
+| 2026-05-16 | Backend Progress / Level Complete Foundation | PowerShell-only backend check: login existing progress test user -> GET `/api/courses/{courseId}` -> choose first level with `xpReward=100` -> GET `/api/user/profile` starting XP 0 -> POST `/api/levels/{levelId}/complete` -> GET profile -> repeat same POST -> GET profile -> no-token POST -> random valid UUID POST -> response safety JSON check | First completion returned `completed=true`, `alreadyCompleted=false`, `xpAwarded=100`, `totalXp=100`, and `completedAt`; profile XP became 100; repeat completion returned `completed=true`, `alreadyCompleted=true`, `xpAwarded=0`, and `totalXp=100`; profile XP stayed 100; no-token request returned 401; random valid level UUID returned 404; response JSON contained only `levelId`, `completed`, `alreadyCompleted`, `xpAwarded`, `totalXp`, and `completedAt`. Initial 500 caused by `quiz_answers_json` JSONB vs varchar mapping was fixed and the same manual flow passed after restart. | Passed |
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -1046,13 +1075,13 @@ Tomcat started on port 8080
 Started CodeQuestApplication
 ```
 
-Expected Flyway behavior after Backend Quiz Attempt Persistence Foundation:
+Expected Flyway behavior after Backend Progress / Level Complete Foundation:
 ```text
-Successfully validated 7 migrations
+Successfully validated 8 migrations
 Schema "public" is up to date. No migration necessary.
 ```
 
-If V7 has not yet been applied to a local database, startup should apply `V7__create_quiz_attempts_table.sql` successfully.
+If V8 has not yet been applied to a local database, startup should apply `V8__create_progress_table.sql` successfully.
 
 Health check from another PowerShell:
 ```powershell
@@ -4629,67 +4658,475 @@ Important boundaries:
 - Frontend attempt history UI is implemented and displays current-user attempt history from GET `/api/quizzes/attempts`.
 - XP/progress/rank/streak, weak concept detection, level unlock logic, Piston/code execution, deployment, and Phase 2 remain unimplemented.
 
+
+## Backend Progress / Level Complete Foundation Manual Test Commands
+Use these after the backend progress foundation task `f86b082 feat: add level completion progress foundation`.
+
+This is a backend-only feature, so manual verification should be done from PowerShell/API checks, not browser UI.
+
+### Automated verification
+```powershell
+cd backend
+.\mvnw.cmd test
+cd ..
+```
+
+Expected after this feature:
+```text
+Tests run: 159
+Failures: 0
+Errors: 0
+BUILD SUCCESS
+```
+
+### Scope checks
+```powershell
+git diff -- frontend
+git diff -- backend/src/main/java/com/codequest/ai
+git diff -- backend/src/main/java/com/codequest/auth
+git diff -- backend/src/main/java/com/codequest/course
+git diff -- backend/src/main/java/com/codequest/quiz
+git diff -- backend/src/main/java/com/codequest/flashcard
+git diff -- backend/src/main/java/com/codequest/note
+git diff -- backend/src/main/java/com/codequest/problem
+git diff -- backend/src/main/java/com/codequest/leaderboard
+git diff -- backend/src/main/resources/db/migration
+git diff -- backend/src/main/java/com/codequest/level
+git diff -- backend/src/main/java/com/codequest/progress
+```
+
+Expected:
+```text
+Frontend diff is empty.
+AI/auth/course/quiz/flashcard/note/problem/leaderboard diffs are empty.
+DB migration diff contains only V8 before commit.
+Level/progress diffs are expected before commit.
+```
+
+### Backend env/run
+Start backend with local PostgreSQL/JWT env vars. Gemini key is not required for the level completion endpoint, but a course/level must already exist or be generated/fetched.
+
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject
+
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
+$env:DATABASE_USERNAME="postgres"
+$env:DATABASE_PASSWORD="<your-local-postgres-password>"
+$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
+
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+Expected:
+```text
+Flyway validates/applies V8__create_progress_table.sql successfully.
+Tomcat started on port 8080.
+Started CodeQuestApplication.
+```
+
+### Manual PowerShell verification
+From another PowerShell terminal:
+
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject
+$baseUrl = "http://localhost:8080"
+```
+
+Register a fresh user:
+```powershell
+$email = "progress_test_" + (Get-Date -Format "yyyyMMddHHmmss") + "@example.com"
+
+$registerBody = @{
+  name = "Progress Tester"
+  email = $email
+  password = "StrongPass123"
+} | ConvertTo-Json
+
+$registerResponse = Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/register" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body $registerBody
+
+$registerResponse
+```
+
+Login without printing tokens:
+```powershell
+$loginBody = @{
+  email = $email
+  password = "StrongPass123"
+} | ConvertTo-Json
+
+$loginResponse = Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/login" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body $loginBody
+
+$accessToken = $loginResponse.accessToken
+$headers = @{
+  Authorization = "Bearer $accessToken"
+}
+
+$loginResponse | Select-Object userId, name, email, rank, xp, streak, tokenType, expiresInSeconds
+```
+
+Generate or fetch a course:
+```powershell
+$courseBody = @{
+  topic = "Progress Manual Test"
+  difficulty = "BEGINNER"
+  goal = "Test level completion"
+} | ConvertTo-Json
+
+$courseResponse = Invoke-RestMethod `
+  -Uri "$baseUrl/api/courses/generate" `
+  -Method Post `
+  -Headers $headers `
+  -ContentType "application/json" `
+  -Body $courseBody
+
+$courseId = $courseResponse.courseId
+$courseResponse
+```
+
+Fetch course details and choose first level:
+```powershell
+$courseDetails = Invoke-RestMethod `
+  -Uri "$baseUrl/api/courses/$courseId" `
+  -Method Get `
+  -Headers $headers
+
+$courseDetails.levels | Select-Object levelId, title, xpReward, isBoss
+
+$levelId = $courseDetails.levels[0].levelId
+$levelXp = $courseDetails.levels[0].xpReward
+
+$levelId
+$levelXp
+```
+
+Check starting profile XP:
+```powershell
+$profileBefore = Invoke-RestMethod `
+  -Uri "$baseUrl/api/user/profile" `
+  -Method Get `
+  -Headers $headers
+
+$profileBefore | Select-Object name, email, xp, rank, streak
+
+$startingXp = $profileBefore.xp
+$startingXp
+```
+
+Complete the level first time:
+```powershell
+$completeResponse1 = Invoke-RestMethod `
+  -Uri "$baseUrl/api/levels/$levelId/complete" `
+  -Method Post `
+  -Headers $headers
+
+$completeResponse1
+```
+
+Expected first completion:
+```text
+completed=true
+alreadyCompleted=false
+xpAwarded=<level.xpReward>
+totalXp=<startingXp + level.xpReward>
+completedAt present
+```
+
+Confirm profile XP increased:
+```powershell
+$profileAfterFirst = Invoke-RestMethod `
+  -Uri "$baseUrl/api/user/profile" `
+  -Method Get `
+  -Headers $headers
+
+$profileAfterFirst | Select-Object xp, rank, streak
+$profileAfterFirst.xp -eq ($startingXp + $levelXp)
+```
+
+Expected:
+```text
+True
+```
+
+Complete the same level again:
+```powershell
+$completeResponse2 = Invoke-RestMethod `
+  -Uri "$baseUrl/api/levels/$levelId/complete" `
+  -Method Post `
+  -Headers $headers
+
+$completeResponse2
+```
+
+Expected repeat completion:
+```text
+completed=true
+alreadyCompleted=true
+xpAwarded=0
+totalXp unchanged
+```
+
+Confirm repeat did not increase XP:
+```powershell
+$profileAfterRepeat = Invoke-RestMethod `
+  -Uri "$baseUrl/api/user/profile" `
+  -Method Get `
+  -Headers $headers
+
+$profileAfterRepeat | Select-Object xp, rank, streak
+$profileAfterRepeat.xp -eq $profileAfterFirst.xp
+```
+
+Expected:
+```text
+True
+```
+
+No-token check:
+```powershell
+try {
+  Invoke-RestMethod `
+    -Uri "$baseUrl/api/levels/$levelId/complete" `
+    -Method Post
+} catch {
+  $_.Exception.Response.StatusCode.value__
+}
+```
+
+Expected:
+```text
+401
+```
+
+Missing-level check:
+```powershell
+$randomLevelId = [guid]::NewGuid().ToString()
+
+try {
+  Invoke-RestMethod `
+    -Uri "$baseUrl/api/levels/$randomLevelId/complete" `
+    -Method Post `
+    -Headers $headers
+} catch {
+  $_.Exception.Response.StatusCode.value__
+}
+```
+
+Expected:
+```text
+404
+```
+
+Safety response check:
+```powershell
+$completeResponse1 | ConvertTo-Json -Depth 5
+```
+
+Expected safe fields only:
+```text
+levelId
+completed
+alreadyCompleted
+xpAwarded
+totalXp
+completedAt
+```
+
+Must not contain:
+```text
+userId
+password
+passwordHash
+password_hash
+role
+token
+accessToken
+refreshToken
+tokenHash
+secret
+```
+
+Observed latest manual result:
+```text
+Login worked with xp=0 and rank=BEGINNER.
+Course fetch worked and first level had xpReward=100.
+First completion returned completed=True, alreadyCompleted=False, xpAwarded=100, totalXp=100.
+Profile XP became 100 after first completion.
+Repeat completion returned completed=True, alreadyCompleted=True, xpAwarded=0, totalXp=100.
+Profile XP stayed 100 after repeat completion.
+No-token request returned 401.
+Random valid level UUID returned 404.
+Response JSON contained only levelId, completed, alreadyCompleted, xpAwarded, totalXp, and completedAt.
+```
+
+### Resolved runtime issue during this feature
+Initial manual verification returned HTTP 500 for `POST /api/levels/{levelId}/complete`.
+
+Backend log:
+```text
+ERROR: column "quiz_answers_json" is of type jsonb but expression is of type character varying
+SQLState: 42804
+```
+
+Root cause:
+```text
+The V8 migration created quiz_answers_json as PostgreSQL JSONB, but the Progress entity mapped it as a Java String, causing Hibernate to bind it as VARCHAR during insert.
+```
+
+Fix:
+```text
+Removed the unused quizAnswersJson field from Progress entity and constructor so Hibernate no longer writes a varchar value into the JSONB column.
+Kept nullable quiz_answers_json JSONB in V8 for future schema alignment.
+```
+
+Important boundaries:
+- Endpoint is POST `/api/levels/{levelId}/complete`.
+- Endpoint requires JWT Bearer token.
+- Endpoint accepts no request body.
+- Current user comes only from `CurrentUserPrincipal`.
+- Request must not accept userId from body, query params, headers, or path.
+- First completion creates one progress row and awards `level.xpReward`.
+- Repeat completion is idempotent and does not award XP again.
+- Different users can complete the same level independently.
+- Response is safe and does not expose userId, passwords, roles, tokens, refresh tokens, token hashes, or secrets.
+- Frontend UI integration is not implemented in this backend foundation.
+- Rank, streak, progress percentage, weak concept detection, unlock logic, boss prerequisites, course completion, leaderboard, achievements, anti-farming, Piston/code execution, deployment, and Phase 2 remain unimplemented.
+
+
 ## Next Chat Prompt
+Paste this prompt into a fresh ChatGPT Project chat whenever the current chat becomes slow or confusing.
 
 ```text
-You are continuing CodeQuest, an AI-assisted Java learning platform MVP.
+This is a continuation chat for my CodeQuest Java Developer Portfolio Project.
 
-Read and follow these repo/project files in priority order:
-1. AGENTS.md
+Important context:
+This ChatGPT Project has had many previous long chats for the same CodeQuest project. Those older chats became slow because we worked on many backend/frontend features step by step. You are a continuation chat of those previous chats. Please analyze the current project resources carefully and continue from the latest state. If you notice your replies/thinking becoming slow later because this chat becomes too long, please tell me to start a fresh chat inside the same ChatGPT Project so we can continue smoothly.
+
+Very important workflow:
+- We use Maven Wrapper, NOT installed Maven.
+- Never use plain `mvn`.
+- For backend tests always use:
+  cd backend
+  .\mvnw.cmd test
+- If stale compiled class issues happen, use:
+  cd backend
+  .\mvnw.cmd clean test
+- For frontend build use:
+  cd frontend
+  npm run build
+- My system is Windows + PowerShell.
+- Repo path usually:
+  C:\Users\hp\Desktop\CodeQuestFinalProject
+- GitHub repo:
+  https://github.com/Aana-1025/CodeQuest.git
+- Always ask me for `git status --short`, test output, diff safety output, and manual verification output before telling me to commit.
+- Do not commit automatically. I commit manually after verification.
+- Do not start the next feature while current feature has uncommitted changes.
+- For backend-only features, give me detailed PowerShell-only manual verification steps with exactly what to type and where to type it.
+- For frontend changes, give me browser-based manual checks.
+- For full-stack changes, give me both PowerShell API checks and browser checks.
+- After every Codex prompt, include a proper manual verification section to confirm the current feature works before commit.
+
+Source-of-truth priority:
+1. CodeQuest_AI_Control_Master_Blueprint_v3
 2. docs/CodeQuest_Core_Rules.md
 3. docs/CodeQuest_DB_Schema.md
 4. docs/CodeQuest_API_Contracts.md
 5. docs/CodeQuest_Feature_Prompts.md
 6. CodeQuest_Build_Log.md
+7. AGENTS.md
 
-Important workflow:
-- This project uses Maven Wrapper, not plain Maven.
-- For backend tests use only: cd backend && .\mvnw.cmd test
-- For suspicious stale compiled class issues use: cd backend && .\mvnw.cmd clean test
-- For frontend builds use: cd frontend && npm run build
-- Do not commit until automated tests, manual verification, and scope checks pass.
-- Do not update CodeQuest_Build_Log.md during implementation unless I ask after verification.
+For Codex specifically, inspect:
+- AGENTS.md
+- docs/CodeQuest_Core_Rules.md
+- docs/CodeQuest_DB_Schema.md
+- docs/CodeQuest_API_Contracts.md
+- docs/CodeQuest_Feature_Prompts.md
+- CodeQuest_Build_Log.md
 
-Current state:
-- Latest feature commit: 97e5493 feat: refresh xp after correct quiz submit
-- Previous docs commit: bd3d199 docs: record backend xp award completion
-- Frontend XP Refresh After Correct Quiz Submit is complete.
-- Frontend build passes with cd frontend && npm run build.
-- App.jsx owns authenticated profile state and passes a profile refresh callback into DashboardShell.
-- After a correct quiz submit, DashboardShell refreshes GET /api/user/profile so dashboard/profile XP updates after backend XP award.
-- Incorrect submit does not claim XP increased.
-- If refresh fails after a correct submit, quiz result remains visible and a safe fallback message appears.
-- Backend XP Award Foundation for Quiz Submit is complete.
-- Correct authenticated quiz submits award quiz.xpReward to the authenticated current user's xp.
-- Incorrect/invalid/missing/no-token submits do not award XP.
-- Repeated correct submits award XP again for MVP; no deduplication/anti-farming is implemented yet.
-- Quiz submit response remains safe and does not expose correctAnswer or userId.
-- Backend quiz attempt persistence and GET /api/quizzes/attempts history are complete.
-- Frontend quiz submit, frontend quiz attempt history display, notes preload/save, flashcards display, course map, lesson page, and AI course generation with safe Gemini fallback/retry are complete.
-- Rank system, progress percentage, streak system, weak concept detection, level unlock logic, course completion, leaderboard, Piston/code execution, deployment, README/screenshots/demo video remain unimplemented.
+Current latest state:
+- Phase: MVP
+- Current module: Backend / Progress foundation
+- Latest completed feature: Backend Progress / Level Complete Foundation
+- Latest feature commit: f86b082 feat: add level completion progress foundation
+- Previous docs commit: f78c70e docs: record frontend xp refresh completion
+- Build Log docs update for Backend Progress / Level Complete Foundation may be pending unless I already committed:
+  docs: record level completion progress foundation
+- Backend tests after feature passed:
+  cd backend
+  .\mvnw.cmd test
+  159 tests, 0 failures, 0 errors
+- Manual PowerShell verification passed:
+  - login/profile started at XP 0 and rank BEGINNER
+  - course fetch returned first level with XP 100
+  - first POST /api/levels/{levelId}/complete returned completed=true, alreadyCompleted=false, xpAwarded=100, totalXp=100
+  - profile XP became 100 after first completion
+  - repeated POST /api/levels/{levelId}/complete returned alreadyCompleted=true and xpAwarded=0
+  - profile XP stayed 100 after repeat completion
+  - no-token request returned 401
+  - random valid level UUID returned 404
+  - response safety check showed only levelId, completed, alreadyCompleted, xpAwarded, totalXp, completedAt
+  - no userId, password, passwordHash, token, refreshToken, tokenHash, role, or secrets were exposed
+- Scope checks passed:
+  - frontend unchanged
+  - AI unchanged
+  - auth unchanged
+  - course unchanged
+  - quiz unchanged
+  - flashcard unchanged
+  - note unchanged
+  - problem unchanged
+  - leaderboard unchanged
+  - package files unchanged
+  - README/Docker/CI unchanged
+  - existing migrations unchanged
+  - backend changes limited to new LevelController, new progress package, V8 progress migration, and level/progress tests
+- Runtime bug fixed before commit:
+  - initial POST /api/levels/{levelId}/complete returned 500
+  - backend log root cause was PostgreSQL SQLState 42804: quiz_answers_json was JSONB but Java mapping sent varchar
+  - fix removed unused quizAnswersJson String mapping from Progress entity
+  - V8 keeps nullable quiz_answers_json JSONB for schema alignment
+  - backend tests still passed and manual verification passed after restart
 
-Next safest MVP task suggestion:
-Choose exactly one small slice. Recommended next slice:
-Backend Progress Foundation
-OR Backend Rank Foundation
-OR Frontend profile XP polish only if UI needs minor cleanup.
+Current implemented progress behavior:
+- V8 creates `progress` table.
+- POST /api/levels/{levelId}/complete is authenticated.
+- It uses CurrentUserPrincipal only and accepts no userId.
+- First completion creates progress row, marks completed, sets completedAt, and awards level.xpReward to user XP.
+- Repeat completion for same user/level is idempotent: no duplicate progress row and no repeat XP.
+- Different users can complete the same level independently.
+- Response DTO fields: levelId, completed, alreadyCompleted, xpAwarded, totalXp, completedAt.
+- Response does not expose userId, password fields, tokens, roles, token hashes, refresh tokens, or secrets.
+- Rank, streak, weak concept detection, level unlock rules, boss prerequisites, progress percentage, course completion, leaderboard, achievements, anti-farming, Piston/code execution, frontend progress UI, deployment, Docker, CI/CD, README/screenshots/demo video remain unimplemented.
 
-If choosing Backend Progress Foundation:
-- Keep it backend-only and very small.
-- Inspect docs/API contracts first.
-- Do not combine with frontend UI, rank, streak, weak concept detection, level unlock, leaderboard, deployment, or Phase 2 features.
-- Prefer a minimal read-only or persist-on-submit foundation only if the schema/contracts already support it.
-- Use authenticated CurrentUserPrincipal only; never accept userId from client.
-- Do not expose correctAnswer, tokens, passwords, roles, token hashes, refresh tokens, or secrets.
-- Run cd backend && .\mvnw.cmd test.
+Recommended next safest MVP task:
+Choose one narrow feature only. Good candidates:
+1. Backend Rank Update Foundation after XP changes
+2. Backend Level Unlock Logic Foundation
+3. Frontend Level Complete Integration / Progress Display
+4. Backend Progress Fetch Endpoint
+Pick the safest next MVP slice after checking git status and Build Log.
 
-If choosing Backend Rank Foundation:
-- Keep it backend-only and small.
-- Only implement rank thresholds if they are clearly defined in docs/contracts.
-- Do not combine with frontend UI, unlock, streak, weak concept detection, leaderboard, or deployment.
-- Run cd backend && .\mvnw.cmd test.
-
-Always keep scope narrow and ask for Build Log update only after commit.
+Important:
+Do not redesign anything.
+Do not invent new features.
+MVP first.
+Give me one strict Codex prompt only.
+The prompt must include:
+- exact files Codex may touch
+- exact files Codex must not touch
+- automated commands
+- detailed PowerShell manual verification steps for backend-only tasks or browser steps for frontend tasks
+- diff safety checks
+- Build Log update instructions after verification
 ```
 
 ## New Chat Continuation Summary Template
@@ -4700,214 +5137,39 @@ Architecture: Modular monolith
 Backend: Java 21 + Spring Boot
 Frontend: React + Vite + Tailwind
 Database: PostgreSQL + Flyway
-AI: Gemini API
-Code execution: Piston API
-
-Current module: Frontend / XP refresh after correct quiz submit
-Last completed feature: Frontend XP Refresh After Correct Quiz Submit
-Latest feature commit: 97e5493 feat: refresh xp after correct quiz submit
-Previous commit: bd3d199 docs: record backend xp award completion
-Git status: clean after frontend XP refresh feature commit; Build Log docs update pending until this file is committed
-Tests passed:
-- Frontend cd frontend && npm run build PASS
-
-Manual verification passed:
-- Backend was started with PostgreSQL/JWT env vars.
-- Frontend was started with npm run dev.
-- New user registered/logged in.
-- Starting XP was visible in dashboard/profile area.
-- AI quiz course/lesson flow was used for quiz submit testing.
-- Incorrect submit showed Incorrect and did not claim XP increased.
-- Correct submit showed Correct and refreshed the profile/dashboard XP display.
-- Repeated correct submit refreshed XP again according to current backend MVP repeated-award behavior.
-- Quiz result did not show correctAnswer.
-- Quiz result did not show userId.
-- Tokens, refresh tokens, passwords, secrets, and raw backend errors were not visible.
-- Existing login/register, protected profile loading, dashboard, generate course, course map, lesson, quiz submit, flashcards, notes preload/save, quiz attempt history load/refresh, and back buttons remained working.
-- Backend, DB migrations, package files, authApi, courseApi, and backend files remained unchanged.
-
-Known bugs/blockers:
-- None blocking currently.
-- Repeated correct submit intentionally awards XP again for MVP; anti-farming/deduplication is deferred.
-- Rank system, progress percentage, streak system, weak concept detection, and level unlock logic are still not implemented.
-
-Next task:
-Backend Progress Foundation, Backend Rank Foundation, or another one-small-slice MVP task depending on the master plan. Prefer one small foundation at a time.
-
-Important workflow:
-- Use Maven Wrapper only: cd backend && .\mvnw.cmd test
-- Never use plain mvn.
-- For frontend tasks: cd frontend && npm run build.
-- Do not commit until automated tests and practical manual checks pass.
-- Update CodeQuest_Build_Log.md after every completed feature.
-- Keep tasks small and MVP-scoped.
-- Do not start the next feature with uncommitted changes.
-
-Important completed Auth details:
-- Register implemented.
-- Login implemented.
-- JWT authentication implemented.
-- Login response returns accessToken and refreshToken.
-- Refresh token is opaque, not JWT.
-- Refresh token is stored only as a hash in the refresh_tokens table.
-- POST /api/auth/refresh implemented.
-- POST /api/auth/logout implemented.
-- Existing access tokens remain valid until expiry.
-- No refresh-token rotation implemented.
-
-Important completed User profile details:
-- GET /api/user/profile implemented.
-- Endpoint requires JWT authentication.
-- Endpoint uses CurrentUserPrincipal from SecurityContext.
-- Endpoint does not accept userId from params, body, or path.
-- UserProfileResponse returns safe fields.
-- No update profile endpoint implemented.
-
-Important completed Frontend details:
-- Login page implemented.
-- Register page implemented.
-- Protected Area implemented.
-- DashboardShell implemented.
-- DashboardShell includes Generate Course form.
-- DashboardShell calls POST /api/courses/generate only on button click.
-- DashboardShell displays generated course and levels.
-- DashboardShell displays correct source badge: Cache Hit, AI Generated Course, New Placeholder Course, or New Course.
-- DashboardShell supports explicit-click Course Map loading from GET /api/courses/{courseId}.
-- DashboardShell supports frontend-only Lesson view opened from Course Map level cards.
-- DashboardShell supports safe quiz submit from Lesson view using POST /api/quizzes/{quizQuestionId}/submit.
-- DashboardShell displays current-user quiz attempt history from GET /api/quizzes/attempts after explicit Load/Refresh click.
-- Frontend attempt history is read-only, local component state only, and does not show correctAnswer, userId, tokens, or secrets.
-- Lesson view reuses already-fetched Course Map data and supports Back to Course Map without refetching.
-- Lesson view includes Quiz panel with backend quizQuestions/options display.
-- Lesson view includes Flashcards panel with backend flashcards display.
-- Lesson Quiz panel supports backend quizQuestions[].options object shape {A, B, C, D}.
-- Lesson Flashcards panel supports backend flashcards front/back shape.
-- Real AI quizQuestions and flashcards display has been manually verified in Lesson view.
-- Lesson Quiz panel submits selected answers to POST /api/quizzes/{quizQuestionId}/submit.
-- Frontend quiz submit uses quizId from fetched quiz data with quizQuestionId fallback.
-- Frontend quiz submit tracks loading/error/result state per quiz question.
-- Frontend quiz submit clears previous result when selected answer changes.
-- Frontend quiz submit displays safe Correct/Incorrect, selected answer, explanation, and concept.
-- Frontend quiz submit does not display correctAnswer and does not persist quiz results in browser storage.
-- React Router not added.
-- Lesson view includes a frontend-only Notes editor that saves notes using authenticated POST /api/notes.
-- Notes editor preloads saved notes using authenticated GET /api/notes/levels/{levelId} when a lesson is opened.
-- Notes editor uses local state only, resets/preloads on lesson change, and does not store notes in browser storage.
-- Notes editor does not render raw HTML.
-- Logout UI not implemented.
-
-Important completed Local runtime / CORS details:
-- PostgreSQL 17 installed locally.
-- Local database codequest created.
-- Backend starts with DATABASE_URL, DATABASE_USERNAME, DATABASE_PASSWORD, JWT_SECRET.
-- Flyway has migrations V1 through V7.
-- CORS allows localhost/127.0.0.1 ports 5173 and 5174.
-- Browser register/login/profile/course-generation smoke tests pass.
-
-Important completed Course generation/details:
-- V3 migration creates courses and levels tables.
-- V4 migration creates quizzes table.
-- V5 migration creates flashcards table.
-- V6 migration creates notes table.
-- V7 migration creates quiz_attempts table.
-- CourseService implements normalized topic/difficulty cache behavior.
-- CourseController exposes authenticated POST /api/courses/generate.
-- Cache hit returns same courseId with cacheHit=true.
-- Cache hit does not call Gemini.
-- Placeholder fallback creates exactly 3 levels and totalXp 225.
-- Placeholder courses create no quiz rows.
-- Placeholder courses create no flashcard rows.
-- AI-success course generation can persist validated quiz rows linked to levels.
-- AI-success course generation can persist validated flashcards linked to levels.
-- GenerateCourseResponse includes sourceType.
-- Frontend DashboardShell displays returned course and levels.
-- Authenticated GET /api/courses/{courseId} is implemented.
-- GET /api/courses/{courseId} returns courseId, title, description, difficulty, sourceType, totalXp, and ordered levels.
-- Level response returns levelId, orderNumber, title, contentMarkdown, xpReward, isBoss, quizQuestions, and flashcards.
-- quizQuestions is empty when no quiz rows exist.
-- flashcards is empty when no flashcard rows exist.
-- correctAnswer is intentionally hidden from GET /api/courses/{courseId} responses.
-- GET /api/courses/{courseId} returns 404 for missing course and 401 without token.
-- GET /api/courses/{courseId} does not call Gemini.
-
-Important completed Quiz details:
-- Backend Quiz Persistence/Fetch Foundation is implemented.
-- GET /api/courses/{courseId} returns safe quizQuestions arrays.
-- GET course quiz response exposes quizId, orderNumber, question, options, explanation, conceptTag, and xpReward.
-- GET course quiz response does not expose correctAnswer.
-- Backend Quiz Submit/Scoring Foundation is implemented.
-- POST /api/quizzes/{quizQuestionId}/submit is authenticated.
-- POST /api/quizzes/{quizQuestionId}/submit accepts only selectedAnswer.
-- selectedAnswer must be A/B/C/D and is normalized with trim + uppercase.
-- Quiz scoring uses backend-stored correctAnswer only.
-- Submit response returns quizQuestionId, selectedAnswer, isCorrect, explanation, and concept.
-- Submit response never returns correctAnswer.
-- Invalid selectedAnswer returns 400.
-- Missing quiz id returns 404.
-- No-token submit returns 401.
-- Frontend Quiz Submit Integration is implemented.
-- Lesson Quiz panel submits answers using POST /api/quizzes/{quizQuestionId}/submit.
-- Frontend displays only safe scoring result fields and keeps correctAnswer hidden.
-- Backend Quiz Attempt Persistence Foundation is implemented.
-- Each successful authenticated submit persists one row in quiz_attempts.
-- Repeated submits create multiple rows, not overwrites.
-- Invalid/missing/unauthenticated submits do not persist attempts.
-- Quiz attempts store user, quiz, selectedAnswer, isCorrect, and attemptedAt.
-- Attempt persistence derives user identity from CurrentUserPrincipal only.
-- Backend Quiz Attempt History/Fetch Foundation is implemented.
-- GET /api/quizzes/attempts returns only the authenticated current user's attempts ordered newest-first.
-- GET /api/quizzes/attempts returns safe DTOs and does not expose correctAnswer or userId.
-- Frontend attempt history UI is implemented and displays current-user attempt history from GET `/api/quizzes/attempts`.
-- Backend XP Award Foundation for Quiz Submit is implemented.
-- Correct quiz submits add the quiz `xpReward` to the authenticated user's `xp`.
-- Incorrect/invalid/missing/no-token submit paths do not award XP.
-- Repeated correct submits award XP again for MVP; deduplication is deferred.
-- Rank/streak/progress/unlock logic is not implemented.
-
-Important completed Flashcard details:
-- Backend Flashcards Persistence/Fetch Foundation is implemented.
-- GET /api/courses/{courseId} returns safe flashcards arrays.
-- Placeholder courses return empty flashcards arrays.
-- AI-success course generation can persist validated flashcards linked to levels.
-- Frontend Lesson view displays backend flashcards with Show/Hide Answer.
-
-Important completed Notes details:
-- Backend Notes Foundation is implemented.
-- V6 notes table stores one note per user_id + level_id.
-- POST /api/notes is authenticated and upserts current user's note for a level.
-- POST /api/notes accepts only levelId and content.
-- Note ownership comes from CurrentUserPrincipal, never from client userId.
-- GET /api/notes/levels/{levelId} is implemented.
-- GET note endpoint returns only current user's note.
-- GET note endpoint returns 404 for missing level or missing current-user note.
-- Frontend Notes editor saves and preloads notes safely.
-
-Important completed AI details:
-- GeminiService + PromptBuilder foundation implemented.
-- ResponseParser + AI validation implemented.
-- Gemini course generation wiring implemented with safe placeholder fallback.
-- Gemini prompt/response compatibility polish implemented.
-- Safe Gemini fallback diagnostics implemented.
-- Gemini HTTP request/status diagnostics implemented.
-- Gemini retry-once for transient 5xx implemented.
-- Real source_type=AI persistence confirmed for graph dfs gemini retry test.
-- Tests must never call real Gemini.
-- API keys and DB passwords must never be pasted, logged, committed, or documented.
-
-Still not implemented:
-
-- Rank system.
-- Progress system beyond basic quiz XP award.
-- Streak system.
-- Weak concept detection.
-- Level unlock logic.
-- Piston run code.
-- Code submit.
-- Code submissions history.
-- AI code review.
-- Leaderboard.
-- Docker.
-- CI/CD.
-- Deployment.
-- README/screenshots/demo video/resume bullets.
+AI: Gemini API through GeminiService only
+Code execution: Piston API only; never execute user code inside backend
+Current module: Backend / Progress foundation
+Last completed feature: Backend Progress / Level Complete Foundation
+Latest feature commit: f86b082 feat: add level completion progress foundation
+Previous docs commit: f78c70e docs: record frontend xp refresh completion
+Tests passed: Backend `cd backend && .\mvnw.cmd test` PASS with 159 tests, 0 failures, 0 errors
+Manual verification: PowerShell backend verification PASS. First level completion awarded level XP and created progress, repeat completion was idempotent and awarded 0 XP, no-token returned 401, missing level returned 404, and response safety check exposed only safe fields.
+Known bugs: None blocking. Initial manual 500 during progress feature was fixed before commit by removing unused String mapping for JSONB `quiz_answers_json` from Progress entity while keeping nullable JSONB column in V8.
+Next task candidates: Backend Rank Update Foundation after XP changes, Backend Level Unlock Logic Foundation, Frontend Level Complete Integration / Progress Display, or Backend Progress Fetch Endpoint. Choose one narrow MVP slice only.
+Rules: Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Prompts, Build Log, and AGENTS.md. Do not redesign anything. Do not add Phase 2 features. Use Maven Wrapper only: `cd backend && .\mvnw.cmd test`. For backend-only features, give detailed PowerShell manual verification steps. For frontend features, give browser manual verification steps.
 ```
+
+## Latest Safe Continuation Notes
+- Latest feature commit pushed to main: `f86b082 feat: add level completion progress foundation`.
+- Previous docs commit on main: `f78c70e docs: record frontend xp refresh completion`.
+- Backend tests after the progress feature passed with 159 tests, 0 failures, 0 errors.
+- Manual PowerShell verification after the progress feature passed.
+- The new progress endpoint is POST `/api/levels/{levelId}/complete`.
+- V8 migration creates the progress table.
+- First level completion awards XP once and creates progress.
+- Repeated same-user same-level completion is idempotent and awards 0 XP.
+- Current user is derived from JWT / `CurrentUserPrincipal` only.
+- Response is safe and does not expose userId, password, role, tokens, refresh tokens, token hashes, or secrets.
+- The initial PostgreSQL JSONB/varchar runtime bug was fixed before commit.
+- Rank system is still not implemented.
+- Streak system is still not implemented.
+- Weak concept detection is still not implemented.
+- Level unlock logic is still not implemented.
+- Progress percentage/course completion UI is still not implemented.
+- Piston run code is still not implemented.
+- Code submit is still not implemented.
+- Code submissions history is still not implemented.
+- AI code review is still not implemented.
+- Leaderboard is still not implemented.
+- Docker, CI/CD, deployment, README, screenshots, demo video, and resume bullets are still not done.
