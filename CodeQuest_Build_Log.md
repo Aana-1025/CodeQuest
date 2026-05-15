@@ -5,13 +5,13 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Frontend / Quiz submit integration
-Current feature: Frontend Quiz Submit Integration completed, tested, manually verified, committed, and pushed
-Latest commit: `f6fa55d feat: integrate frontend quiz submit`
-Previous commit: `cc66880 docs: record quiz submit scoring completion`
+Current module: Backend / Quiz attempt persistence foundation
+Current feature: Backend Quiz Attempt Persistence Foundation completed, tested, manually verified, committed, and pushed
+Latest commit: `40355ea feat: persist quiz submit attempts`
+Previous commit: `44f634a docs: record frontend quiz submit completion`
 Current branch: main
-Test status: Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: Lesson Quiz panel renders quiz questions/options, Submit Answer stays disabled until an option is selected, selected answer submits to backend POST `/api/quizzes/{quizQuestionId}/submit`, safe scoring result displays Correct/Incorrect, selected answer, explanation, and concept; changing answer clears previous result; `correctAnswer` is not visible; backend was run with Gemini key only to generate AI quiz data for manual testing; backend files, DB migrations, AI, course, flashcard, and note files remained unchanged.
-Git status: clean after frontend quiz submit integration feature commit; Build Log docs update pending
+Test status: Backend `cd backend && .\mvnw.cmd test` PASS with 136 tests, 0 failures, 0 errors. Manual API/DB verification PASS: authenticated valid quiz submit inserts one `quiz_attempts` row, repeated submit inserts another row instead of overwriting, invalid selectedAnswer `Z` returns 400 with no new row, random valid quiz UUID returns 404, no-token request returns 401, safe response still hides `correctAnswer`, and no XP/progress/rank/streak/unlock behavior was added. Scope checks PASS: frontend, AI, course, flashcard, and note diffs empty; DB migration change is only V7 quiz attempts; quiz package diff expected.
+Git status: clean after backend quiz attempt persistence feature commit; Build Log docs update pending
 
 ## Completed Features
 - [x] Project setup
@@ -56,6 +56,7 @@ Git status: clean after frontend quiz submit integration feature commit; Build L
 - [x] Frontend Note Preload Foundation
 - [x] Backend Quiz Submit/Scoring Foundation
 - [x] Frontend Quiz Submit Integration
+- [x] Backend Quiz Attempt Persistence Foundation
 - [ ] Flashcards
 - [x] Notes
 - [x] Backend Quiz submit/scoring endpoint
@@ -333,6 +334,21 @@ Git status: clean after frontend quiz submit integration feature commit; Build L
 - Frontend quiz submit never displays `correctAnswer` and does not read, store, or render it.
 - Frontend quiz submit stores no quiz answers or results in localStorage/sessionStorage.
 - Frontend quiz submit does not implement answer persistence, attempts, XP/progress/rank/streak, weak concept detection, or level unlock logic.
+- Backend Quiz Attempt Persistence Foundation is implemented.
+- V7 Flyway migration creates the `quiz_attempts` table.
+- `quiz_attempts` stores one row per successful authenticated quiz submit with `id`, `user_id`, `quiz_id`, `selected_answer`, `is_correct`, and `attempted_at`.
+- Quiz attempt persistence derives `user_id` only from the authenticated `CurrentUserPrincipal`; the submit endpoint still never accepts `userId` from the client.
+- Each successful authenticated POST `/api/quizzes/{quizQuestionId}/submit` now creates a new attempt row.
+- Repeated quiz submits are preserved as separate history rows and are not overwritten.
+- Invalid selectedAnswer values return 400 and do not persist an attempt.
+- Missing quiz question IDs return 404 and do not persist an attempt.
+- No-token quiz submit requests return 401 through the existing security flow and do not persist an attempt.
+- Quiz submit response shape remains backward-compatible and safe: `quizQuestionId`, `selectedAnswer`, `isCorrect`, `explanation`, and `concept`.
+- Quiz submit response still never exposes `correctAnswer`, `userId`, `attemptId`, tokens, passwords, roles, token hashes, refresh tokens, or secrets.
+- Backend Quiz Attempt Persistence Foundation does not add attempt history fetch endpoints yet.
+- Backend Quiz Attempt Persistence Foundation does not change frontend files.
+- Backend Quiz Attempt Persistence Foundation does not change AI/Gemini, course generation/fetch, flashcards, or notes behavior.
+- Backend Quiz Attempt Persistence Foundation does not implement XP/progress/rank/streak, weak concept detection, level unlock, course completion, leaderboard, Piston/code execution, deployment, or Phase 2 features.
 - Answer persistence, XP/progress, weak concept detection, and level unlock logic remain unimplemented.
 - GeminiService + PromptBuilder foundation is implemented in the isolated backend `ai` module.
 - GeminiService + PromptBuilder foundation originally did not call Gemini over network and did not wire into `CourseService` or `CourseController`.
@@ -497,6 +513,7 @@ Git status: clean after frontend quiz submit integration feature commit; Build L
 
 ## Bugs / Issues
 - None blocking currently.
+- Backend Quiz Attempt Persistence Foundation note: No blocking issue. Manual API/DB verification confirmed valid authenticated submit inserted one `quiz_attempts` row, repeated submit inserted a second row instead of overwriting, invalid selectedAnswer `Z` returned 400 with no new row, random valid quiz UUID returned 404, no-token request returned 401, and submit response still did not expose `correctAnswer`. Frontend, AI, course, flashcard, and note files were unchanged. DB migration change was limited to V7 quiz attempts. XP/progress/rank/streak/weak concept/unlock logic remains unimplemented.
 - Frontend Quiz Submit Integration note: No blocking issue. Manual browser verification confirmed quiz questions/options render, Submit Answer is disabled until an option is selected, selected answers submit to backend scoring endpoint, safe Correct/Incorrect result plus selected answer, explanation, and concept displays, changing the selected answer clears the previous result, different lessons do not leak quiz state, and `correctAnswer`/tokens/secrets are not visible. Backend, DB migrations, AI, course, quiz backend, flashcard, and note files were unchanged. Attempts, XP/progress, weak concept detection, and unlock logic remain unimplemented.
 - Backend Quiz Submit/Scoring Foundation note: No blocking issue. Manual verification confirmed authenticated POST `/api/quizzes/{quizQuestionId}/submit` returns safe scoring response with `quizQuestionId`, `selectedAnswer`, `isCorrect`, `explanation`, and `concept`; `correctAnswer` is not exposed; invalid selectedAnswer `Z` returns 400; random valid quiz UUID returns 404; no-token request returns 401. No migration, frontend, AI, course, flashcard, note, XP/progress, unlock, or attempt-persistence changes were made.
 - Frontend Note Preload Foundation note: No blocking issue. Manual browser verification confirmed saved notes preload when reopening a lesson, edited note content preloads after resave, different lessons keep separate note state, no-note 404 is handled quietly, Quiz/Flashcards still render, back navigation works, no runtime errors were visible, and no token/password/secret was shown. Backend, DB migrations, AI, backend course, backend quiz, backend flashcard, and backend note files were unchanged.
@@ -721,6 +738,7 @@ Git status: clean after frontend quiz submit integration feature commit; Build L
 
 | 44 | 2026-05-14 | Backend Quiz Submit/Scoring Foundation | Backend / Quiz | backend/src/main/java/com/codequest/quiz/QuizController.java; backend/src/main/java/com/codequest/quiz/QuizService.java; backend/src/main/java/com/codequest/quiz/dto/SubmitQuizAnswerRequest.java; backend/src/main/java/com/codequest/quiz/dto/SubmitQuizAnswerResponse.java; backend/src/test/java/com/codequest/quiz/QuizControllerTest.java; backend/src/test/java/com/codequest/quiz/QuizServiceTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 131 tests, 0 failures, 0 errors. Manual API verification PASS: valid quiz submit returned safe response without `correctAnswer`, invalid answer returned 400, random quiz UUID returned 404, no-token submit returned 401. Scope checks clean: frontend, DB migrations, AI, backend course, backend flashcard, and backend note diffs empty. | `a8a0f79 feat: add quiz submit scoring endpoint`. Added authenticated POST `/api/quizzes/{quizQuestionId}/submit`, request DTO, safe response DTO, service scoring logic against backend-only `correctAnswer`, and focused quiz controller/service tests. No migration, frontend, Gemini, course fetch, quiz fetch, flashcard, note, attempt persistence, XP/progress, unlock, Piston, deployment, or Phase 2 work. |
 | 45 | 2026-05-14 | Frontend Quiz Submit Integration | Frontend / Quiz | frontend/src/services/courseApi.js; frontend/src/pages/DashboardShell.jsx | Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: quiz options render, Submit Answer enables only after selection, selected answer submits to backend, scoring result displays safe Correct/Incorrect state with selected answer, explanation, and concept, previous result clears on answer change, no lesson-to-lesson quiz state leakage, Flashcards and Notes still work, back navigation works, and `correctAnswer`/tokens/secrets are not visible. Scope checks clean: backend migrations, AI, backend course, backend quiz, backend flashcard, and backend note diffs empty. | `f6fa55d feat: integrate frontend quiz submit`. Added authenticated `submitQuizAnswer` helper and per-question frontend submit/loading/error/result state in Lesson Quiz panel. Uses `quizId` with `quizQuestionId` fallback, calls POST `/api/quizzes/{quizQuestionId}/submit` only on explicit button click, and keeps `correctAnswer` hidden. No backend, DB migration, Gemini, attempt persistence, XP/progress, unlock, Piston, deployment, or Phase 2 work. |
+| 46 | 2026-05-15 | Backend Quiz Attempt Persistence Foundation | Backend / Quiz | backend/src/main/resources/db/migration/V7__create_quiz_attempts_table.sql; backend/src/main/java/com/codequest/quiz/QuizAttempt.java; backend/src/main/java/com/codequest/quiz/QuizAttemptRepository.java; backend/src/main/java/com/codequest/quiz/QuizService.java; backend/src/main/java/com/codequest/quiz/QuizController.java; backend/src/test/java/com/codequest/quiz/QuizServiceTest.java; backend/src/test/java/com/codequest/quiz/QuizControllerTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 136 tests, 0 failures, 0 errors. Manual API/DB verification PASS: valid submit inserted one attempt row, repeated submit inserted another row instead of overwriting, invalid answer returned 400 with no new row, random quiz UUID returned 404, no-token submit returned 401, and response still hid `correctAnswer`. Scope checks clean: frontend, AI, course, flashcard, and note diffs empty; migration diff limited to V7; quiz diff expected. | `40355ea feat: persist quiz submit attempts`. Added V7 quiz_attempts table, QuizAttempt entity/repository, and submit-flow persistence. Each successful authenticated submit creates a new attempt row; invalid/missing/unauthenticated submits do not persist. Response shape stayed unchanged and `correctAnswer` remains hidden. No frontend, AI/Gemini, course, flashcard, note, XP/progress, unlock, Piston, deployment, or Phase 2 work. |
 
 
 ## Test Results Log
@@ -805,6 +823,7 @@ Git status: clean after frontend quiz submit integration feature commit; Build L
 
 | 2026-05-14 | `cd backend && .\mvnw.cmd test` after Backend Quiz Submit/Scoring Foundation | PASS | Backend tests passed with 131 tests, 0 failures, 0 errors after adding authenticated quiz submit/scoring endpoint. | Yes |
 | 2026-05-14 | `cd frontend && npm run build` after Frontend Quiz Submit Integration | PASS | Frontend build passed after adding per-question quiz submit integration in the Lesson Quiz panel. | Yes |
+| 2026-05-15 | `cd backend && .\mvnw.cmd test` after Backend Quiz Attempt Persistence Foundation | PASS | Backend tests passed with 136 tests, 0 failures, 0 errors after adding quiz_attempts persistence. | Yes |
 
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
@@ -890,6 +909,7 @@ Git status: clean after frontend quiz submit integration feature commit; Build L
 
 | 2026-05-14 | Backend Quiz Submit/Scoring Foundation | Register/login -> fetch an existing AI course with quizQuestions -> pick quizId -> POST `/api/quizzes/{quizQuestionId}/submit` with valid selectedAnswer -> check response shape -> check no `correctAnswer` -> invalid selectedAnswer Z -> random valid quiz UUID -> no-token submit -> scope checks | Valid submit returned safe response with quizQuestionId, selectedAnswer, isCorrect, explanation, and concept; `correctAnswer` was not exposed; invalid answer returned 400; random quiz UUID returned 404; no-token request returned 401; frontend/migration/AI/course/flashcard/note diffs empty. | Passed |
 | 2026-05-14 | Frontend Quiz Submit Integration | Start backend with DB/JWT/Gemini env vars to generate/reuse AI quiz data -> start frontend -> login -> open AI course with quizQuestions -> Open Course Map -> Open Lesson -> select option -> Submit Answer -> inspect result -> change selected answer -> resubmit -> verify navigation/notes/flashcards/security | Quiz questions and A/B/C/D options rendered; Submit Answer enabled only after selecting an option; submit showed a safe result card with Correct/Incorrect, selected answer, explanation, and concept; `correctAnswer` was not visible; changing the selected answer cleared the previous result; backend submit endpoint was called successfully; no tokens/passwords/secrets were visible. | Passed |
+| 2026-05-15 | Backend Quiz Attempt Persistence Foundation | Start backend with PostgreSQL/JWT env vars -> register/login -> find existing AI course with quiz rows -> fetch quizId -> check attempt count -> submit valid answer A -> inspect safe response -> query `quiz_attempts` -> submit valid answer B again -> query attempts -> invalid answer Z -> random quiz UUID -> no-token submit -> scope checks | Valid submit inserted one row with selected_answer A and safe response without `correctAnswer`; repeated submit inserted a second row with selected_answer B without overwriting A; invalid answer returned 400 and count stayed 2; random quiz UUID returned 404; no-token request returned 401; frontend/AI/course/flashcard/note diffs were empty; DB migration change was only V7; no XP/progress/unlock behavior changed. | Passed |
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -968,13 +988,13 @@ Tomcat started on port 8080
 Started CodeQuestApplication
 ```
 
-Expected Flyway behavior after Backend Notes Foundation:
+Expected Flyway behavior after Backend Quiz Attempt Persistence Foundation:
 ```text
-Successfully validated 6 migrations
+Successfully validated 7 migrations
 Schema "public" is up to date. No migration necessary.
 ```
 
-If V6 has not yet been applied to a local database, startup should apply `V6__create_notes_table.sql` successfully.
+If V7 has not yet been applied to a local database, startup should apply `V7__create_quiz_attempts_table.sql` successfully.
 
 Health check from another PowerShell:
 ```powershell
@@ -4165,6 +4185,295 @@ Important boundaries:
 - Piston/code execution, deployment, and Phase 2 remain unimplemented.
 
 
+## Backend Quiz Attempt Persistence Foundation Manual Test Commands
+Use these after the backend quiz attempt persistence foundation task `40355ea feat: persist quiz submit attempts`.
+
+### Automated verification
+```powershell
+cd backend
+.\mvnw.cmd test
+cd ..
+```
+
+Expected after this feature:
+```text
+Tests run: 136
+Failures: 0
+Errors: 0
+BUILD SUCCESS
+```
+
+### Scope checks
+```powershell
+git status --short
+git diff -- frontend
+git diff -- backend/src/main/java/com/codequest/ai
+git diff -- backend/src/main/java/com/codequest/course
+git diff -- backend/src/main/java/com/codequest/flashcard
+git diff -- backend/src/main/java/com/codequest/note
+git diff -- backend/src/main/resources/db/migration
+git diff -- backend/src/main/java/com/codequest/quiz
+```
+
+Expected before commit:
+```text
+Frontend diff is empty.
+AI diff is empty.
+Backend course diff is empty.
+Backend flashcard diff is empty.
+Backend note diff is empty.
+DB migration diff contains only the new V7 quiz_attempts migration before commit.
+Backend quiz diff contains QuizAttempt persistence work and tests.
+```
+
+### Backend env/run
+Start backend with local PostgreSQL/JWT env vars. Gemini key is not required if an existing course with persisted quiz questions is already available locally.
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject
+
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
+$env:DATABASE_USERNAME="postgres"
+$env:DATABASE_PASSWORD="<your-local-postgres-password>"
+$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
+
+Remove-Item Env:GEMINI_API_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:GEMINI_MODEL -ErrorAction SilentlyContinue
+Remove-Item Env:GEMINI_BASE_URL -ErrorAction SilentlyContinue
+
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+Expected:
+```text
+Flyway validates/applies V7__create_quiz_attempts_table.sql successfully.
+Tomcat started on port 8080.
+Started CodeQuestApplication.
+```
+
+### Manual quiz attempt persistence verification
+From another PowerShell, register/login and fetch a course that already has quiz rows:
+```powershell
+$baseUrl = "http://localhost:8080"
+
+$email = "attemptmanual$(Get-Random)@example.com"
+$password = "AttemptManual123"
+
+$registerBody = @{
+  name = "Attempt Manual"
+  email = $email
+  password = $password
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/register" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body $registerBody
+
+$loginBody = @{
+  email = $email
+  password = $password
+} | ConvertTo-Json
+
+$loginResponse = Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/login" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body $loginBody
+
+$token = $loginResponse.accessToken
+$token.Length
+```
+
+Find a local course with quiz rows:
+```powershell
+$env:Path += ";C:\Program Files\PostgreSQL\17\bin"
+
+psql -U postgres -W -d codequest -P pager=off -c "select c.id, c.title, c.source_type, count(q.id) as quiz_count from courses c join levels l on l.course_id = c.id left join quizzes q on q.level_id = l.id group by c.id, c.title, c.source_type having count(q.id) > 0 order by c.created_at desc limit 5;"
+```
+
+Set one course id from that output:
+```powershell
+$courseId = "<course-id-with-quiz-count>"
+```
+
+Fetch the course and pick a quiz id. Current GET course response uses `quizId` for quiz question identity:
+```powershell
+$fetchedCourse = Invoke-RestMethod `
+  -Uri "$baseUrl/api/courses/$courseId" `
+  -Method GET `
+  -Headers @{ Authorization = "Bearer $token" }
+
+$quizQuestion = $fetchedCourse.levels |
+  ForEach-Object { $_.quizQuestions } |
+  Where-Object { $_ } |
+  Select-Object -First 1
+
+$quizQuestion | ConvertTo-Json -Depth 10
+
+$quizQuestionId = $quizQuestion.quizId
+$quizQuestionId
+```
+
+Count attempts before submit:
+```powershell
+psql -U postgres -W -d codequest -P pager=off -c "select count(*) as attempt_count_before from quiz_attempts where quiz_id = '$quizQuestionId';"
+```
+
+Submit a valid answer and verify safe response:
+```powershell
+$submitBody = @{
+  selectedAnswer = "A"
+} | ConvertTo-Json
+
+$submitResponse = Invoke-RestMethod `
+  -Uri "$baseUrl/api/quizzes/$quizQuestionId/submit" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Headers @{ Authorization = "Bearer $token" } `
+  -Body $submitBody
+
+$submitResponse
+$json = $submitResponse | ConvertTo-Json -Depth 10
+$json
+$json.Contains("correctAnswer")
+```
+
+Expected:
+```text
+Response includes quizQuestionId, selectedAnswer, isCorrect, explanation, and concept.
+$json.Contains("correctAnswer") returns False.
+```
+
+Verify DB row inserted:
+```powershell
+psql -U postgres -W -d codequest -P pager=off -c "select selected_answer, is_correct, attempted_at from quiz_attempts where quiz_id = '$quizQuestionId' order by attempted_at desc limit 5;"
+```
+
+Repeat submit to confirm history rows are not overwritten:
+```powershell
+$submitBody2 = @{
+  selectedAnswer = "B"
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Uri "$baseUrl/api/quizzes/$quizQuestionId/submit" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Headers @{ Authorization = "Bearer $token" } `
+  -Body $submitBody2
+
+psql -U postgres -W -d codequest -P pager=off -c "select selected_answer, is_correct, attempted_at from quiz_attempts where quiz_id = '$quizQuestionId' order by attempted_at desc limit 5;"
+```
+
+Expected:
+```text
+Both latest B row and earlier A row are present.
+```
+
+Invalid answer check:
+```powershell
+psql -U postgres -W -d codequest -P pager=off -c "select count(*) as before_invalid from quiz_attempts where quiz_id = '$quizQuestionId';"
+
+$invalidBody = @{
+  selectedAnswer = "Z"
+} | ConvertTo-Json
+
+try {
+  Invoke-RestMethod `
+    -Uri "$baseUrl/api/quizzes/$quizQuestionId/submit" `
+    -Method POST `
+    -ContentType "application/json" `
+    -Headers @{ Authorization = "Bearer $token" } `
+    -Body $invalidBody
+} catch {
+  $_.Exception.Response.StatusCode.value__
+}
+
+psql -U postgres -W -d codequest -P pager=off -c "select count(*) as after_invalid from quiz_attempts where quiz_id = '$quizQuestionId';"
+```
+
+Expected:
+```text
+400
+before_invalid and after_invalid are the same count.
+```
+
+Missing quiz question check:
+```powershell
+$missingQuizQuestionId = [guid]::NewGuid().ToString()
+
+$validBody = @{
+  selectedAnswer = "A"
+} | ConvertTo-Json
+
+try {
+  Invoke-RestMethod `
+    -Uri "$baseUrl/api/quizzes/$missingQuizQuestionId/submit" `
+    -Method POST `
+    -ContentType "application/json" `
+    -Headers @{ Authorization = "Bearer $token" } `
+    -Body $validBody
+} catch {
+  $_.Exception.Response.StatusCode.value__
+}
+```
+
+Expected:
+```text
+404
+```
+
+No-token check:
+```powershell
+try {
+  Invoke-RestMethod `
+    -Uri "$baseUrl/api/quizzes/$quizQuestionId/submit" `
+    -Method POST `
+    -ContentType "application/json" `
+    -Body $validBody
+} catch {
+  $_.Exception.Response.StatusCode.value__
+}
+```
+
+Expected:
+```text
+401
+```
+
+Observed latest manual result:
+```text
+Existing AI course with quiz rows was found.
+A valid quizId was selected.
+Attempt count before submit was 0.
+Valid submit with A returned safe response and inserted one row in quiz_attempts.
+$json.Contains("correctAnswer") returned False.
+Repeated submit with B returned safe response and inserted another row while preserving the A row.
+Invalid selectedAnswer Z returned 400 and did not insert a new row.
+Random valid quiz UUID returned 404.
+No-token submit returned 401.
+Frontend, AI, course, flashcard, and note diffs were empty.
+DB migration change was limited to V7 quiz_attempts.
+```
+
+Important boundaries:
+- Backend-only task.
+- V7 adds `quiz_attempts` table only.
+- Existing migrations V1 to V6 must not be edited.
+- POST `/api/quizzes/{quizQuestionId}/submit` remains authenticated.
+- Request still accepts only `selectedAnswer`.
+- User identity comes only from JWT / `CurrentUserPrincipal`, never from client `userId`.
+- Each successful authenticated submit creates one new attempt row.
+- Repeated submits are preserved as separate rows and are not overwritten.
+- Invalid answer, missing quiz, and no-token requests do not persist attempts.
+- Submit response shape remains unchanged and still hides `correctAnswer`.
+- No frontend changes were made.
+- No AI/Gemini, course, flashcard, or note changes were made.
+- No XP/progress/rank/streak, weak concept, unlock, attempt history fetch endpoint, leaderboard, Piston/code execution, deployment, or Phase 2 work was added.
+
+
 ## Next Chat Prompt
 Paste this into a fresh ChatGPT Project chat whenever the current chat becomes slow or confusing:
 
@@ -4174,8 +4483,8 @@ Read all CodeQuest project resources and the current CodeQuest_Build_Log.md befo
 Project: CodeQuest — AI-assisted Java learning platform MVP
 Repo: Aana-1025/CodeQuest
 Branch: main
-Latest pushed feature commit: f6fa55d feat: integrate frontend quiz submit
-Previous pushed commit: cc66880 docs: record quiz submit scoring completion
+Latest pushed feature commit: 40355ea feat: persist quiz submit attempts
+Previous pushed commit: 44f634a docs: record frontend quiz submit completion
 
 Very important workflow rule:
 We use Maven Wrapper, not plain Maven.
@@ -4228,6 +4537,7 @@ Completed backend features:
 - Backend Notes Foundation
 - Backend GET Notes Foundation
 - Backend Quiz Submit/Scoring Foundation
+- Backend Quiz Attempt Persistence Foundation
 
 Completed frontend features:
 - Login page
@@ -4248,46 +4558,48 @@ Completed frontend features:
 - Frontend Quiz Submit Integration
 
 Latest completed feature:
-Frontend Quiz Submit Integration.
+Backend Quiz Attempt Persistence Foundation.
 
 What was done:
-- Added `submitQuizAnswer(quizQuestionId, selectedAnswer)` helper in `frontend/src/services/courseApi.js`.
-- Helper sends authenticated POST `/api/quizzes/{quizQuestionId}/submit` using the existing Bearer token pattern.
-- Helper sends only `{ selectedAnswer }` in the request body.
-- Lesson Quiz panel now supports per-question Submit Answer UI.
-- Submit Answer stays disabled until an option is selected and while that question is submitting.
-- Frontend uses `quizId` from fetched quiz data, with `quizQuestionId` fallback for compatibility.
-- Quiz submit result is tracked per question.
-- Safe result UI displays Correct/Incorrect, selected answer, explanation, and concept.
-- `correctAnswer` is never displayed.
-- Changing selected answer after submit clears the old result.
-- Quiz state resets on lesson change to avoid state leakage.
-- Quiz results are not persisted in localStorage/sessionStorage.
-- No backend changes were made.
-- No DB migration was added.
-- No AI/Gemini changes were made.
-- No attempt persistence, XP/progress/rank/streak/weak concept/unlock logic was added.
+- Added V7 Flyway migration `V7__create_quiz_attempts_table.sql`.
+- Added `quiz_attempts` table with id, user_id, quiz_id, selected_answer, is_correct, and attempted_at.
+- Added `QuizAttempt` entity and `QuizAttemptRepository`.
+- Updated quiz submit flow so each successful authenticated POST `/api/quizzes/{quizQuestionId}/submit` persists one new attempt row.
+- Repeated submits create repeated rows, not overwrites.
+- Invalid selectedAnswer values return 400 and do not persist an attempt.
+- Missing quiz ids return 404 and do not persist an attempt.
+- No-token requests return 401 and do not persist an attempt.
+- Submit response shape stayed unchanged: quizQuestionId, selectedAnswer, isCorrect, explanation, concept.
+- `correctAnswer` is still never returned.
+- userId is not accepted from the client.
+- No frontend changes were made.
+- No AI/Gemini, course, flashcard, or note behavior changed.
+- No XP/progress/rank/streak/weak concept/unlock logic was added.
+- No attempt history fetch endpoint was added.
 
 Latest test results:
-cd frontend && npm run build
-PASS
+cd backend && .\mvnw.cmd test
+PASS — 136 tests, 0 failures, 0 errors
 
 Latest manual verification:
-- Backend was started with PostgreSQL/JWT env vars and a rotated Gemini key only to generate/reuse AI quiz data.
-- Frontend was started with Vite.
-- User logged in and opened an AI-generated course with quizQuestions.
-- Lesson Quiz panel displayed quiz question and A/B/C/D options.
-- Submit Answer was disabled until an option was selected.
-- Selected answer submitted to backend successfully.
-- Result card displayed Incorrect, selected answer, concept, and explanation.
-- `correctAnswer` was not visible.
-- No token/password/secret was visible.
-- Backend, DB migrations, AI, backend course, backend quiz, backend flashcard, and backend note files were unchanged.
+- Backend was started with PostgreSQL/JWT env vars.
+- Existing AI course with quiz rows was used.
+- Register/login succeeded and token was obtained.
+- GET `/api/courses/{courseId}` returned quiz rows and a valid `quizId`.
+- Attempt count before submit was 0.
+- Valid submit with selectedAnswer A returned safe response and inserted one row in `quiz_attempts`.
+- Response did not contain `correctAnswer`.
+- Repeated submit with selectedAnswer B inserted a second row while preserving the first A row.
+- Invalid selectedAnswer Z returned 400 and count stayed unchanged.
+- Random valid quiz UUID returned 404.
+- No-token submit returned 401.
+- Frontend, AI, course, flashcard, and note diffs were empty.
+- DB migration change was limited to V7 quiz attempts.
 
 Latest git log should include:
+40355ea feat: persist quiz submit attempts
+44f634a docs: record frontend quiz submit completion
 f6fa55d feat: integrate frontend quiz submit
-cc66880 docs: record quiz submit scoring completion
-a8a0f79 feat: add quiz submit scoring endpoint
 
 Current known blockers:
 None blocking.
@@ -4298,20 +4610,23 @@ Current important known notes:
 - Never paste keys/passwords/secrets again.
 - Never commit or document real secrets.
 - Tests must stay deterministic and must not call real Gemini even when Gemini env vars are present locally.
-- Quiz submit UI exists, but quiz attempts/answer persistence is not implemented.
+- Quiz submit UI exists and backend now persists attempts.
+- Attempt history fetch/UI is not implemented.
 - XP/progress/rank/streak/weak concept/level unlock logic is not implemented.
 - Piston/code execution is not implemented.
 
 Next safest MVP task:
-Quiz attempt persistence foundation, XP/progress foundation, level unlock logic foundation, or next safest MVP task depending on the master plan. Prefer one small backend foundation at a time.
+Quiz attempt history/fetch foundation, XP/progress foundation, level unlock logic foundation, or next safest MVP task depending on the master plan. Prefer one small foundation at a time.
 
 Recommended next task:
-Backend Quiz Attempt Persistence Foundation may be a logical next step if the API contracts/core rules support it, because quiz submit currently scores answers but does not persist attempts. Keep it backend-only and do not add XP/progress/unlock unless explicitly scoped.
+Backend Quiz Attempt History/Fetch Foundation may be a logical next step if the API contracts/core rules support it, because attempts are now persisted but there is no safe fetch/history endpoint yet. Keep it backend-only first and do not add XP/progress/unlock unless explicitly scoped.
 
 Important next-task boundaries:
 - Keep the next task small and MVP-scoped.
-- Do not combine quiz attempts with XP/progress/unlock unless explicitly instructed.
+- Do not combine attempt history with XP/progress/unlock unless explicitly instructed.
 - Do not expose correctAnswer.
+- Do not accept userId from the client.
+- Attempt history, if implemented, must return only the authenticated user's own attempts.
 - Do not touch Gemini/AI retry logic unless explicitly scoped.
 - Do not touch auth/user unless strictly necessary.
 - Do not change existing Flyway migrations; add a new migration only if a new table is required and the task explicitly needs it.
@@ -4369,32 +4684,46 @@ Database: PostgreSQL + Flyway
 AI: Gemini API
 Code execution: Piston API
 
-Current module: Frontend / Quiz submit integration
-Last completed feature: Frontend Quiz Submit Integration
-Latest feature commit: f6fa55d feat: integrate frontend quiz submit
-Previous commit: cc66880 docs: record quiz submit scoring completion
-Git status: clean after frontend quiz submit integration feature commit; Build Log docs update pending until this file is committed
+Current module: Backend / Quiz attempt persistence foundation
+Last completed feature: Backend Quiz Attempt Persistence Foundation
+Latest feature commit: 40355ea feat: persist quiz submit attempts
+Previous commit: 44f634a docs: record frontend quiz submit completion
+Git status: clean after backend quiz attempt persistence feature commit; Build Log docs update pending until this file is committed
 Tests passed:
-- Frontend cd frontend && npm run build PASS
+- Backend cd backend && .\mvnw.cmd test PASS with 136 tests, 0 failures, 0 errors
 
 Manual verification passed:
-- Backend was started with PostgreSQL/JWT env vars and a rotated Gemini key only to generate/reuse AI quiz data.
-- Frontend was started with Vite.
-- User logged in and opened an AI-generated course with quizQuestions.
-- Lesson Quiz panel displayed quiz question and A/B/C/D options.
-- Submit Answer was disabled until an option was selected.
-- Selected answer submitted to backend successfully.
-- Result card displayed Incorrect, selected answer, concept, and explanation.
-- correctAnswer was not visible.
-- No token/password/secret was visible.
-- Backend, DB migrations, AI, backend course, backend quiz, backend flashcard, and backend note files were unchanged.
+- Backend was started with PostgreSQL/JWT env vars.
+- Existing AI course with quiz rows was used.
+- User registered/logged in and received a valid access token.
+- A valid quizId was selected from GET /api/courses/{courseId}.
+- Attempt count before submit was 0.
+- Valid submit with selectedAnswer A returned safe response and inserted one row in quiz_attempts.
+- Response contained quizQuestionId, selectedAnswer, isCorrect, explanation, and concept.
+- Response did not contain correctAnswer.
+- Repeated submit with selectedAnswer B inserted another row and preserved the A row.
+- Invalid selectedAnswer Z returned 400 and did not insert a new row.
+- Random valid quiz UUID returned 404.
+- No-token submit returned 401.
+- Frontend, AI, course, flashcard, and note diffs were empty.
+- DB migration change was limited to V7 quiz_attempts.
+- No XP/progress/rank/streak/weak concept/unlock logic changed.
 
 Known bugs/blockers:
 - None blocking currently.
 - No blocking issue is currently known.
 
 Next task:
-Quiz attempt persistence foundation, XP/progress foundation, level unlock logic foundation, or next safest MVP task depending on the master plan. Prefer one small backend foundation at a time.
+Quiz attempt history/fetch foundation, XP/progress foundation, level unlock logic foundation, or next safest MVP task depending on the master plan. Prefer one small foundation at a time.
+
+Important workflow:
+- Use Maven Wrapper only: cd backend && .\mvnw.cmd test
+- Never use plain mvn.
+- For frontend tasks: cd frontend && npm run build.
+- Do not commit until automated tests and practical manual checks pass.
+- Update CodeQuest_Build_Log.md after every completed feature.
+- Keep tasks small and MVP-scoped.
+- Do not start the next feature with uncommitted changes.
 
 Important completed Auth details:
 - Register implemented.
@@ -4433,13 +4762,12 @@ Important completed Frontend details:
 - Lesson Quiz panel supports backend quizQuestions[].options object shape {A, B, C, D}.
 - Lesson Flashcards panel supports backend flashcards front/back shape.
 - Real AI quizQuestions and flashcards display has been manually verified in Lesson view.
-- Lesson Quiz panel now submits selected answers to POST /api/quizzes/{quizQuestionId}/submit.
+- Lesson Quiz panel submits selected answers to POST /api/quizzes/{quizQuestionId}/submit.
 - Frontend quiz submit uses quizId from fetched quiz data with quizQuestionId fallback.
 - Frontend quiz submit tracks loading/error/result state per quiz question.
 - Frontend quiz submit clears previous result when selected answer changes.
 - Frontend quiz submit displays safe Correct/Incorrect, selected answer, explanation, and concept.
 - Frontend quiz submit does not display correctAnswer and does not persist quiz results in browser storage.
-- Frontend quiz attempts/answer persistence is not implemented yet.
 - React Router not added.
 - Lesson view includes a frontend-only Notes editor that saves notes using authenticated POST /api/notes.
 - Notes editor preloads saved notes using authenticated GET /api/notes/levels/{levelId} when a lesson is opened.
@@ -4451,7 +4779,7 @@ Important completed Local runtime / CORS details:
 - PostgreSQL 17 installed locally.
 - Local database codequest created.
 - Backend starts with DATABASE_URL, DATABASE_USERNAME, DATABASE_PASSWORD, JWT_SECRET.
-- Flyway applied V1, V2, V3, V4, V5, and V6.
+- Flyway has migrations V1 through V7.
 - CORS allows localhost/127.0.0.1 ports 5173 and 5174.
 - Browser register/login/profile/course-generation smoke tests pass.
 
@@ -4460,6 +4788,7 @@ Important completed Course generation/details:
 - V4 migration creates quizzes table.
 - V5 migration creates flashcards table.
 - V6 migration creates notes table.
+- V7 migration creates quiz_attempts table.
 - CourseService implements normalized topic/difficulty cache behavior.
 - CourseController exposes authenticated POST /api/courses/generate.
 - Cache hit returns same courseId with cacheHit=true.
@@ -4498,7 +4827,13 @@ Important completed Quiz details:
 - Frontend Quiz Submit Integration is implemented.
 - Lesson Quiz panel submits answers using POST /api/quizzes/{quizQuestionId}/submit.
 - Frontend displays only safe scoring result fields and keeps correctAnswer hidden.
-- Quiz attempts are not persisted.
+- Backend Quiz Attempt Persistence Foundation is implemented.
+- Each successful authenticated submit persists one row in quiz_attempts.
+- Repeated submits create multiple rows, not overwrites.
+- Invalid/missing/unauthenticated submits do not persist attempts.
+- Quiz attempts store user, quiz, selectedAnswer, isCorrect, and attemptedAt.
+- Attempt persistence derives user identity from CurrentUserPrincipal only.
+- Attempt history fetch endpoint is not implemented yet.
 - XP/progress/unlock logic is not implemented.
 
 Important completed Flashcard details:
@@ -4527,35 +4862,23 @@ Important completed AI details:
 - Safe Gemini fallback diagnostics implemented.
 - Gemini HTTP request/status diagnostics implemented.
 - Gemini retry-once for transient 5xx implemented.
-- Real Gemini AI course generation was manually verified for Graph DFS Gemini Retry Test.
-- Tests must not depend on real Gemini/network availability.
-- Never log raw Gemini response, full prompt, full URL with key, or secrets.
+- Real source_type=AI persistence confirmed for graph dfs gemini retry test.
+- Tests must never call real Gemini.
+- API keys and DB passwords must never be pasted, logged, committed, or documented.
 
-Current unimplemented MVP items:
-- Quiz attempt persistence
-- XP/rank/streak/progress persistence
-- Level unlock logic
-- Weak concept detection
-- Piston run code
-- Code submit
-- Code submissions history
-- AI code review
-- Leaderboard
-- Docker
-- CI/CD
-- Deployment
-- README/screenshots/demo video/resume bullets
-
-Important workflow:
-- Use Maven Wrapper only: cd backend && .\mvnw.cmd test
-- Never use plain mvn.
-- For frontend tasks: cd frontend && npm run build.
-- Do not commit until automated tests and practical manual checks pass.
-- Update CodeQuest_Build_Log.md after every completed feature.
-- Keep tasks small and MVP-scoped.
-- Do not start the next feature with uncommitted changes.
-
-Recommended next prompt request:
-Give one strict Codex prompt for the next safest MVP task only, likely Backend Quiz Attempt Persistence Foundation if supported by the project rules.
-Keep it backend-only, do not expose correctAnswer, do not implement XP/progress/unlock unless explicitly scoped, do not touch frontend/migrations beyond a required new Flyway migration for attempts, and include tests/manual verification/diff checks.
+Still not implemented:
+- Attempt history fetch/UI.
+- XP/rank system.
+- Streak system.
+- Weak concept detection.
+- Level unlock logic.
+- Piston run code.
+- Code submit.
+- Code submissions history.
+- AI code review.
+- Leaderboard.
+- Docker.
+- CI/CD.
+- Deployment.
+- README/screenshots/demo video/resume bullets.
 ```
