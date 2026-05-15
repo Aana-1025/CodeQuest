@@ -9,4 +9,6 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface LevelRepository extends JpaRepository<Level, UUID> {
     List<Level> findByCourseIdOrderByOrderNumberAsc(UUID courseId);
+
+    long countByCourseIdAndOrderNumberLessThan(UUID courseId, Integer orderNumber);
 }

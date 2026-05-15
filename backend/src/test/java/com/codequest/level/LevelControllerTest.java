@@ -1,7 +1,6 @@
 package com.codequest.level;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -52,10 +51,10 @@ class LevelControllerTest {
     private ProgressRepository progressRepository;
 
     @Test
-    void shouldCompleteLevelForAuthenticatedUserAndAwardXp() throws Exception {
+    void shouldCompleteFirstLevelForAuthenticatedUserAndAwardXp() throws Exception {
         LoginResponse loginResponse = registerAndLogin("level-complete-" + System.currentTimeMillis() + "@example.com");
         User user = userRepository.findByEmail(loginResponse.email()).orElseThrow();
-        Level level = createLevelForUser(user, 50);
+        Level level = createLevelForUser(user, 1, false, 50);
         int startingXp = user.getXp();
 
         mockMvc.perform(post("/api/levels/{levelId}/complete", level.getId())
@@ -82,7 +81,7 @@ class LevelControllerTest {
     void shouldReturnIdempotentResponseForRepeatedCompletionWithoutAwardingXpAgain() throws Exception {
         LoginResponse loginResponse = registerAndLogin("level-repeat-" + System.currentTimeMillis() + "@example.com");
         User user = userRepository.findByEmail(loginResponse.email()).orElseThrow();
-        Level level = createLevelForUser(user, 50);
+        Level level = createLevelForUser(user, 1, false, 50);
 
         mockMvc.perform(post("/api/levels/{levelId}/complete", level.getId())
                         .header("Authorization", "Bearer " + loginResponse.accessToken()))
@@ -109,22 +108,113 @@ class LevelControllerTest {
         LoginResponse secondLoginResponse = registerAndLogin("level-user-two-" + System.currentTimeMillis() + "@example.com");
         User firstUser = userRepository.findByEmail(firstLoginResponse.email()).orElseThrow();
         User secondUser = userRepository.findByEmail(secondLoginResponse.email()).orElseThrow();
-        Level level = createLevelForUser(firstUser, 50);
+        Course course = createCourseForUser(firstUser);
+        Level firstLevel = createLevel(course, 1, false, 50, "First Level");
+        Level secondLevel = createLevel(course, 2, false, 75, "Second Level");
 
-        mockMvc.perform(post("/api/levels/{levelId}/complete", level.getId())
+        mockMvc.perform(post("/api/levels/{levelId}/complete", firstLevel.getId())
                         .header("Authorization", "Bearer " + firstLoginResponse.accessToken()))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(post("/api/levels/{levelId}/complete", level.getId())
+        mockMvc.perform(post("/api/levels/{levelId}/complete", secondLevel.getId())
+                        .header("Authorization", "Bearer " + firstLoginResponse.accessToken()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/levels/{levelId}/complete", secondLevel.getId())
                         .header("Authorization", "Bearer " + secondLoginResponse.accessToken()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+
+        assertEquals(1L, progressRepository.countByUserIdAndLevelId(firstUser.getId(), firstLevel.getId()));
+        assertEquals(1L, progressRepository.countByUserIdAndLevelId(firstUser.getId(), secondLevel.getId()));
+        assertEquals(0L, progressRepository.countByUserIdAndLevelId(secondUser.getId(), secondLevel.getId()));
+        assertEquals(125, userRepository.findById(firstUser.getId()).orElseThrow().getXp());
+        assertEquals(0, userRepository.findById(secondUser.getId()).orElseThrow().getXp());
+    }
+
+    @Test
+    void shouldReturn403WhenSecondLevelIsLocked() throws Exception {
+        LoginResponse loginResponse = registerAndLogin("level-locked-second-" + System.currentTimeMillis() + "@example.com");
+        User user = userRepository.findByEmail(loginResponse.email()).orElseThrow();
+        Course course = createCourseForUser(user);
+        createLevel(course, 1, false, 50, "First Level");
+        Level secondLevel = createLevel(course, 2, false, 75, "Second Level");
+        int startingXp = user.getXp();
+
+        mockMvc.perform(post("/api/levels/{levelId}/complete", secondLevel.getId())
+                        .header("Authorization", "Bearer " + loginResponse.accessToken()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"))
+                .andExpect(jsonPath("$.message").value("Complete previous levels before unlocking this level."))
+                .andExpect(jsonPath("$.path").value("/api/levels/" + secondLevel.getId() + "/complete"));
+
+        assertEquals(0L, progressRepository.countByUserIdAndLevelId(user.getId(), secondLevel.getId()));
+        assertEquals(startingXp, userRepository.findById(user.getId()).orElseThrow().getXp());
+    }
+
+    @Test
+    void shouldReturn403WhenBossLevelIsLocked() throws Exception {
+        LoginResponse loginResponse = registerAndLogin("level-locked-boss-" + System.currentTimeMillis() + "@example.com");
+        User user = userRepository.findByEmail(loginResponse.email()).orElseThrow();
+        Course course = createCourseForUser(user);
+        createLevel(course, 1, false, 50, "First Level");
+        createLevel(course, 2, false, 75, "Second Level");
+        Level bossLevel = createLevel(course, 3, true, 100, "Boss Level");
+        int startingXp = user.getXp();
+
+        mockMvc.perform(post("/api/levels/{levelId}/complete", bossLevel.getId())
+                        .header("Authorization", "Bearer " + loginResponse.accessToken()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"))
+                .andExpect(jsonPath("$.message").value("Complete previous levels before unlocking this level."));
+
+        assertEquals(0L, progressRepository.countByUserIdAndLevelId(user.getId(), bossLevel.getId()));
+        assertEquals(startingXp, userRepository.findById(user.getId()).orElseThrow().getXp());
+    }
+
+    @Test
+    void shouldAllowSecondLevelAfterFirstLevelIsCompleted() throws Exception {
+        LoginResponse loginResponse = registerAndLogin("level-unlocked-second-" + System.currentTimeMillis() + "@example.com");
+        User user = userRepository.findByEmail(loginResponse.email()).orElseThrow();
+        Course course = createCourseForUser(user);
+        Level firstLevel = createLevel(course, 1, false, 50, "First Level");
+        Level secondLevel = createLevel(course, 2, false, 75, "Second Level");
+
+        mockMvc.perform(post("/api/levels/{levelId}/complete", firstLevel.getId())
+                        .header("Authorization", "Bearer " + loginResponse.accessToken()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/levels/{levelId}/complete", secondLevel.getId())
+                        .header("Authorization", "Bearer " + loginResponse.accessToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.alreadyCompleted").value(false))
-                .andExpect(jsonPath("$.xpAwarded").value(50));
+                .andExpect(jsonPath("$.xpAwarded").value(75));
+    }
 
-        assertEquals(1L, progressRepository.countByUserIdAndLevelId(firstUser.getId(), level.getId()));
-        assertEquals(1L, progressRepository.countByUserIdAndLevelId(secondUser.getId(), level.getId()));
-        assertEquals(50, userRepository.findById(firstUser.getId()).orElseThrow().getXp());
-        assertEquals(50, userRepository.findById(secondUser.getId()).orElseThrow().getXp());
+    @Test
+    void shouldAllowBossLevelAfterAllPreviousLevelsAreCompleted() throws Exception {
+        LoginResponse loginResponse = registerAndLogin("level-unlocked-boss-" + System.currentTimeMillis() + "@example.com");
+        User user = userRepository.findByEmail(loginResponse.email()).orElseThrow();
+        Course course = createCourseForUser(user);
+        Level firstLevel = createLevel(course, 1, false, 50, "First Level");
+        Level secondLevel = createLevel(course, 2, false, 75, "Second Level");
+        Level bossLevel = createLevel(course, 3, true, 100, "Boss Level");
+
+        mockMvc.perform(post("/api/levels/{levelId}/complete", firstLevel.getId())
+                        .header("Authorization", "Bearer " + loginResponse.accessToken()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/levels/{levelId}/complete", secondLevel.getId())
+                        .header("Authorization", "Bearer " + loginResponse.accessToken()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/levels/{levelId}/complete", bossLevel.getId())
+                        .header("Authorization", "Bearer " + loginResponse.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.alreadyCompleted").value(false))
+                .andExpect(jsonPath("$.xpAwarded").value(100));
     }
 
     @Test
@@ -151,7 +241,7 @@ class LevelControllerTest {
                 .andExpect(status().isUnauthorized());
     }
 
-    private Level createLevelForUser(User user, int xpReward) {
+    private Course createCourseForUser(User user) {
         Instant now = Instant.now();
         Course course = new Course(
                 UUID.randomUUID(),
@@ -161,20 +251,27 @@ class LevelControllerTest {
                 user,
                 CourseDifficulty.BEGINNER,
                 false,
-                xpReward,
+                225,
                 CourseSourceType.AI,
                 now,
                 now
         );
-        courseRepository.save(course);
+        return courseRepository.save(course);
+    }
 
+    private Level createLevelForUser(User user, int orderNumber, boolean isBoss, int xpReward) {
+        return createLevel(createCourseForUser(user), orderNumber, isBoss, xpReward, "Level Completion Level");
+    }
+
+    private Level createLevel(Course course, int orderNumber, boolean isBoss, int xpReward, String title) {
+        Instant now = Instant.now();
         Level level = new Level(
                 UUID.randomUUID(),
                 course,
-                "Level Completion Level",
+                title,
                 "# Level Completion Level",
-                1,
-                false,
+                orderNumber,
+                isBoss,
                 xpReward,
                 now,
                 now

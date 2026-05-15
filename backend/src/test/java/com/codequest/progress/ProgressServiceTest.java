@@ -53,10 +53,10 @@ class ProgressServiceTest {
     }
 
     @Test
-    void completeLevel_shouldCreateProgressAndAwardLevelXpOnFirstCompletion() {
+    void completeLevel_shouldAllowFirstLevelCompletionWithoutPreviousProgress() {
         User user = createUser("progress-owner@example.com");
         user.setXp(10);
-        Level level = createLevel(50);
+        Level level = createLevel(1, false, 50);
 
         when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
         when(levelRepository.findById(level.getId())).thenReturn(Optional.of(level));
@@ -84,10 +84,97 @@ class ProgressServiceTest {
     }
 
     @Test
+    void completeLevel_shouldRejectSecondLevelBeforeFirstLevelIsCompleted() {
+        User user = createUser("locked-second@example.com");
+        Level level = createLevel(2, false, 75);
+
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        when(levelRepository.findById(level.getId())).thenReturn(Optional.of(level));
+        when(progressRepository.findByUserIdAndLevelId(user.getId(), level.getId())).thenReturn(Optional.empty());
+        when(levelRepository.countByCourseIdAndOrderNumberLessThan(level.getCourse().getId(), level.getOrderNumber())).thenReturn(1L);
+        when(progressRepository.countCompletedLevelsBeforeOrderNumber(user.getId(), level.getCourse().getId(), level.getOrderNumber())).thenReturn(0L);
+
+        ApiException exception = assertThrows(
+                ApiException.class,
+                () -> progressService.completeLevel(user.getId(), level.getId())
+        );
+
+        assertEquals(ErrorCode.FORBIDDEN, exception.getErrorCode());
+        assertEquals("Complete previous levels before unlocking this level.", exception.getMessage());
+        assertEquals(0, user.getXp());
+        verify(progressRepository, never()).save(any(Progress.class));
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void completeLevel_shouldAllowSecondLevelAfterFirstLevelIsCompleted() {
+        User user = createUser("unlocked-second@example.com");
+        Level level = createLevel(2, false, 75);
+
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        when(levelRepository.findById(level.getId())).thenReturn(Optional.of(level));
+        when(progressRepository.findByUserIdAndLevelId(user.getId(), level.getId())).thenReturn(Optional.empty());
+        when(levelRepository.countByCourseIdAndOrderNumberLessThan(level.getCourse().getId(), level.getOrderNumber())).thenReturn(1L);
+        when(progressRepository.countCompletedLevelsBeforeOrderNumber(user.getId(), level.getCourse().getId(), level.getOrderNumber())).thenReturn(1L);
+        when(userRepository.save(user)).thenReturn(user);
+        when(progressRepository.save(any(Progress.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        LevelCompletionResponse response = progressService.completeLevel(user.getId(), level.getId());
+
+        assertTrue(response.completed());
+        assertFalse(response.alreadyCompleted());
+        assertEquals(75, response.xpAwarded());
+        assertEquals(75, response.totalXp());
+    }
+
+    @Test
+    void completeLevel_shouldRejectBossLevelBeforeAllPreviousLevelsAreCompleted() {
+        User user = createUser("locked-boss@example.com");
+        Level bossLevel = createLevel(3, true, 100);
+
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        when(levelRepository.findById(bossLevel.getId())).thenReturn(Optional.of(bossLevel));
+        when(progressRepository.findByUserIdAndLevelId(user.getId(), bossLevel.getId())).thenReturn(Optional.empty());
+        when(levelRepository.countByCourseIdAndOrderNumberLessThan(bossLevel.getCourse().getId(), bossLevel.getOrderNumber())).thenReturn(2L);
+        when(progressRepository.countCompletedLevelsBeforeOrderNumber(user.getId(), bossLevel.getCourse().getId(), bossLevel.getOrderNumber())).thenReturn(1L);
+
+        ApiException exception = assertThrows(
+                ApiException.class,
+                () -> progressService.completeLevel(user.getId(), bossLevel.getId())
+        );
+
+        assertEquals(ErrorCode.FORBIDDEN, exception.getErrorCode());
+        assertEquals("Complete previous levels before unlocking this level.", exception.getMessage());
+        verify(progressRepository, never()).save(any(Progress.class));
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void completeLevel_shouldAllowBossLevelAfterAllPreviousLevelsAreCompleted() {
+        User user = createUser("unlocked-boss@example.com");
+        Level bossLevel = createLevel(3, true, 100);
+
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        when(levelRepository.findById(bossLevel.getId())).thenReturn(Optional.of(bossLevel));
+        when(progressRepository.findByUserIdAndLevelId(user.getId(), bossLevel.getId())).thenReturn(Optional.empty());
+        when(levelRepository.countByCourseIdAndOrderNumberLessThan(bossLevel.getCourse().getId(), bossLevel.getOrderNumber())).thenReturn(2L);
+        when(progressRepository.countCompletedLevelsBeforeOrderNumber(user.getId(), bossLevel.getCourse().getId(), bossLevel.getOrderNumber())).thenReturn(2L);
+        when(userRepository.save(user)).thenReturn(user);
+        when(progressRepository.save(any(Progress.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        LevelCompletionResponse response = progressService.completeLevel(user.getId(), bossLevel.getId());
+
+        assertTrue(response.completed());
+        assertFalse(response.alreadyCompleted());
+        assertEquals(100, response.xpAwarded());
+        assertEquals(100, response.totalXp());
+    }
+
+    @Test
     void completeLevel_shouldBeIdempotentForRepeatedCompletion() {
         User user = createUser("progress-repeat@example.com");
         user.setXp(50);
-        Level level = createLevel(50);
+        Level level = createLevel(2, false, 50);
         Instant completedAt = Instant.parse("2026-05-15T12:00:00Z");
         Progress existingProgress = new Progress(
                 UUID.randomUUID(),
@@ -119,7 +206,7 @@ class ProgressServiceTest {
     @Test
     void completeLevel_shouldNotCreateDuplicateProgressForRepeatedCompletion() {
         User user = createUser("progress-no-duplicate@example.com");
-        Level level = createLevel(50);
+        Level level = createLevel(3, true, 50);
         Progress existingProgress = new Progress(
                 UUID.randomUUID(),
                 user,
@@ -144,13 +231,16 @@ class ProgressServiceTest {
     void completeLevel_shouldAllowDifferentUsersToCompleteSameLevelSeparately() {
         User firstUser = createUser("first-progress@example.com");
         User secondUser = createUser("second-progress@example.com");
-        Level level = createLevel(50);
+        Level level = createLevel(2, false, 50);
 
         when(userRepository.findById(firstUser.getId())).thenReturn(Optional.of(firstUser));
         when(userRepository.findById(secondUser.getId())).thenReturn(Optional.of(secondUser));
         when(levelRepository.findById(level.getId())).thenReturn(Optional.of(level));
         when(progressRepository.findByUserIdAndLevelId(firstUser.getId(), level.getId())).thenReturn(Optional.empty());
         when(progressRepository.findByUserIdAndLevelId(secondUser.getId(), level.getId())).thenReturn(Optional.empty());
+        when(levelRepository.countByCourseIdAndOrderNumberLessThan(level.getCourse().getId(), level.getOrderNumber())).thenReturn(1L);
+        when(progressRepository.countCompletedLevelsBeforeOrderNumber(firstUser.getId(), level.getCourse().getId(), level.getOrderNumber())).thenReturn(1L);
+        when(progressRepository.countCompletedLevelsBeforeOrderNumber(secondUser.getId(), level.getCourse().getId(), level.getOrderNumber())).thenReturn(1L);
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(progressRepository.save(any(Progress.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -163,6 +253,38 @@ class ProgressServiceTest {
         assertEquals(50, secondUser.getXp());
         assertNotEquals(firstResponse.completedAt(), null);
         verify(progressRepository, times(2)).save(any(Progress.class));
+    }
+
+    @Test
+    void completeLevel_shouldKeepUnlockStateIndependentPerUser() {
+        User firstUser = createUser("unlock-owner@example.com");
+        User secondUser = createUser("unlock-blocked@example.com");
+        Level secondLevel = createLevel(2, false, 75);
+
+        when(userRepository.findById(firstUser.getId())).thenReturn(Optional.of(firstUser));
+        when(userRepository.findById(secondUser.getId())).thenReturn(Optional.of(secondUser));
+        when(levelRepository.findById(secondLevel.getId())).thenReturn(Optional.of(secondLevel));
+        when(progressRepository.findByUserIdAndLevelId(firstUser.getId(), secondLevel.getId())).thenReturn(Optional.empty());
+        when(progressRepository.findByUserIdAndLevelId(secondUser.getId(), secondLevel.getId())).thenReturn(Optional.empty());
+        when(levelRepository.countByCourseIdAndOrderNumberLessThan(secondLevel.getCourse().getId(), secondLevel.getOrderNumber())).thenReturn(1L);
+        when(progressRepository.countCompletedLevelsBeforeOrderNumber(firstUser.getId(), secondLevel.getCourse().getId(), secondLevel.getOrderNumber())).thenReturn(1L);
+        when(progressRepository.countCompletedLevelsBeforeOrderNumber(secondUser.getId(), secondLevel.getCourse().getId(), secondLevel.getOrderNumber())).thenReturn(0L);
+        when(userRepository.save(firstUser)).thenReturn(firstUser);
+        when(progressRepository.save(any(Progress.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        LevelCompletionResponse firstUserResponse = progressService.completeLevel(firstUser.getId(), secondLevel.getId());
+
+        ApiException exception = assertThrows(
+                ApiException.class,
+                () -> progressService.completeLevel(secondUser.getId(), secondLevel.getId())
+        );
+
+        assertEquals(75, firstUserResponse.xpAwarded());
+        assertEquals(ErrorCode.FORBIDDEN, exception.getErrorCode());
+        assertEquals("Complete previous levels before unlocking this level.", exception.getMessage());
+        assertEquals(75, firstUser.getXp());
+        assertEquals(0, secondUser.getXp());
+        verify(progressRepository, times(1)).save(any(Progress.class));
     }
 
     @Test
@@ -188,7 +310,7 @@ class ProgressServiceTest {
     void completeLevel_shouldTreatNullUserXpAsZero() {
         User user = createUser("null-xp-progress@example.com");
         user.setXp(null);
-        Level level = createLevel(50);
+        Level level = createLevel(1, false, 50);
 
         when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
         when(levelRepository.findById(level.getId())).thenReturn(Optional.of(level));
@@ -207,7 +329,7 @@ class ProgressServiceTest {
     void completeLevel_shouldReturnSafeExpectedFieldsAndValues() {
         User user = createUser("safe-fields-progress@example.com");
         user.setXp(5);
-        Level level = createLevel(25);
+        Level level = createLevel(1, false, 25);
 
         when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
         when(levelRepository.findById(level.getId())).thenReturn(Optional.of(level));
@@ -237,15 +359,28 @@ class ProgressServiceTest {
         return user;
     }
 
-    private Level createLevel(int xpReward) {
+    private Level createLevel(int orderNumber, boolean isBoss, int xpReward) {
         Instant now = Instant.now();
+        com.codequest.course.Course course = new com.codequest.course.Course(
+                UUID.randomUUID(),
+                "progress-course-" + UUID.randomUUID(),
+                "Progress Course",
+                "Progress Course Description",
+                createUser("course-owner-" + UUID.randomUUID() + "@example.com"),
+                com.codequest.course.CourseDifficulty.BEGINNER,
+                false,
+                225,
+                com.codequest.course.CourseSourceType.PLACEHOLDER,
+                now,
+                now
+        );
         return new Level(
                 UUID.randomUUID(),
-                null,
+                course,
                 "Level Completion Basics",
                 "# Level Completion Basics",
-                1,
-                false,
+                orderNumber,
+                isBoss,
                 xpReward,
                 now,
                 now

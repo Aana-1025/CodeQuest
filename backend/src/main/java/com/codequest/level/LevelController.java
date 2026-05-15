@@ -32,6 +32,7 @@ public class LevelController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Level completion processed successfully"),
             @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing token"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - level is locked"),
             @ApiResponse(responseCode = "404", description = "Level not found")
     })
     public ResponseEntity<LevelCompletionResponse> completeLevel(

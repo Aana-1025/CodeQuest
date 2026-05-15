@@ -46,6 +46,10 @@ public class ProgressService {
             );
         }
 
+        if (!isUnlockedForUser(userId, level)) {
+            throw new ApiException(ErrorCode.FORBIDDEN, "Complete previous levels before unlocking this level.");
+        }
+
         Instant now = Instant.now();
         int xpAwarded = level.getXpReward() == null ? 0 : level.getXpReward();
         int updatedTotalXp = currentXp(user) + xpAwarded;
@@ -70,6 +74,22 @@ public class ProgressService {
 
     private int currentXp(User user) {
         return user.getXp() == null ? 0 : user.getXp();
+    }
+
+    private boolean isUnlockedForUser(UUID userId, Level level) {
+        if (level.getOrderNumber() == null || level.getOrderNumber() <= 1) {
+            return true;
+        }
+
+        UUID courseId = level.getCourse().getId();
+        long previousLevelCount = levelRepository.countByCourseIdAndOrderNumberLessThan(courseId, level.getOrderNumber());
+        long completedPreviousLevelCount = progressRepository.countCompletedLevelsBeforeOrderNumber(
+                userId,
+                courseId,
+                level.getOrderNumber()
+        );
+
+        return previousLevelCount == completedPreviousLevelCount;
     }
 
     private Progress createNewProgress(User user, Level level, Instant now) {
