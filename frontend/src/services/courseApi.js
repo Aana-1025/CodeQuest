@@ -149,4 +149,23 @@ async function submitQuizAnswer(quizQuestionId, selectedAnswer) {
   return handleResponse(response);
 }
 
-export { generateCourse, getCourseById, saveNoteForLevel, getNoteForLevel, submitQuizAnswer };
+async function getQuizAttemptHistory() {
+  const accessToken = getAccessToken();
+
+  if (!accessToken) {
+    const error = new Error("Access token is missing.");
+    error.status = 401;
+    throw error;
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/quizzes/attempts`, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+    },
+  });
+
+  return handleResponse(response);
+}
+
+export { generateCourse, getCourseById, saveNoteForLevel, getNoteForLevel, submitQuizAnswer, getQuizAttemptHistory };
