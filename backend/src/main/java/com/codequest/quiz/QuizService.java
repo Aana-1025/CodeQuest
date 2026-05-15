@@ -44,6 +44,12 @@ public class QuizService {
         boolean isCorrect = normalizedSelectedAnswer.equals(quiz.getCorrectAnswer());
         User user = userRepository.getReferenceById(userId);
 
+        if (isCorrect) {
+            int currentXp = user.getXp() == null ? 0 : user.getXp();
+            int xpReward = quiz.getXpReward() == null ? 0 : quiz.getXpReward();
+            user.setXp(currentXp + xpReward);
+        }
+
         QuizAttempt attempt = new QuizAttempt(
                 UUID.randomUUID(),
                 user,

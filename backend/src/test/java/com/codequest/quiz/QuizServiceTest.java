@@ -72,6 +72,7 @@ class QuizServiceTest {
         assertTrue(response.isCorrect());
         assertEquals("Binary search halves the search space.", response.explanation());
         assertEquals("Binary Search", response.concept());
+        assertEquals(20, user.getXp());
         verify(quizAttemptRepository).save(any(QuizAttempt.class));
     }
 
@@ -88,6 +89,7 @@ class QuizServiceTest {
         assertFalse(response.isCorrect());
         assertEquals("Two pointers move toward each other.", response.explanation());
         assertEquals("Two Pointers", response.concept());
+        assertEquals(0, user.getXp());
         verify(quizAttemptRepository).save(any(QuizAttempt.class));
     }
 
@@ -161,6 +163,45 @@ class QuizServiceTest {
     }
 
     @Test
+    void submitAnswer_shouldAwardXpWhenAnswerIsCorrect() {
+        Quiz quiz = createQuiz("B", "Binary search halves the search space.", "Binary Search");
+        User user = createUser();
+        user.setXp(15);
+        when(quizRepository.findById(quiz.getId())).thenReturn(Optional.of(quiz));
+        when(userRepository.getReferenceById(user.getId())).thenReturn(user);
+
+        quizService.submitAnswer(user.getId(), quiz.getId(), "B");
+
+        assertEquals(35, user.getXp());
+    }
+
+    @Test
+    void submitAnswer_shouldNotAwardXpWhenAnswerIsIncorrect() {
+        Quiz quiz = createQuiz("B", "Binary search halves the search space.", "Binary Search");
+        User user = createUser();
+        user.setXp(15);
+        when(quizRepository.findById(quiz.getId())).thenReturn(Optional.of(quiz));
+        when(userRepository.getReferenceById(user.getId())).thenReturn(user);
+
+        quizService.submitAnswer(user.getId(), quiz.getId(), "A");
+
+        assertEquals(15, user.getXp());
+    }
+
+    @Test
+    void submitAnswer_shouldAwardXpAgainForRepeatedCorrectSubmitsInMvp() {
+        Quiz quiz = createQuiz("B", "Binary search halves the search space.", "Binary Search");
+        User user = createUser();
+        when(quizRepository.findById(quiz.getId())).thenReturn(Optional.of(quiz));
+        when(userRepository.getReferenceById(user.getId())).thenReturn(user);
+
+        quizService.submitAnswer(user.getId(), quiz.getId(), "B");
+        quizService.submitAnswer(user.getId(), quiz.getId(), "B");
+
+        assertEquals(40, user.getXp());
+    }
+
+    @Test
     void submitAnswer_shouldNormalizeSelectedAnswerBeforePersistence() {
         Quiz quiz = createQuiz("C", "Queues are FIFO.", "Queues");
         User user = createUser();
@@ -182,6 +223,7 @@ class QuizServiceTest {
     void submitAnswer_shouldRejectInvalidAnswerAndNotPersistAttempt() {
         Quiz quiz = createQuiz("A", "Explanation", "Concept");
         User user = createUser();
+        user.setXp(12);
         when(quizRepository.findById(quiz.getId())).thenReturn(Optional.of(quiz));
 
         ApiException exception = assertThrows(
@@ -191,8 +233,22 @@ class QuizServiceTest {
 
         assertEquals(ErrorCode.BAD_REQUEST, exception.getErrorCode());
         assertEquals("Selected answer must be one of A, B, C, or D.", exception.getMessage());
+        assertEquals(12, user.getXp());
         verify(userRepository, never()).getReferenceById(any(UUID.class));
         verify(quizAttemptRepository, never()).save(any(QuizAttempt.class));
+    }
+
+    @Test
+    void submitAnswer_shouldTreatNullUserXpAsZeroWhenAwardingXp() {
+        Quiz quiz = createQuiz("B", "Binary search halves the search space.", "Binary Search");
+        User user = createUser();
+        user.setXp(null);
+        when(quizRepository.findById(quiz.getId())).thenReturn(Optional.of(quiz));
+        when(userRepository.getReferenceById(user.getId())).thenReturn(user);
+
+        quizService.submitAnswer(user.getId(), quiz.getId(), "B");
+
+        assertEquals(20, user.getXp());
     }
 
     @Test

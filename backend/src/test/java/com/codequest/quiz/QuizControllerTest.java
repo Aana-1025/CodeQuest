@@ -62,6 +62,7 @@ class QuizControllerTest {
         User user = userRepository.findByEmail(loginResponse.email()).orElseThrow();
         Quiz quiz = createQuizForUser(user, "C");
         long attemptCountBefore = quizAttemptRepository.countByQuizId(quiz.getId());
+        int startingXp = user.getXp();
 
         mockMvc.perform(post("/api/quizzes/{quizQuestionId}/submit", quiz.getId())
                         .header("Authorization", "Bearer " + loginResponse.accessToken())
@@ -85,6 +86,7 @@ class QuizControllerTest {
                 .andExpect(jsonPath("$.refreshToken").doesNotExist());
 
         assertEquals(attemptCountBefore + 1, quizAttemptRepository.countByQuizId(quiz.getId()));
+        assertEquals(startingXp + quiz.getXpReward(), userRepository.findById(user.getId()).orElseThrow().getXp());
     }
 
     @Test
@@ -93,6 +95,7 @@ class QuizControllerTest {
         User user = userRepository.findByEmail(loginResponse.email()).orElseThrow();
         Quiz quiz = createQuizForUser(user, "B");
         long attemptCountBefore = quizAttemptRepository.countByQuizId(quiz.getId());
+        int startingXp = user.getXp();
 
         mockMvc.perform(post("/api/quizzes/{quizQuestionId}/submit", quiz.getId())
                         .header("Authorization", "Bearer " + loginResponse.accessToken())
@@ -109,13 +112,16 @@ class QuizControllerTest {
                 .andExpect(jsonPath("$.correctAnswer").doesNotExist());
 
         assertEquals(attemptCountBefore + 1, quizAttemptRepository.countByQuizId(quiz.getId()));
+        assertEquals(startingXp, userRepository.findById(user.getId()).orElseThrow().getXp());
     }
 
     @Test
     void shouldReturn404WhenQuizQuestionIsMissing() throws Exception {
         LoginResponse loginResponse = registerAndLogin("quizmissing-" + System.currentTimeMillis() + "@example.com");
+        User user = userRepository.findByEmail(loginResponse.email()).orElseThrow();
         UUID missingQuizId = UUID.randomUUID();
         long attemptCountBefore = quizAttemptRepository.count();
+        int startingXp = user.getXp();
 
         mockMvc.perform(post("/api/quizzes/{quizQuestionId}/submit", missingQuizId)
                         .header("Authorization", "Bearer " + loginResponse.accessToken())
@@ -132,6 +138,7 @@ class QuizControllerTest {
                 .andExpect(jsonPath("$.path").value("/api/quizzes/" + missingQuizId + "/submit"));
 
         assertEquals(attemptCountBefore, quizAttemptRepository.count());
+        assertEquals(startingXp, userRepository.findById(user.getId()).orElseThrow().getXp());
     }
 
     @Test
@@ -140,6 +147,7 @@ class QuizControllerTest {
         User user = userRepository.findByEmail(loginResponse.email()).orElseThrow();
         Quiz quiz = createQuizForUser(user, "D");
         long attemptCountBefore = quizAttemptRepository.countByQuizId(quiz.getId());
+        int startingXp = user.getXp();
 
         mockMvc.perform(post("/api/quizzes/{quizQuestionId}/submit", quiz.getId())
                         .header("Authorization", "Bearer " + loginResponse.accessToken())
@@ -153,6 +161,7 @@ class QuizControllerTest {
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
 
         assertEquals(attemptCountBefore, quizAttemptRepository.countByQuizId(quiz.getId()));
+        assertEquals(startingXp, userRepository.findById(user.getId()).orElseThrow().getXp());
     }
 
     @Test
@@ -177,6 +186,7 @@ class QuizControllerTest {
         User user = userRepository.findByEmail(loginResponse.email()).orElseThrow();
         Quiz quiz = createQuizForUser(user, "A");
         long attemptCountBefore = quizAttemptRepository.countByQuizId(quiz.getId());
+        int startingXp = user.getXp();
 
         mockMvc.perform(post("/api/quizzes/{quizQuestionId}/submit", quiz.getId())
                         .header("Authorization", "Bearer " + loginResponse.accessToken())
@@ -193,12 +203,13 @@ class QuizControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "selectedAnswer": "B"
+                                  "selectedAnswer": "A"
                                 }
                                 """))
                 .andExpect(status().isOk());
 
         assertEquals(attemptCountBefore + 2, quizAttemptRepository.countByQuizId(quiz.getId()));
+        assertEquals(startingXp + (quiz.getXpReward() * 2), userRepository.findById(user.getId()).orElseThrow().getXp());
     }
 
     @Test
