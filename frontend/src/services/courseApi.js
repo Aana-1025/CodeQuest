@@ -67,6 +67,29 @@ async function getCourseById({ accessToken, courseId }) {
   return handleResponse(response);
 }
 
+async function getCourseProgress(courseId) {
+  const accessToken = getAccessToken();
+
+  if (!accessToken) {
+    const error = new Error("Access token is missing.");
+    error.status = 401;
+    throw error;
+  }
+
+  if (!courseId) {
+    throw new Error("Course ID is missing.");
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/progress/courses/${courseId}`, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+    },
+  });
+
+  return handleResponse(response);
+}
+
 async function saveNoteForLevel({ levelId, content }) {
   const accessToken = getAccessToken();
 
@@ -168,4 +191,12 @@ async function getQuizAttemptHistory() {
   return handleResponse(response);
 }
 
-export { generateCourse, getCourseById, saveNoteForLevel, getNoteForLevel, submitQuizAnswer, getQuizAttemptHistory };
+export {
+  generateCourse,
+  getCourseById,
+  getCourseProgress,
+  saveNoteForLevel,
+  getNoteForLevel,
+  submitQuizAnswer,
+  getQuizAttemptHistory,
+};

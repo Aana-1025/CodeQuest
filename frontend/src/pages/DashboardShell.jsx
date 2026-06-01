@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
 
-import { generateCourse, getCourseById, getNoteForLevel, getQuizAttemptHistory, saveNoteForLevel, submitQuizAnswer } from "../services/courseApi";
+import {
+  generateCourse,
+  getCourseById,
+  getCourseProgress,
+  getNoteForLevel,
+  getQuizAttemptHistory,
+  saveNoteForLevel,
+  submitQuizAnswer,
+} from "../services/courseApi";
 import { getAccessToken } from "../utils/tokenStorage";
 
 const INITIAL_FORM = {
@@ -187,6 +195,80 @@ function getAttemptStatusClass(isCorrect) {
     : "border-amber-200 bg-amber-50 text-amber-800";
 }
 
+function getLevelProgressBadge(level) {
+  if (level.completed) {
+    return {
+      label: "Completed",
+      className: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    };
+  }
+
+  if (level.progressAvailable && !level.unlocked) {
+    return {
+      label: "Locked",
+      className: "border-rose-200 bg-rose-50 text-rose-800",
+    };
+  }
+
+  return {
+    label: "Ready",
+    className: "border-sky-200 bg-sky-50 text-sky-800",
+  };
+}
+
+function getLockedExplanation(level) {
+  if (!level.progressAvailable || level.unlocked) {
+    return "";
+  }
+
+  return level.isBoss
+    ? "Complete the previous levels to unlock this boss level."
+    : "Complete previous levels to unlock this level.";
+}
+
+function getProgressErrorMessage(error) {
+  if (error?.status === 401) {
+    return "Please log in again to load your course progress.";
+  }
+
+  if (error?.status === 404) {
+    return "Could not load progress right now.";
+  }
+
+  return "Could not load progress right now.";
+}
+
+function mergeCourseMapLevels(courseMap, courseProgress) {
+  const progressLevels = Array.isArray(courseProgress?.levels) ? courseProgress.levels : [];
+  const progressByLevelId = new Map(
+    progressLevels
+      .filter((level) => level?.levelId)
+      .map((level) => [level.levelId, level]),
+  );
+
+  return (courseMap?.levels ?? []).map((level) => {
+    const progressLevel = progressByLevelId.get(level.levelId);
+
+    if (!progressLevel) {
+      return {
+        ...level,
+        progressAvailable: false,
+        completed: false,
+        unlocked: true,
+        completedAt: null,
+      };
+    }
+
+    return {
+      ...level,
+      completed: Boolean(progressLevel.completed),
+      unlocked: Boolean(progressLevel.unlocked),
+      completedAt: progressLevel.completedAt ?? null,
+      progressAvailable: true,
+    };
+  });
+}
+
 export default function DashboardShell({ profile, onRefreshProfile, onBackHome }) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [generationLoading, setGenerationLoading] = useState(false);
@@ -195,6 +277,8 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
   const [courseMapLoading, setCourseMapLoading] = useState(false);
   const [courseMapError, setCourseMapError] = useState("");
   const [courseMap, setCourseMap] = useState(null);
+  const [courseProgress, setCourseProgress] = useState(null);
+  const [courseProgressError, setCourseProgressError] = useState("");
   const [selectedLevel, setSelectedLevel] = useState(null);
   const [quizSelections, setQuizSelections] = useState({});
   const [quizSubmitLoading, setQuizSubmitLoading] = useState({});
@@ -312,7 +396,9 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
       });
       setGeneratedCourse(response);
       setCourseMap(null);
+      setCourseProgress(null);
       setCourseMapError("");
+      setCourseProgressError("");
       setSelectedLevel(null);
     } catch (error) {
       setGenerationError(error.message || "Failed to generate course.");
@@ -334,15 +420,33 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
 
     setCourseMapLoading(true);
     setCourseMapError("");
+    setCourseProgressError("");
 
     try {
-      const response = await getCourseById({
-        accessToken,
-        courseId: generatedCourse.courseId,
-      });
-      setCourseMap(response);
+      const [courseResult, progressResult] = await Promise.allSettled([
+        getCourseById({
+          accessToken,
+          courseId: generatedCourse.courseId,
+        }),
+        getCourseProgress(generatedCourse.courseId),
+      ]);
+
+      if (courseResult.status === "rejected") {
+        throw courseResult.reason;
+      }
+
+      setCourseMap(courseResult.value);
       setSelectedLevel(null);
+
+      if (progressResult.status === "fulfilled") {
+        setCourseProgress(progressResult.value);
+        setCourseProgressError("");
+      } else {
+        setCourseProgress(null);
+        setCourseProgressError(getProgressErrorMessage(progressResult.reason));
+      }
     } catch (error) {
+      setCourseProgress(null);
       setCourseMapError(error.message || "Failed to load course map.");
     } finally {
       setCourseMapLoading(false);
@@ -352,10 +456,16 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
   const handleBackToDashboard = () => {
     setCourseMapError("");
     setCourseMap(null);
+    setCourseProgress(null);
+    setCourseProgressError("");
     setSelectedLevel(null);
   };
 
   const handleOpenLesson = (level) => {
+    if (level.progressAvailable && !level.unlocked) {
+      return;
+    }
+
     setSelectedLevel(level);
   };
 
@@ -895,6 +1005,12 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
   }
 
   if (courseMap) {
+    const mergedLevels = mergeCourseMapLevels(courseMap, courseProgress);
+    const totalLevels = courseProgress?.totalLevels ?? mergedLevels.length;
+    const completedLevels = courseProgress?.completedLevels ?? mergedLevels.filter((level) => level.completed).length;
+    const progressPercent = typeof courseProgress?.progressPercent === "number" ? courseProgress.progressPercent : 0;
+    const courseCompleted = Boolean(courseProgress?.courseCompleted);
+
     return (
       <div className="min-h-screen bg-slate-50">
         <div className="border-b border-slate-200 bg-white px-4 py-6 sm:px-8">
@@ -931,9 +1047,16 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
                   <p className="mt-2 text-sm text-slate-600">{courseMap.description}</p>
                   <p className="mt-3 text-xs text-slate-500">Course ID: {courseMap.courseId}</p>
                 </div>
-                <span className="inline-flex w-fit rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
-                  {courseMap.sourceType || "UNKNOWN"}
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {courseCompleted && (
+                    <span className="inline-flex w-fit rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
+                      Course Completed
+                    </span>
+                  )}
+                  <span className="inline-flex w-fit rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
+                    {courseMap.sourceType || "UNKNOWN"}
+                  </span>
+                </div>
               </div>
 
               <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -950,31 +1073,81 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
                   <p className="mt-1 text-base font-semibold text-slate-900">{courseMap.totalXp}</p>
                 </div>
               </div>
+
+              <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900">Progress Summary</h3>
+                    <p className="mt-1 text-sm text-slate-600">
+                      {completedLevels} / {totalLevels} levels completed
+                    </p>
+                  </div>
+                  <p className="text-2xl font-semibold text-slate-900">{progressPercent}%</p>
+                </div>
+
+                <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    className="h-full rounded-full bg-slate-900 transition-all"
+                    style={{ width: `${Math.max(0, Math.min(progressPercent, 100))}%` }}
+                  />
+                </div>
+
+                {courseProgressError && (
+                  <div
+                    className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+                    role="alert"
+                  >
+                    {courseProgressError}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <h3 className="text-xl font-semibold text-slate-900">Levels</h3>
               <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
-                {courseMap.levels.map((level) => (
-                  <div key={level.levelId ?? `${level.orderNumber}-${level.title}`} className="rounded-xl border border-slate-200 bg-slate-50 p-5">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-sm font-semibold text-slate-500">Level {level.orderNumber}</span>
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${getLevelTypeBadgeClass(level)}`}>
-                        {level.isBoss ? "Boss" : "Standard"}
-                      </span>
+                {mergedLevels.map((level) => {
+                  const progressBadge = getLevelProgressBadge(level);
+                  const lockedExplanation = getLockedExplanation(level);
+
+                  return (
+                    <div key={level.levelId ?? `${level.orderNumber}-${level.title}`} className="rounded-xl border border-slate-200 bg-slate-50 p-5">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <span className="text-sm font-semibold text-slate-500">Level {level.orderNumber}</span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${getLevelTypeBadgeClass(level)}`}>
+                            {level.isBoss ? "Boss" : "Standard"}
+                          </span>
+                          <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${progressBadge.className}`}>
+                            {progressBadge.label}
+                          </span>
+                        </div>
+                      </div>
+                      <h4 className="mt-3 text-lg font-semibold text-slate-900">{level.title}</h4>
+                      <p className="mt-2 text-sm text-slate-600">XP Reward: {level.xpReward}</p>
+                      <p className="mt-3 text-sm leading-6 text-slate-600">{getContentPreview(level.contentMarkdown)}</p>
+
+                      {level.completedAt && (
+                        <p className="mt-3 text-xs text-emerald-700">
+                          Completed on {formatSavedTimestamp(level.completedAt)}
+                        </p>
+                      )}
+
+                      {lockedExplanation && (
+                        <p className="mt-3 text-sm text-rose-700">{lockedExplanation}</p>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => handleOpenLesson(level)}
+                        disabled={level.progressAvailable && !level.unlocked}
+                        className="mt-4 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                      >
+                        Open Lesson
+                      </button>
                     </div>
-                    <h4 className="mt-3 text-lg font-semibold text-slate-900">{level.title}</h4>
-                    <p className="mt-2 text-sm text-slate-600">XP Reward: {level.xpReward}</p>
-                    <p className="mt-3 text-sm leading-6 text-slate-600">{getContentPreview(level.contentMarkdown)}</p>
-                    <button
-                      type="button"
-                      onClick={() => handleOpenLesson(level)}
-                      className="mt-4 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
-                    >
-                      Open Lesson
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
