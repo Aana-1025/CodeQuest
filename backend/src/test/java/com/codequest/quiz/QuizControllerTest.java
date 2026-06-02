@@ -78,6 +78,8 @@ class QuizControllerTest {
                 .andExpect(jsonPath("$.isCorrect").value(true))
                 .andExpect(jsonPath("$.explanation").value("Correct answers should come from the backend only."))
                 .andExpect(jsonPath("$.concept").value("Quiz Security"))
+                .andExpect(jsonPath("$.weakConcepts").isArray())
+                .andExpect(jsonPath("$.weakConcepts.length()").value(0))
                 .andExpect(jsonPath("$.correctAnswer").doesNotExist())
                 .andExpect(jsonPath("$.userId").doesNotExist())
                 .andExpect(jsonPath("$.token").doesNotExist())
@@ -109,6 +111,10 @@ class QuizControllerTest {
                 .andExpect(jsonPath("$.quizQuestionId").value(quiz.getId().toString()))
                 .andExpect(jsonPath("$.selectedAnswer").value("A"))
                 .andExpect(jsonPath("$.isCorrect").value(false))
+                .andExpect(jsonPath("$.explanation").value("Correct answers should come from the backend only."))
+                .andExpect(jsonPath("$.concept").value("Quiz Security"))
+                .andExpect(jsonPath("$.weakConcepts").isArray())
+                .andExpect(jsonPath("$.weakConcepts[0]").value("Quiz Security"))
                 .andExpect(jsonPath("$.correctAnswer").doesNotExist());
 
         assertEquals(attemptCountBefore + 1, quizAttemptRepository.countByQuizId(quiz.getId()));

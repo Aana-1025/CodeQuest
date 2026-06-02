@@ -1,5 +1,6 @@
 package com.codequest.quiz.dto;
 
+import java.util.List;
 import java.util.UUID;
 
 public record SubmitQuizAnswerResponse(
@@ -7,6 +8,7 @@ public record SubmitQuizAnswerResponse(
         String selectedAnswer,
         boolean isCorrect,
         String explanation,
-        String concept
+        String concept,
+        List<String> weakConcepts
 ) {
 }

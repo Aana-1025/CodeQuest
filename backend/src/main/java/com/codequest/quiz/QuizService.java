@@ -1,8 +1,10 @@
 package com.codequest.quiz;
 
 import java.time.Instant;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -72,7 +74,8 @@ public class QuizService {
                 normalizedSelectedAnswer,
                 isCorrect,
                 quiz.getExplanation(),
-                quiz.getConceptTag()
+                quiz.getConceptTag(),
+                deriveWeakConcepts(quiz.getConceptTag(), isCorrect)
         );
     }
 
@@ -95,6 +98,21 @@ public class QuizService {
                 || "B".equals(selectedAnswer)
                 || "C".equals(selectedAnswer)
                 || "D".equals(selectedAnswer);
+    }
+
+    private List<String> deriveWeakConcepts(String conceptTag, boolean isCorrect) {
+        if (isCorrect || conceptTag == null) {
+            return List.of();
+        }
+
+        String trimmedConcept = conceptTag.trim();
+        if (trimmedConcept.isEmpty()) {
+            return List.of();
+        }
+
+        Set<String> weakConcepts = new LinkedHashSet<>();
+        weakConcepts.add(trimmedConcept);
+        return List.copyOf(weakConcepts);
     }
 
     private QuizAttemptHistoryItemResponse mapAttemptHistoryItem(QuizAttempt attempt) {

@@ -81,6 +81,7 @@ class QuizServiceTest {
         assertTrue(response.isCorrect());
         assertEquals("Binary search halves the search space.", response.explanation());
         assertEquals("Binary Search", response.concept());
+        assertTrue(response.weakConcepts().isEmpty());
         assertEquals(20, user.getXp());
         verify(quizAttemptRepository).save(any(QuizAttempt.class));
     }
@@ -98,6 +99,7 @@ class QuizServiceTest {
         assertFalse(response.isCorrect());
         assertEquals("Two pointers move toward each other.", response.explanation());
         assertEquals("Two Pointers", response.concept());
+        assertIterableEquals(List.of("Two Pointers"), response.weakConcepts());
         assertEquals(0, user.getXp());
         verify(quizAttemptRepository).save(any(QuizAttempt.class));
     }
@@ -118,6 +120,7 @@ class QuizServiceTest {
 
         assertEquals("D", response.selectedAnswer());
         assertTrue(response.isCorrect());
+        assertTrue(response.weakConcepts().isEmpty());
     }
 
     @Test
@@ -154,6 +157,47 @@ class QuizServiceTest {
         assertTrue(response.isCorrect());
         assertNull(response.explanation());
         assertNull(response.concept());
+        assertTrue(response.weakConcepts().isEmpty());
+    }
+
+    @Test
+    void submitAnswer_shouldReturnTrimmedWeakConceptForIncorrectAnswer() {
+        Quiz quiz = createQuiz("C", "Explanation", "  Graph Traversal  ");
+        User user = createUser();
+        when(quizRepository.findById(quiz.getId())).thenReturn(Optional.of(quiz));
+        when(userRepository.getReferenceById(user.getId())).thenReturn(user);
+
+        SubmitQuizAnswerResponse response = quizService.submitAnswer(user.getId(), quiz.getId(), "A");
+
+        assertFalse(response.isCorrect());
+        assertIterableEquals(List.of("Graph Traversal"), response.weakConcepts());
+    }
+
+    @Test
+    void submitAnswer_shouldReturnEmptyWeakConceptsForIncorrectAnswerWhenConceptIsBlank() {
+        Quiz quiz = createQuiz("B", "Explanation", "   ");
+        User user = createUser();
+        when(quizRepository.findById(quiz.getId())).thenReturn(Optional.of(quiz));
+        when(userRepository.getReferenceById(user.getId())).thenReturn(user);
+
+        SubmitQuizAnswerResponse response = quizService.submitAnswer(user.getId(), quiz.getId(), "A");
+
+        assertFalse(response.isCorrect());
+        assertTrue(response.weakConcepts().isEmpty());
+    }
+
+    @Test
+    void submitAnswer_shouldReturnEmptyWeakConceptsForIncorrectAnswerWhenConceptIsNull() {
+        Quiz quiz = createQuiz("B", "Explanation", null);
+        User user = createUser();
+        when(quizRepository.findById(quiz.getId())).thenReturn(Optional.of(quiz));
+        when(userRepository.getReferenceById(user.getId())).thenReturn(user);
+
+        SubmitQuizAnswerResponse response = quizService.submitAnswer(user.getId(), quiz.getId(), "A");
+
+        assertFalse(response.isCorrect());
+        assertNull(response.concept());
+        assertTrue(response.weakConcepts().isEmpty());
     }
 
     @Test
@@ -313,6 +357,7 @@ class QuizServiceTest {
         SubmitQuizAnswerResponse response = quizService.submitAnswer(user.getId(), quiz.getId(), "B");
 
         assertTrue(response.isCorrect());
+        assertTrue(response.weakConcepts().isEmpty());
         assertEquals(510, user.getXp());
         assertEquals(UserRank.CODER, user.getRank());
     }
