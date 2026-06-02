@@ -18,6 +18,7 @@ import com.codequest.auth.dto.LogoutResponse;
 import com.codequest.auth.mapper.AuthMapper;
 import com.codequest.common.exception.ApiException;
 import com.codequest.common.exception.ErrorCode;
+import com.codequest.progress.StreakService;
 import com.codequest.user.User;
 import com.codequest.user.UserRepository;
 
@@ -29,17 +30,20 @@ public class AuthService {
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
     private final AuthMapper authMapper;
+    private final StreakService streakService;
 
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
                        JwtService jwtService,
                        RefreshTokenService refreshTokenService,
-                       AuthMapper authMapper) {
+                       AuthMapper authMapper,
+                       StreakService streakService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.refreshTokenService = refreshTokenService;
         this.authMapper = authMapper;
+        this.streakService = streakService;
     }
 
     @Transactional
@@ -65,6 +69,7 @@ public class AuthService {
         return userRepository.save(user);
     }
 
+    @Transactional
     public LoginResponse login(LoginRequest request) {
         String normalizedEmail = request.email().toLowerCase().trim();
 
@@ -75,10 +80,11 @@ public class AuthService {
             throw new ApiException(ErrorCode.INVALID_CREDENTIALS, "Invalid email or password.");
         }
 
+        User updatedUser = streakService.applySuccessfulLogin(user);
         String accessToken = jwtService.generateAccessToken(user);
         String refreshToken = refreshTokenService.createRefreshToken(user);
         int expiresInSeconds = jwtService.getAccessTokenExpirySeconds();
-        return authMapper.toLoginResponse(user, accessToken, refreshToken, expiresInSeconds);
+        return authMapper.toLoginResponse(updatedUser, accessToken, refreshToken, expiresInSeconds);
     }
 
     public RefreshTokenResponse refreshToken(RefreshTokenRequest request) {

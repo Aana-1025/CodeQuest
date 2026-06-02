@@ -48,6 +48,23 @@ class UserServiceTest {
     }
 
     @Test
+    void getCurrentUserProfile_shouldNotMutateUserState() {
+        UUID userId = UUID.randomUUID();
+        User user = mock(User.class);
+        UserProfileResponse expectedResponse = mock(UserProfileResponse.class);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userMapper.toUserProfileResponse(user)).thenReturn(expectedResponse);
+
+        UserProfileResponse result = userService.getCurrentUserProfile(userId);
+
+        assertEquals(expectedResponse, result);
+        verify(userRepository).findById(userId);
+        verify(userMapper).toUserProfileResponse(user);
+        verifyNoMoreInteractions(userRepository, userMapper);
+    }
+
+    @Test
     void getCurrentUserProfile_shouldThrowApiException_whenUserNotFound() {
         // Given
         UUID userId = UUID.randomUUID();

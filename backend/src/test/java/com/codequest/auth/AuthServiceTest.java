@@ -25,12 +25,22 @@ import com.codequest.auth.dto.RegisterRequest;
 import com.codequest.auth.mapper.AuthMapper;
 import com.codequest.common.exception.ApiException;
 import com.codequest.common.exception.ErrorCode;
+import com.codequest.progress.StreakService;
+import com.codequest.progress.XPService;
 import com.codequest.user.User;
 import com.codequest.user.UserRepository;
 
 @DataJpaTest
 @ActiveProfiles("test")
-@Import({AuthService.class, JwtService.class, RefreshTokenService.class, AuthMapper.class, com.codequest.common.config.PasswordEncoderConfig.class})
+@Import({
+        AuthService.class,
+        JwtService.class,
+        RefreshTokenService.class,
+        AuthMapper.class,
+        XPService.class,
+        StreakService.class,
+        com.codequest.common.config.PasswordEncoderConfig.class
+})
 class AuthServiceTest {
 
     @Autowired
@@ -153,6 +163,8 @@ class AuthServiceTest {
         assertNotEquals(response.accessToken(), response.refreshToken());
         assertEquals("Bearer", response.tokenType());
         assertEquals(900, response.expiresInSeconds());
+        assertEquals(30, response.xp());
+        assertEquals(1, response.streak());
     }
 
     @Test
@@ -179,6 +191,10 @@ class AuthServiceTest {
         assertNotEquals(loginResponse.refreshToken(), refreshResponse.refreshToken());
         assertEquals("Bearer", refreshResponse.tokenType());
         assertEquals(900, refreshResponse.expiresInSeconds());
+
+        User user = userRepository.findByEmail("refresh@example.com").orElseThrow();
+        assertEquals(30, user.getXp());
+        assertEquals(1, user.getStreak());
     }
 
     @Test
@@ -232,6 +248,11 @@ class AuthServiceTest {
 
         assertEquals(ErrorCode.INVALID_CREDENTIALS, exception.getErrorCode());
         assertEquals("Invalid email or password.", exception.getMessage());
+
+        User user = userRepository.findByEmail("wrong@example.com").orElseThrow();
+        assertEquals(0, user.getXp());
+        assertEquals(0, user.getStreak());
+        assertEquals(null, user.getLastLogin());
     }
 
     @Test
@@ -247,6 +268,34 @@ class AuthServiceTest {
 
         assertEquals(ErrorCode.INVALID_CREDENTIALS, exception.getErrorCode());
         assertEquals("Invalid email or password.", exception.getMessage());
+    }
+
+    @Test
+    void shouldNotAwardDailyLoginXpTwiceOnSameDay() {
+        RegisterRequest registerRequest = new RegisterRequest(
+                "Daily Login Test",
+                "daily@example.com",
+                "DailyPass123"
+        );
+        authService.register(registerRequest);
+
+        LoginRequest loginRequest = new LoginRequest(
+                "daily@example.com",
+                "DailyPass123"
+        );
+
+        LoginResponse firstLogin = authService.login(loginRequest);
+        LoginResponse secondLogin = authService.login(loginRequest);
+
+        assertEquals(30, firstLogin.xp());
+        assertEquals(1, firstLogin.streak());
+        assertEquals(30, secondLogin.xp());
+        assertEquals(1, secondLogin.streak());
+
+        User user = userRepository.findByEmail("daily@example.com").orElseThrow();
+        assertEquals(30, user.getXp());
+        assertEquals(1, user.getStreak());
+        assertNotNull(user.getLastLogin());
     }
 
     @Test

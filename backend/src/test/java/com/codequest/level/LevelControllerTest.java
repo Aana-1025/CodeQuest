@@ -128,8 +128,8 @@ class LevelControllerTest {
         assertEquals(1L, progressRepository.countByUserIdAndLevelId(firstUser.getId(), firstLevel.getId()));
         assertEquals(1L, progressRepository.countByUserIdAndLevelId(firstUser.getId(), secondLevel.getId()));
         assertEquals(0L, progressRepository.countByUserIdAndLevelId(secondUser.getId(), secondLevel.getId()));
-        assertEquals(125, userRepository.findById(firstUser.getId()).orElseThrow().getXp());
-        assertEquals(0, userRepository.findById(secondUser.getId()).orElseThrow().getXp());
+        assertEquals(155, userRepository.findById(firstUser.getId()).orElseThrow().getXp());
+        assertEquals(30, userRepository.findById(secondUser.getId()).orElseThrow().getXp());
     }
 
     @Test
