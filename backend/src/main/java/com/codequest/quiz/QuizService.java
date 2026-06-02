@@ -12,6 +12,7 @@ import com.codequest.common.exception.ApiException;
 import com.codequest.common.exception.ErrorCode;
 import com.codequest.course.Course;
 import com.codequest.level.Level;
+import com.codequest.progress.XPService;
 import com.codequest.quiz.dto.QuizAttemptHistoryItemResponse;
 import com.codequest.quiz.dto.QuizAttemptHistoryResponse;
 import com.codequest.quiz.dto.SubmitQuizAnswerResponse;
@@ -24,11 +25,18 @@ public class QuizService {
     private final QuizRepository quizRepository;
     private final QuizAttemptRepository quizAttemptRepository;
     private final UserRepository userRepository;
+    private final XPService xpService;
 
-    public QuizService(QuizRepository quizRepository, QuizAttemptRepository quizAttemptRepository, UserRepository userRepository) {
+    public QuizService(
+            QuizRepository quizRepository,
+            QuizAttemptRepository quizAttemptRepository,
+            UserRepository userRepository,
+            XPService xpService
+    ) {
         this.quizRepository = quizRepository;
         this.quizAttemptRepository = quizAttemptRepository;
         this.userRepository = userRepository;
+        this.xpService = xpService;
     }
 
     @Transactional
@@ -45,9 +53,8 @@ public class QuizService {
         User user = userRepository.getReferenceById(userId);
 
         if (isCorrect) {
-            int currentXp = user.getXp() == null ? 0 : user.getXp();
             int xpReward = quiz.getXpReward() == null ? 0 : quiz.getXpReward();
-            user.setXp(currentXp + xpReward);
+            xpService.addXpAndRecalculateRank(user, xpReward);
         }
 
         QuizAttempt attempt = new QuizAttempt(

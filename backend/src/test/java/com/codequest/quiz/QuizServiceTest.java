@@ -28,6 +28,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.codequest.common.exception.ApiException;
 import com.codequest.common.exception.ErrorCode;
 import com.codequest.level.Level;
+import com.codequest.progress.XPService;
 import com.codequest.quiz.dto.QuizAttemptHistoryItemResponse;
 import com.codequest.quiz.dto.QuizAttemptHistoryResponse;
 import com.codequest.quiz.dto.SubmitQuizAnswerResponse;
@@ -51,11 +52,14 @@ class QuizServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private XPService xpService;
+
     private QuizService quizService;
 
     @BeforeEach
     void setUp() {
-        quizService = new QuizService(quizRepository, quizAttemptRepository, userRepository);
+        quizService = new QuizService(quizRepository, quizAttemptRepository, userRepository, xpService);
     }
 
     @Test
@@ -64,6 +68,11 @@ class QuizServiceTest {
         User user = createUser();
         when(quizRepository.findById(quiz.getId())).thenReturn(Optional.of(quiz));
         when(userRepository.getReferenceById(user.getId())).thenReturn(user);
+        when(xpService.addXpAndRecalculateRank(user, 20)).thenAnswer(invocation -> {
+            user.setXp(20);
+            user.setRank(UserRank.BEGINNER);
+            return user;
+        });
 
         SubmitQuizAnswerResponse response = quizService.submitAnswer(user.getId(), quiz.getId(), "B");
 
@@ -99,6 +108,11 @@ class QuizServiceTest {
         User user = createUser();
         when(quizRepository.findById(quiz.getId())).thenReturn(Optional.of(quiz));
         when(userRepository.getReferenceById(user.getId())).thenReturn(user);
+        when(xpService.addXpAndRecalculateRank(user, 20)).thenAnswer(invocation -> {
+            user.setXp(20);
+            user.setRank(UserRank.BEGINNER);
+            return user;
+        });
 
         SubmitQuizAnswerResponse response = quizService.submitAnswer(user.getId(), quiz.getId(), "  d ");
 
@@ -127,6 +141,11 @@ class QuizServiceTest {
         User user = createUser();
         when(quizRepository.findById(quiz.getId())).thenReturn(Optional.of(quiz));
         when(userRepository.getReferenceById(user.getId())).thenReturn(user);
+        when(xpService.addXpAndRecalculateRank(user, 20)).thenAnswer(invocation -> {
+            user.setXp(20);
+            user.setRank(UserRank.BEGINNER);
+            return user;
+        });
 
         SubmitQuizAnswerResponse response = quizService.submitAnswer(user.getId(), quiz.getId(), "A");
 
@@ -143,6 +162,11 @@ class QuizServiceTest {
         User user = createUser();
         when(quizRepository.findById(quiz.getId())).thenReturn(Optional.of(quiz));
         when(userRepository.getReferenceById(user.getId())).thenReturn(user);
+        when(xpService.addXpAndRecalculateRank(user, 20)).thenAnswer(invocation -> {
+            user.setXp(20);
+            user.setRank(UserRank.BEGINNER);
+            return user;
+        });
 
         quizService.submitAnswer(user.getId(), quiz.getId(), "B");
 
@@ -169,6 +193,11 @@ class QuizServiceTest {
         user.setXp(15);
         when(quizRepository.findById(quiz.getId())).thenReturn(Optional.of(quiz));
         when(userRepository.getReferenceById(user.getId())).thenReturn(user);
+        when(xpService.addXpAndRecalculateRank(user, 20)).thenAnswer(invocation -> {
+            user.setXp(35);
+            user.setRank(UserRank.BEGINNER);
+            return user;
+        });
 
         quizService.submitAnswer(user.getId(), quiz.getId(), "B");
 
@@ -194,6 +223,12 @@ class QuizServiceTest {
         User user = createUser();
         when(quizRepository.findById(quiz.getId())).thenReturn(Optional.of(quiz));
         when(userRepository.getReferenceById(user.getId())).thenReturn(user);
+        when(xpService.addXpAndRecalculateRank(user, 20)).thenAnswer(invocation -> {
+            int updatedXp = (user.getXp() == null ? 0 : user.getXp()) + 20;
+            user.setXp(updatedXp);
+            user.setRank(UserRank.BEGINNER);
+            return user;
+        });
 
         quizService.submitAnswer(user.getId(), quiz.getId(), "B");
         quizService.submitAnswer(user.getId(), quiz.getId(), "B");
@@ -207,6 +242,11 @@ class QuizServiceTest {
         User user = createUser();
         when(quizRepository.findById(quiz.getId())).thenReturn(Optional.of(quiz));
         when(userRepository.getReferenceById(user.getId())).thenReturn(user);
+        when(xpService.addXpAndRecalculateRank(user, 20)).thenAnswer(invocation -> {
+            user.setXp(20);
+            user.setRank(UserRank.BEGINNER);
+            return user;
+        });
 
         org.mockito.ArgumentCaptor<QuizAttempt> attemptCaptor = org.mockito.ArgumentCaptor.forClass(QuizAttempt.class);
         when(quizAttemptRepository.save(attemptCaptor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -245,10 +285,36 @@ class QuizServiceTest {
         user.setXp(null);
         when(quizRepository.findById(quiz.getId())).thenReturn(Optional.of(quiz));
         when(userRepository.getReferenceById(user.getId())).thenReturn(user);
+        when(xpService.addXpAndRecalculateRank(user, 20)).thenAnswer(invocation -> {
+            user.setXp(20);
+            user.setRank(UserRank.BEGINNER);
+            return user;
+        });
 
         quizService.submitAnswer(user.getId(), quiz.getId(), "B");
 
         assertEquals(20, user.getXp());
+    }
+
+    @Test
+    void submitAnswer_shouldRecalculateRankWhenCorrectAnswerCrossesThreshold() {
+        Quiz quiz = createQuiz("B", "Binary search halves the search space.", "Binary Search");
+        User user = createUser();
+        user.setXp(490);
+        user.setRank(UserRank.BEGINNER);
+        when(quizRepository.findById(quiz.getId())).thenReturn(Optional.of(quiz));
+        when(userRepository.getReferenceById(user.getId())).thenReturn(user);
+        when(xpService.addXpAndRecalculateRank(user, 20)).thenAnswer(invocation -> {
+            user.setXp(510);
+            user.setRank(UserRank.CODER);
+            return user;
+        });
+
+        SubmitQuizAnswerResponse response = quizService.submitAnswer(user.getId(), quiz.getId(), "B");
+
+        assertTrue(response.isCorrect());
+        assertEquals(510, user.getXp());
+        assertEquals(UserRank.CODER, user.getRank());
     }
 
     @Test

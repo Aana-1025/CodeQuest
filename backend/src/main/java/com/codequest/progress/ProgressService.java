@@ -28,17 +28,20 @@ public class ProgressService {
     private final LevelRepository levelRepository;
     private final CourseRepository courseRepository;
     private final UserRepository userRepository;
+    private final XPService xpService;
 
     public ProgressService(
             ProgressRepository progressRepository,
             LevelRepository levelRepository,
             CourseRepository courseRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            XPService xpService
     ) {
         this.progressRepository = progressRepository;
         this.levelRepository = levelRepository;
         this.courseRepository = courseRepository;
         this.userRepository = userRepository;
+        this.xpService = xpService;
     }
 
     @Transactional
@@ -66,13 +69,10 @@ public class ProgressService {
 
         Instant now = Instant.now();
         int xpAwarded = level.getXpReward() == null ? 0 : level.getXpReward();
-        int updatedTotalXp = currentXp(user) + xpAwarded;
-
-        user.setXp(updatedTotalXp);
-        userRepository.save(user);
+        User updatedUser = xpService.addXpAndRecalculateRank(user, xpAwarded);
 
         Progress progress = existingProgress == null
-                ? createNewProgress(user, level, now)
+                ? createNewProgress(updatedUser, level, now)
                 : markProgressCompleted(existingProgress, now);
         progressRepository.save(progress);
 
@@ -81,7 +81,7 @@ public class ProgressService {
                 true,
                 false,
                 xpAwarded,
-                updatedTotalXp,
+                currentXp(updatedUser),
                 progress.getCompletedAt()
         );
     }

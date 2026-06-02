@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -55,11 +56,14 @@ class ProgressServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private XPService xpService;
+
     private ProgressService progressService;
 
     @BeforeEach
     void setUp() {
-        progressService = new ProgressService(progressRepository, levelRepository, courseRepository, userRepository);
+        progressService = new ProgressService(progressRepository, levelRepository, courseRepository, userRepository, xpService);
     }
 
     @Test
@@ -71,7 +75,11 @@ class ProgressServiceTest {
         when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
         when(levelRepository.findById(level.getId())).thenReturn(Optional.of(level));
         when(progressRepository.findByUserIdAndLevelId(user.getId(), level.getId())).thenReturn(Optional.empty());
-        when(userRepository.save(user)).thenReturn(user);
+        when(xpService.addXpAndRecalculateRank(user, 50)).thenAnswer(invocation -> {
+            user.setXp(60);
+            user.setRank(UserRank.BEGINNER);
+            return user;
+        });
 
         ArgumentCaptor<Progress> progressCaptor = ArgumentCaptor.forClass(Progress.class);
         when(progressRepository.save(progressCaptor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -85,6 +93,7 @@ class ProgressServiceTest {
         assertEquals(60, response.totalXp());
         assertNotNull(response.completedAt());
         assertEquals(60, user.getXp());
+        assertEquals(UserRank.BEGINNER, user.getRank());
 
         Progress savedProgress = progressCaptor.getValue();
         assertEquals(user, savedProgress.getUser());
@@ -113,7 +122,7 @@ class ProgressServiceTest {
         assertEquals("Complete previous levels before unlocking this level.", exception.getMessage());
         assertEquals(0, user.getXp());
         verify(progressRepository, never()).save(any(Progress.class));
-        verify(userRepository, never()).save(any(User.class));
+        verify(xpService, never()).addXpAndRecalculateRank(any(User.class), anyInt());
     }
 
     @Test
@@ -126,7 +135,11 @@ class ProgressServiceTest {
         when(progressRepository.findByUserIdAndLevelId(user.getId(), level.getId())).thenReturn(Optional.empty());
         when(levelRepository.countByCourseIdAndOrderNumberLessThan(level.getCourse().getId(), level.getOrderNumber())).thenReturn(1L);
         when(progressRepository.countCompletedLevelsBeforeOrderNumber(user.getId(), level.getCourse().getId(), level.getOrderNumber())).thenReturn(1L);
-        when(userRepository.save(user)).thenReturn(user);
+        when(xpService.addXpAndRecalculateRank(user, 75)).thenAnswer(invocation -> {
+            user.setXp(75);
+            user.setRank(UserRank.BEGINNER);
+            return user;
+        });
         when(progressRepository.save(any(Progress.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         LevelCompletionResponse response = progressService.completeLevel(user.getId(), level.getId());
@@ -169,7 +182,11 @@ class ProgressServiceTest {
         when(progressRepository.findByUserIdAndLevelId(user.getId(), bossLevel.getId())).thenReturn(Optional.empty());
         when(levelRepository.countByCourseIdAndOrderNumberLessThan(bossLevel.getCourse().getId(), bossLevel.getOrderNumber())).thenReturn(2L);
         when(progressRepository.countCompletedLevelsBeforeOrderNumber(user.getId(), bossLevel.getCourse().getId(), bossLevel.getOrderNumber())).thenReturn(2L);
-        when(userRepository.save(user)).thenReturn(user);
+        when(xpService.addXpAndRecalculateRank(user, 100)).thenAnswer(invocation -> {
+            user.setXp(100);
+            user.setRank(UserRank.BEGINNER);
+            return user;
+        });
         when(progressRepository.save(any(Progress.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         LevelCompletionResponse response = progressService.completeLevel(user.getId(), bossLevel.getId());
@@ -209,7 +226,7 @@ class ProgressServiceTest {
         assertEquals(50, response.totalXp());
         assertEquals(completedAt, response.completedAt());
         assertEquals(50, user.getXp());
-        verify(userRepository, never()).save(any(User.class));
+        verify(xpService, never()).addXpAndRecalculateRank(any(User.class), anyInt());
         verify(progressRepository, never()).save(any(Progress.class));
     }
 
@@ -251,7 +268,16 @@ class ProgressServiceTest {
         when(levelRepository.countByCourseIdAndOrderNumberLessThan(level.getCourse().getId(), level.getOrderNumber())).thenReturn(1L);
         when(progressRepository.countCompletedLevelsBeforeOrderNumber(firstUser.getId(), level.getCourse().getId(), level.getOrderNumber())).thenReturn(1L);
         when(progressRepository.countCompletedLevelsBeforeOrderNumber(secondUser.getId(), level.getCourse().getId(), level.getOrderNumber())).thenReturn(1L);
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(xpService.addXpAndRecalculateRank(firstUser, 50)).thenAnswer(invocation -> {
+            firstUser.setXp(50);
+            firstUser.setRank(UserRank.BEGINNER);
+            return firstUser;
+        });
+        when(xpService.addXpAndRecalculateRank(secondUser, 50)).thenAnswer(invocation -> {
+            secondUser.setXp(50);
+            secondUser.setRank(UserRank.BEGINNER);
+            return secondUser;
+        });
         when(progressRepository.save(any(Progress.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         LevelCompletionResponse firstResponse = progressService.completeLevel(firstUser.getId(), level.getId());
@@ -279,7 +305,11 @@ class ProgressServiceTest {
         when(levelRepository.countByCourseIdAndOrderNumberLessThan(secondLevel.getCourse().getId(), secondLevel.getOrderNumber())).thenReturn(1L);
         when(progressRepository.countCompletedLevelsBeforeOrderNumber(firstUser.getId(), secondLevel.getCourse().getId(), secondLevel.getOrderNumber())).thenReturn(1L);
         when(progressRepository.countCompletedLevelsBeforeOrderNumber(secondUser.getId(), secondLevel.getCourse().getId(), secondLevel.getOrderNumber())).thenReturn(0L);
-        when(userRepository.save(firstUser)).thenReturn(firstUser);
+        when(xpService.addXpAndRecalculateRank(firstUser, 75)).thenAnswer(invocation -> {
+            firstUser.setXp(75);
+            firstUser.setRank(UserRank.BEGINNER);
+            return firstUser;
+        });
         when(progressRepository.save(any(Progress.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         LevelCompletionResponse firstUserResponse = progressService.completeLevel(firstUser.getId(), secondLevel.getId());
@@ -313,7 +343,7 @@ class ProgressServiceTest {
         assertEquals(ErrorCode.NOT_FOUND, exception.getErrorCode());
         assertEquals("Level not found.", exception.getMessage());
         verify(progressRepository, never()).save(any(Progress.class));
-        verify(userRepository, never()).save(any(User.class));
+        verify(xpService, never()).addXpAndRecalculateRank(any(User.class), anyInt());
     }
 
     @Test
@@ -325,7 +355,11 @@ class ProgressServiceTest {
         when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
         when(levelRepository.findById(level.getId())).thenReturn(Optional.of(level));
         when(progressRepository.findByUserIdAndLevelId(user.getId(), level.getId())).thenReturn(Optional.empty());
-        when(userRepository.save(user)).thenReturn(user);
+        when(xpService.addXpAndRecalculateRank(user, 50)).thenAnswer(invocation -> {
+            user.setXp(50);
+            user.setRank(UserRank.BEGINNER);
+            return user;
+        });
         when(progressRepository.save(any(Progress.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         LevelCompletionResponse response = progressService.completeLevel(user.getId(), level.getId());
@@ -344,7 +378,11 @@ class ProgressServiceTest {
         when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
         when(levelRepository.findById(level.getId())).thenReturn(Optional.of(level));
         when(progressRepository.findByUserIdAndLevelId(user.getId(), level.getId())).thenReturn(Optional.empty());
-        when(userRepository.save(user)).thenReturn(user);
+        when(xpService.addXpAndRecalculateRank(user, 25)).thenAnswer(invocation -> {
+            user.setXp(30);
+            user.setRank(UserRank.BEGINNER);
+            return user;
+        });
         when(progressRepository.save(any(Progress.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         LevelCompletionResponse response = progressService.completeLevel(user.getId(), level.getId());
@@ -355,6 +393,31 @@ class ProgressServiceTest {
         assertEquals(25, response.xpAwarded());
         assertEquals(30, response.totalXp());
         assertNotNull(response.completedAt());
+    }
+
+    @Test
+    void completeLevel_shouldRecalculateRankWhenUserCrossesCoderThreshold() {
+        User user = createUser("rank-threshold-progress@example.com");
+        user.setXp(450);
+        user.setRank(UserRank.BEGINNER);
+        Level level = createLevel(1, false, 50);
+
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        when(levelRepository.findById(level.getId())).thenReturn(Optional.of(level));
+        when(progressRepository.findByUserIdAndLevelId(user.getId(), level.getId())).thenReturn(Optional.empty());
+        when(xpService.addXpAndRecalculateRank(user, 50)).thenAnswer(invocation -> {
+            user.setXp(500);
+            user.setRank(UserRank.CODER);
+            return user;
+        });
+        when(progressRepository.save(any(Progress.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        LevelCompletionResponse response = progressService.completeLevel(user.getId(), level.getId());
+
+        assertEquals(50, response.xpAwarded());
+        assertEquals(500, response.totalXp());
+        assertEquals(500, user.getXp());
+        assertEquals(UserRank.CODER, user.getRank());
     }
 
     @Test
