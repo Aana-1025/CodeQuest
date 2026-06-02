@@ -5,14 +5,14 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Frontend / Level completion flow
-Current feature: Frontend Complete Level Button / Progress Refresh Foundation completed, frontend-built, browser-verified, committed, pushed, and documented
-Latest commit: `0543a9e feat: add frontend level completion flow`
-Previous commit: `ea542f6 docs: record frontend course progress lock ui`
-Previous feature commit: `5deeddd feat: show course progress lock states`
+Current module: Backend / XP + Rank recalculation
+Current feature: Backend XPService + Rank Recalculation Foundation completed, backend-tested, API-verified, committed, pushed, and awaiting Build Log docs commit
+Latest commit: `6aba27a feat: add xp rank recalculation foundation`
+Previous commit: `b5054d4 docs: record frontend level completion flow`
+Previous feature commit: `0543a9e feat: add frontend level completion flow`
 Current branch: main
-Test status: Frontend `cd frontend && npm run build` PASS. Codex reported Vite production build succeeded with 38 modules transformed and generated output in `frontend/dist`. Manual browser verification PASS before commit: backend was started locally with PostgreSQL/JWT env vars and Gemini env vars removed for predictable placeholder course generation; frontend was started with `npm run dev`; fresh placeholder course generation worked; Course Map initially showed 0/3 completed and 0%; level 1 was ready/unlocked; level 2 was locked; boss was locked; `Complete Level` was visible/enabled only for unlocked incomplete levels; completing level 1 updated progress to 1/3 and 33%, marked level 1 completed, unlocked level 2, kept boss locked, and refreshed dashboard/profile XP by 50; completing level 2 updated progress to 2/3 and 66%, unlocked boss, and refreshed XP by 75 more; completing boss updated progress to 3/3 and 100%, showed course completed state, and refreshed XP by 100 more; locked levels could not be completed through normal UI; Lesson-view complete flow worked; Open Lesson, Back to Course Map, Quiz panel, Flashcards panel, Notes area, and note save/preload flow remained working; UI did not show accessToken, refreshToken, password, role, tokenHash, secrets, correctAnswer, raw backend stack traces, or raw JSON dumps. Scope checks PASS: backend, DB migrations, package files, docs, Build Log, AI/Gemini, auth, quiz backend, flashcard backend, note backend, problem, leaderboard, Docker, CI/CD, and deployment files unchanged during feature implementation; frontend changes limited to `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`.
-Git status: clean after `0543a9e feat: add frontend level completion flow` was pushed to `main`; Build Log docs update in progress
+Test status: Backend `cd backend && .\mvnw.cmd test` PASS. Manual API verification PASS before commit: backend was started locally with PostgreSQL/JWT env vars and Gemini env vars removed for predictable placeholder course generation; fresh user profile started with `xp=0` and `rank=BEGINNER`; after completing one placeholder course profile showed `XP=225, Rank=BEGINNER`; after two placeholder courses profile showed `XP=450, Rank=BEGINNER`; after three placeholder courses profile showed `XP=675, Rank=CODER`; repeat completion stayed idempotent with `alreadyCompleted=True`, `xpAwarded=0`, and unchanged XP/rank; profile safety check returned false for password/token/secret/correctAnswer fields. Scope checks PASS: frontend, DB migrations, backend/pom.xml, docs, Build Log, AI/Gemini, problem, and leaderboard files were unchanged during feature implementation; backend changes were limited to progress XP service/rank use and quiz/progress tests.
+Git status: clean after `6aba27a feat: add xp rank recalculation foundation` was pushed to `main`; Build Log docs update in progress
 
 ## Completed Features
 - [x] Project setup
@@ -66,12 +66,13 @@ Git status: clean after `0543a9e feat: add frontend level completion flow` was p
 - [x] Backend Progress Fetch Endpoint Foundation
 - [x] Frontend Course Progress / Lock UI Foundation
 - [x] Frontend Complete Level Button / Progress Refresh Foundation
+- [x] Backend XPService + Rank Recalculation Foundation
 - [x] Flashcards
 - [x] Notes
 - [x] Backend Quiz submit/scoring endpoint
 - [x] Frontend Quiz submit UI
 - [ ] Weak concept detection
-- [ ] XP/rank system
+- [x] XP/rank system / rank recalculation foundation
 - [ ] Streak system
 - [ ] Piston run code
 - [ ] Code submit
@@ -462,6 +463,28 @@ Git status: clean after `0543a9e feat: add frontend level completion flow` was p
 - The required locked-level message stays safe: `Complete previous levels before unlocking this level.`
 - Frontend complete-level state stays in React component state only and is not stored in localStorage or sessionStorage.
 - Frontend Complete Level Button / Progress Refresh Foundation did not change backend files, DB migrations, package files, React Router, API contracts, Gemini/AI, auth, quiz backend, flashcard backend, note backend, problem, leaderboard, Docker, CI/CD, deployment, rank, streak, weak concept detection, Piston/code execution, or Phase 2 features.
+- Backend XPService + Rank Recalculation Foundation is implemented.
+- `XPService` centralizes existing backend XP additions and rank recalculation.
+- Existing XP award amounts were intentionally preserved:
+  - Quiz submit continues using the existing quiz XP behavior.
+  - Level completion continues using `level.xpReward`.
+  - Placeholder levels continue awarding 50, 75, and 100 XP.
+- XPService rank thresholds are:
+  - `BEGINNER`: 0 XP
+  - `CODER`: 500 XP
+  - `DEVELOPER`: 2000 XP
+  - `ENGINEER`: 5000 XP
+  - `ARCHITECT`: 12000 XP
+  - `LEGEND`: 25000 XP
+- XPService allows zero XP without corrupting rank/XP and rejects negative XP safely.
+- Level completion now uses XPService for first-completion XP additions and rank recalculation.
+- Quiz submit now uses XPService for correct-answer XP additions and rank recalculation.
+- Repeated level completion remains idempotent and does not increase XP or rank again.
+- Repeated correct quiz submit behavior remains the existing MVP behavior and can still award XP again; anti-farming/deduplication is still deferred.
+- User profile naturally shows updated rank because profile reads persisted `user.rank`.
+- Backend XPService + Rank Recalculation Foundation did not add a new endpoint and did not change public response DTO shapes.
+- Backend XPService + Rank Recalculation Foundation did not add a DB migration because rank already existed on the user model/schema.
+- Backend XPService + Rank Recalculation Foundation did not touch frontend, DB migrations, package files, docs/Build Log during implementation, AI/Gemini, auth, course, flashcard, note, problem, leaderboard, Docker, CI/CD, deployment, streak, weak concept detection, Piston/code execution, or Phase 2 features.
 - Backend tests after level unlock logic pass with 168 tests, 0 failures, 0 errors.
 - Backend tests after the progress feature and JSONB mapping fix pass with 159 tests, 0 failures, 0 errors.
 - Backend Quiz Attempt History/Fetch Foundation adds no migration and makes no frontend changes.
@@ -632,6 +655,7 @@ Git status: clean after `0543a9e feat: add frontend level completion flow` was p
 
 ## Bugs / Issues
 - None blocking currently.
+- Backend XPService + Rank Recalculation Foundation note: No blocking issue after manual API verification. Manual verification confirmed fresh user profile started with `xp=0` and `rank=BEGINNER`; completing one placeholder course moved profile to `XP=225, Rank=BEGINNER`; completing two placeholder courses moved profile to `XP=450, Rank=BEGINNER`; completing three placeholder courses moved profile to `XP=675, Rank=CODER`; repeat level completion stayed idempotent with `alreadyCompleted=True`, `xpAwarded=0`, and unchanged XP/rank; profile safety checks returned false for password, passwordHash, password_hash, token, refreshToken, tokenHash, secret, and correctAnswer. Backend tests passed with 191 tests, 0 failures, 0 errors. Scope stayed backend-only with expected changes limited to `backend/src/main/java/com/codequest/progress/XPService.java`, `backend/src/main/java/com/codequest/progress/ProgressService.java`, `backend/src/main/java/com/codequest/quiz/QuizService.java`, `backend/src/test/java/com/codequest/progress/XPServiceTest.java`, `backend/src/test/java/com/codequest/progress/ProgressServiceTest.java`, and `backend/src/test/java/com/codequest/quiz/QuizServiceTest.java`; no frontend, DB migration, package, docs, Build Log, AI/Gemini, problem, leaderboard, Docker, CI/CD, deployment, streak, weak concept, Piston/code execution, or Phase 2 work.
 - Frontend Complete Level Button / Progress Refresh Foundation note: No blocking issue after manual browser verification. Manual browser verification confirmed fresh placeholder course initially showed 0/3 completed and 0%, level 1 ready/unlocked, level 2 locked, and boss locked; `Complete Level` was visible/enabled only for unlocked incomplete levels; completing level 1 updated progress to 1/3 and 33%, marked level 1 completed, unlocked level 2, kept boss locked, and refreshed dashboard/profile XP by 50; completing level 2 updated progress to 2/3 and 66%, unlocked boss, and refreshed XP by 75 more; completing boss updated progress to 3/3 and 100%, showed course completed state, and refreshed XP by 100 more; locked levels could not be completed through normal UI; Lesson-view complete action worked; Open Lesson, Back to Course Map, Quiz panel, Flashcards panel, Notes area, and note save/preload flow remained working; no accessToken, refreshToken, password, role, tokenHash, secrets, `correctAnswer`, raw backend stack trace, or raw JSON dump was visible. Frontend build passed. Scope stayed frontend-only with changes limited to `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`; no backend, DB migration, package, docs, AI/Gemini, auth, quiz backend, flashcard backend, note backend, problem, leaderboard, Docker, CI/CD, deployment, rank, streak, weak concept, Piston/code execution, or Phase 2 work.
 - Frontend Course Progress / Lock UI Foundation note: No blocking issue after manual browser verification. Manual browser verification confirmed Course Map loads after login/course generation, progress summary appears, fresh placeholder course shows 0/3 completed and 0%, level 1 is ready/unlocked, level 2 and boss are locked, locked levels show a safe unlock explanation and disabled `Open Lesson`, level 1 still opens the existing Lesson view, quiz/flashcards/notes/back flow remain working, locked level 2 and boss cannot be opened, and no accessToken, refreshToken, password, role, tokenHash, secrets, `correctAnswer`, raw backend stack trace, or raw JSON dump was visible. Frontend build passed. Scope stayed frontend-only with changes limited to `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`; no backend, DB migration, package, docs, AI/Gemini, auth, quiz backend, flashcard backend, note backend, problem, leaderboard, Docker, CI/CD, deployment, complete-level button, rank, streak, weak concept, Piston/code execution, or Phase 2 work.
 - Backend Progress Fetch Endpoint Foundation note: No blocking issue after manual verification. Manual PowerShell verification confirmed initial progress returns `completedLevels=0`, `totalLevels=3`, `progressPercent=0`, `courseCompleted=false`, level 1 unlocked, level 2 locked, and boss locked; after level 1 completion progress returns `completedLevels=1`, `progressPercent=33`, level 1 completed with `completedAt`, level 2 unlocked, and boss locked; after level 2 completion progress returns `completedLevels=2`, `progressPercent=66`, and boss unlocked; after boss completion progress returns `completedLevels=3`, `progressPercent=100`, `courseCompleted=true`, and all levels completed/unlocked; second user isolation returns fresh progress with no completedAt leakage; missing course returns 404; no-token request returns 401; response safety check showed no `userId`, password fields, role, tokens, secrets, `correctAnswer`, or note content. Backend tests passed with 177 tests, 0 failures, 0 errors. Scope stayed backend-only with expected changes to progress controller/service/repository/DTOs and progress tests; no frontend, migration, AI, auth, quiz, flashcard, note, problem, leaderboard, course, level, common exception, package, README, Docker, or CI/CD changes.
@@ -879,6 +903,7 @@ Git status: clean after `0543a9e feat: add frontend level completion flow` was p
 | 53 | 2026-05-16 | Backend Progress Fetch Endpoint Foundation | Backend / Progress | backend/src/main/java/com/codequest/progress/ProgressController.java; backend/src/main/java/com/codequest/progress/ProgressRepository.java; backend/src/main/java/com/codequest/progress/ProgressService.java; backend/src/main/java/com/codequest/progress/dto/CourseProgressResponse.java; backend/src/main/java/com/codequest/progress/dto/LevelProgressResponse.java; backend/src/test/java/com/codequest/progress/ProgressControllerTest.java; backend/src/test/java/com/codequest/progress/ProgressServiceTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 177 tests, 0 failures, 0 errors. Manual PowerShell verification PASS: initial course progress showed 0/3, 0%, level 1 unlocked and later levels locked; after level 1 progress showed 1/3, 33%, level 2 unlocked and boss locked; after level 2 progress showed 2/3, 66%, boss unlocked; after boss progress showed 3/3, 100%, `courseCompleted=true`, and all levels completed/unlocked; second user isolation showed fresh 0/3 progress; missing course returned 404; no-token returned 401; response safety checks passed. | `f408fd6 feat: add course progress fetch endpoint`. Added authenticated GET `/api/progress/courses/{courseId}` with safe current-user course progress DTOs, ordered level progress items, completed/unlocked/completedAt calculation, integer progress percentage, course completion flag, 404/401 handling, and user-scoped isolation. No frontend, migration, AI/Gemini, auth, quiz, flashcard, note, problem, leaderboard, course, level, common exception, package, README, Docker, CI/CD, rank, streak, weak concept, Piston, deployment, or Phase 2 work. |
 | 54 | 2026-05-16 | Frontend Course Progress / Lock UI Foundation | Frontend / Course Map + Progress UI | frontend/src/pages/DashboardShell.jsx; frontend/src/services/courseApi.js | Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: after backend/frontend startup, login and placeholder course generation worked; Course Map loaded with progress summary; fresh course showed 0/3 completed, 0%, level 1 ready/unlocked, level 2 locked, boss locked; locked cards showed safe unlock explanation and disabled `Open Lesson`; level 1 opened the existing Lesson view; lesson content, quiz panel, flashcards panel, notes area, and back flow still worked; locked level 2 and locked boss could not be opened; no tokens/passwords/secrets/correctAnswer/raw backend stack trace/raw JSON dump were visible. Scope checks clean: backend, migrations, package files, docs/Build Log, AI/Gemini, auth, quiz, flashcard, note, problem, leaderboard, Docker, CI/CD, deployment unchanged. | `5deeddd feat: show course progress lock states`. Added `getCourseProgress(courseId)` frontend helper, fetched progress alongside course details in DashboardShell Course Map, merged progress by `levelId`, added progress summary/progress bar/completed-ready-locked badges/completedAt display, disabled locked lesson opening, and added safe progress error handling. No complete-level button, no backend/API/DB/package change, no React Router, and no Phase 2 feature. |
 | 55 | 2026-06-02 | Frontend Complete Level Button / Progress Refresh Foundation | Frontend / Level Completion + Progress Refresh | frontend/src/pages/DashboardShell.jsx; frontend/src/services/courseApi.js | Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: after backend/frontend startup with Gemini env vars removed, fresh placeholder course showed 0/3 and 0%, level 1 ready, level 2 locked, boss locked; completing level 1 updated progress to 1/3 and 33%, unlocked level 2, kept boss locked, and refreshed XP by 50; completing level 2 updated progress to 2/3 and 66%, unlocked boss, and refreshed XP by 75; completing boss updated progress to 3/3 and 100%, showed course completed state, and refreshed XP by 100; locked levels could not be completed through normal UI; Lesson complete flow, quiz, flashcards, notes, and back navigation remained working; no secrets/raw errors/correctAnswer were visible. Scope checks clean: backend, migrations, package files, docs/Build Log, AI/Gemini, auth, quiz backend, flashcard backend, note backend, problem, leaderboard, Docker, CI/CD, deployment unchanged. | `0543a9e feat: add frontend level completion flow`. Added authenticated `completeLevel(levelId)` frontend helper, per-level Complete Level UI for unlocked incomplete levels, per-level loading/success/error state, progress refresh through GET `/api/progress/courses/{courseId}`, and profile XP refresh through the existing shared profile refresh callback. No backend/API/DB/package change, no React Router, no rank/streak/weak concept/leaderboard/Piston/deployment, and no Phase 2 feature. |
+| 56 | 2026-06-02 | Backend XPService + Rank Recalculation Foundation | Backend / XP + Rank | backend/src/main/java/com/codequest/progress/XPService.java; backend/src/main/java/com/codequest/progress/ProgressService.java; backend/src/main/java/com/codequest/quiz/QuizService.java; backend/src/test/java/com/codequest/progress/XPServiceTest.java; backend/src/test/java/com/codequest/progress/ProgressServiceTest.java; backend/src/test/java/com/codequest/quiz/QuizServiceTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 191 tests, 0 failures, 0 errors. Manual API verification PASS: starting profile `xp=0`, `rank=BEGINNER`; after one placeholder course `XP=225`, `Rank=BEGINNER`; after two courses `XP=450`, `Rank=BEGINNER`; after three courses `XP=675`, `Rank=CODER`; repeat completion returned `alreadyCompleted=True`, `xpAwarded=0`, and kept XP/rank unchanged; safety checks passed. Scope checks clean: frontend, DB migrations, backend/pom.xml, docs/Build Log, AI/Gemini, problem, and leaderboard diffs empty. | `6aba27a feat: add xp rank recalculation foundation`. Added XPService rank threshold foundation and wired existing level-completion and quiz-submit XP awards through it. Preserved existing XP amounts and response shapes. No new endpoint, no DB migration, no frontend change, no anti-farming change for repeated correct quiz submits, no streak/weak concept/leaderboard/Piston/deployment, and no Phase 2 feature. |
 
 
 ## Test Results Log
@@ -976,6 +1001,7 @@ Git status: clean after `0543a9e feat: add frontend level completion flow` was p
 | 2026-05-16 | `cd frontend && npm run build` after Frontend Course Progress / Lock UI Foundation | PASS | Frontend build passed after adding `getCourseProgress(courseId)`, Course Map progress summary, completed/ready/locked badges, locked lesson disabling, and safe progress error handling. Vite build transformed 38 modules and completed successfully. | Yes |
 
 | 2026-06-02 | `cd frontend && npm run build` after Frontend Complete Level Button / Progress Refresh Foundation | PASS | Frontend build passed after adding authenticated `completeLevel(levelId)` helper, per-level Complete Level UI, progress refresh, and profile XP refresh messaging. Vite build transformed 38 modules and completed successfully. | Yes |
+| 2026-06-02 | `cd backend && .\mvnw.cmd test` after Backend XPService + Rank Recalculation Foundation | PASS | Backend tests passed with 191 tests, 0 failures, 0 errors after adding XPService, rank threshold tests, level-completion rank recalculation coverage, idempotency preservation coverage, and quiz-submit rank recalculation coverage. | Yes |
 
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
@@ -1073,6 +1099,7 @@ Git status: clean after `0543a9e feat: add frontend level completion flow` was p
 | 2026-05-16 | Frontend Course Progress / Lock UI Foundation | Browser frontend check: start backend with PostgreSQL/JWT env vars and Gemini env vars removed -> start frontend with `npm run dev` -> open Vite URL -> register/login -> generate fresh placeholder course -> Open Course Map -> inspect progress summary and level states -> open level 1 lesson -> return to Course Map -> verify locked level 2 and boss cannot open -> inspect safety/browser console | Course Map loaded successfully; progress summary appeared for a fresh placeholder course; initial state showed 0/3 completed and 0%; level 1 displayed ready/unlocked; level 2 displayed locked; boss displayed locked; locked levels showed safe unlock explanation and disabled `Open Lesson`; level 1 opened existing Lesson view; lesson content, quiz panel, flashcards panel, notes area, and back-to-course-map flow remained working; locked level 2 and boss could not be opened; UI did not show accessToken, refreshToken, password, role, tokenHash, secrets, correctAnswer, raw backend stack trace, or raw JSON dump. | Passed |
 
 | 2026-06-02 | Frontend Complete Level Button / Progress Refresh Foundation | Browser frontend check: start backend with PostgreSQL/JWT env vars and Gemini env vars removed -> start frontend with `npm run dev` -> open Vite URL -> register/login fresh user -> generate fresh placeholder course -> Open Course Map -> inspect initial progress and level states -> complete level 1 -> complete level 2 -> complete boss -> verify Lesson-view complete action and existing quiz/flashcards/notes/back flow -> inspect safety/browser console | Initial Course Map showed 0/3 completed, 0%, level 1 ready/unlocked, level 2 locked, and boss locked; `Complete Level` was visible/enabled only for unlocked incomplete levels; completing level 1 updated progress to 1/3 and 33%, marked level 1 completed, unlocked level 2, kept boss locked, and refreshed dashboard/profile XP by 50; completing level 2 updated progress to 2/3 and 66%, unlocked boss, and refreshed XP by 75 more; completing boss updated progress to 3/3 and 100%, showed course completed state, and refreshed XP by 100 more; locked levels could not be completed through normal UI; Lesson-view completion worked; Open Lesson, Back to Course Map, Quiz panel, Flashcards panel, Notes area, and note save/preload flow remained working; browser console had no red runtime errors; UI did not show accessToken, refreshToken, password, role, tokenHash, secrets, correctAnswer, raw backend stack trace, or raw JSON dump. | Passed |
+| 2026-06-02 | Backend XPService + Rank Recalculation Foundation | PowerShell-only backend check: start backend with PostgreSQL/JWT env vars and Gemini env vars removed -> register/login fresh user -> check starting profile -> generate and complete three fresh placeholder courses -> verify profile XP/rank after each course -> repeat already-completed level -> compare before/after profile -> run profile safety JSON checks -> scope checks | Starting profile showed `xp=0` and `rank=BEGINNER`; after course 1 profile showed `XP=225, Rank=BEGINNER`; after course 2 profile showed `XP=450, Rank=BEGINNER`; after course 3 profile showed `XP=675, Rank=CODER`; repeat completion returned `alreadyCompleted=True` and `xpAwarded=0`; XP and rank stayed unchanged after repeat; safety checks returned false for password, passwordHash, password_hash, token, refreshToken, tokenHash, secret, and correctAnswer; frontend, DB migrations, backend/pom.xml, docs/Build Log, AI/Gemini, problem, and leaderboard diffs were empty. | Passed |
 
 ## Backend Progress Fetch Endpoint Foundation Manual Test Commands
 Use these after the backend progress fetch endpoint task `f408fd6 feat: add course progress fetch endpoint`.
@@ -1743,6 +1770,260 @@ Important boundaries:
 - Progress refresh should use GET `/api/progress/courses/{courseId}` after completion.
 - Profile XP refresh should use the existing shared profile refresh callback.
 - Rank, streak, weak concept detection, leaderboard, Piston/code execution, deployment, and Phase 2 remain unimplemented.
+
+
+## Backend XPService + Rank Recalculation Foundation Manual Test Commands
+Use these after the backend XP/rank task `6aba27a feat: add xp rank recalculation foundation`.
+
+This is a backend-only feature, so manual verification should be done from PowerShell/API checks, not browser UI.
+
+### Automated verification
+
+```powershell
+cd backend
+.\mvnw.cmd test
+cd ..
+```
+
+Expected after this feature:
+```text
+Tests run: 191
+Failures: 0
+Errors: 0
+BUILD SUCCESS
+```
+
+### Scope checks
+
+```powershell
+git status --short
+git diff -- frontend
+git diff -- backend/src/main/resources/db/migration
+git diff -- backend/pom.xml
+git diff -- docs
+git diff -- CodeQuest_Build_Log.md
+git diff -- backend/src/main/java/com/codequest/ai
+git diff -- backend/src/main/java/com/codequest/problem
+git diff -- backend/src/main/java/com/codequest/leaderboard
+```
+
+Expected before commit:
+```text
+Only these files are modified:
+ M backend/src/main/java/com/codequest/progress/ProgressService.java
+ M backend/src/main/java/com/codequest/quiz/QuizService.java
+ M backend/src/test/java/com/codequest/progress/ProgressServiceTest.java
+ M backend/src/test/java/com/codequest/quiz/QuizServiceTest.java
+?? backend/src/main/java/com/codequest/progress/XPService.java
+?? backend/src/test/java/com/codequest/progress/XPServiceTest.java
+
+Frontend diff empty.
+DB migration diff empty.
+backend/pom.xml diff empty.
+docs diff empty.
+Build Log diff empty.
+AI/problem/leaderboard diffs empty.
+```
+
+### Terminal 1 - Start backend
+
+Start backend with local PostgreSQL/JWT env vars. Remove Gemini env vars so placeholder course generation is predictable.
+
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject
+
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
+$env:DATABASE_USERNAME="postgres"
+$env:DATABASE_PASSWORD="<your-local-postgres-password>"
+$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
+
+Remove-Item Env:GEMINI_API_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:GEMINI_MODEL -ErrorAction SilentlyContinue
+Remove-Item Env:GEMINI_BASE_URL -ErrorAction SilentlyContinue
+
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+Expected backend startup:
+```text
+Tomcat started on port 8080
+Started CodeQuestApplication
+```
+
+### Terminal 2 - Manual PowerShell API verification
+
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject
+$baseUrl = "http://localhost:8080"
+```
+
+Register and login a fresh user:
+```powershell
+$email = "rank_manual_" + (Get-Date -Format "yyyyMMddHHmmss") + "@example.com"
+
+$registerBody = @{
+  name = "Rank Manual User"
+  email = $email
+  password = "StrongPass123"
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/register" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body $registerBody
+
+$loginBody = @{
+  email = $email
+  password = "StrongPass123"
+} | ConvertTo-Json
+
+$loginResponse = Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/login" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body $loginBody
+
+$token = $loginResponse.accessToken
+$headers = @{ Authorization = "Bearer $token" }
+```
+
+Check starting profile:
+```powershell
+$profileStart = Invoke-RestMethod `
+  -Uri "$baseUrl/api/user/profile" `
+  -Method Get `
+  -Headers $headers
+
+$profileStart | Select-Object xp, rank
+```
+
+Expected:
+```text
+xp = 0
+rank = BEGINNER
+```
+
+Generate and complete three fresh placeholder courses to cross 500 XP:
+```powershell
+for ($i = 1; $i -le 3; $i++) {
+  $topic = "Rank Manual Course " + (Get-Date -Format "yyyyMMddHHmmss") + " " + $i
+
+  $courseBody = @{
+    topic = $topic
+    difficulty = "BEGINNER"
+    goal = "Rank recalculation manual test"
+  } | ConvertTo-Json
+
+  $courseResponse = Invoke-RestMethod `
+    -Uri "$baseUrl/api/courses/generate" `
+    -Method Post `
+    -Headers $headers `
+    -ContentType "application/json" `
+    -Body $courseBody
+
+  $courseId = $courseResponse.courseId
+
+  $courseDetails = Invoke-RestMethod `
+    -Uri "$baseUrl/api/courses/$courseId" `
+    -Method Get `
+    -Headers $headers
+
+  $orderedLevels = $courseDetails.levels | Sort-Object orderNumber
+
+  foreach ($level in $orderedLevels) {
+    Invoke-RestMethod `
+      -Uri "$baseUrl/api/levels/$($level.levelId)/complete" `
+      -Method Post `
+      -Headers $headers
+  }
+
+  $profileNow = Invoke-RestMethod `
+    -Uri "$baseUrl/api/user/profile" `
+    -Method Get `
+    -Headers $headers
+
+  "After course $i => XP=$($profileNow.xp), Rank=$($profileNow.rank)"
+}
+```
+
+Expected:
+```text
+After course 1 => XP=225, Rank=BEGINNER
+After course 2 => XP=450, Rank=BEGINNER
+After course 3 => XP=675, Rank=CODER
+```
+
+Repeat-completion idempotency check:
+```powershell
+$repeatLevel = $orderedLevels[0]
+
+$beforeRepeatProfile = Invoke-RestMethod `
+  -Uri "$baseUrl/api/user/profile" `
+  -Method Get `
+  -Headers $headers
+
+$repeatResponse = Invoke-RestMethod `
+  -Uri "$baseUrl/api/levels/$($repeatLevel.levelId)/complete" `
+  -Method Post `
+  -Headers $headers
+
+$afterRepeatProfile = Invoke-RestMethod `
+  -Uri "$baseUrl/api/user/profile" `
+  -Method Get `
+  -Headers $headers
+
+$repeatResponse
+$beforeRepeatProfile | Select-Object xp, rank
+$afterRepeatProfile | Select-Object xp, rank
+```
+
+Expected:
+```text
+repeatResponse.alreadyCompleted = True
+repeatResponse.xpAwarded = 0
+XP unchanged
+Rank unchanged
+```
+
+Safety check:
+```powershell
+$profileJson = $afterRepeatProfile | ConvertTo-Json -Depth 10
+$profileJson.Contains("password")
+$profileJson.Contains("passwordHash")
+$profileJson.Contains("password_hash")
+$profileJson.Contains("token")
+$profileJson.Contains("refreshToken")
+$profileJson.Contains("tokenHash")
+$profileJson.Contains("secret")
+$profileJson.Contains("correctAnswer")
+```
+
+Expected:
+```text
+False
+False
+False
+False
+False
+False
+False
+False
+```
+
+Important boundaries:
+- XPService is backend-only.
+- Existing XP amounts are preserved.
+- Level completion uses `level.xpReward`.
+- Quiz submit uses existing quiz XP behavior.
+- Rank thresholds are BEGINNER 0, CODER 500, DEVELOPER 2000, ENGINEER 5000, ARCHITECT 12000, LEGEND 25000.
+- Repeated level completion remains idempotent and awards `xpAwarded=0`.
+- Repeated correct quiz submit still follows existing MVP behavior; anti-farming/deduplication is not implemented.
+- No new endpoint was added.
+- No DB migration was added.
+- No frontend changes were made.
+- Streak, weak concept detection, leaderboard, Piston/code execution, deployment, and Phase 2 remain unimplemented.
 
 
 ## Verification Protocol After Every Codex Task
@@ -6219,47 +6500,57 @@ Very important workflow:
 - If stale compiled class issues happen, use:
   cd backend
   .\mvnw.cmd clean test
-- For backend run use:
+- For backend run:
   cd backend
   .\mvnw.cmd spring-boot:run
-- For frontend build use:
+- For frontend build:
   cd frontend
   npm run build
-- For frontend dev server use:
+- For frontend dev server:
   cd frontend
   npm run dev
-- My system is Windows + PowerShell.
-- Repo path usually:
-  C:\Users\hp\Desktop\CodeQuestFinalProject
-- GitHub repo:
-  https://github.com/Aana-1025/CodeQuest.git
-- Always ask me for `git status --short`, test/build output, diff safety output, and manual verification output before telling me to commit.
-- Do not commit automatically. I commit manually after verification.
-- Do not start the next feature while current feature has uncommitted changes.
-- For backend-only features, give me detailed PowerShell-only manual verification steps with exactly what to type and where to type it.
-- For frontend changes, give me browser-based manual checks.
-- For full-stack changes, give me both PowerShell API checks and browser checks.
-- After every Codex prompt, include a proper manual verification section to confirm the current feature works before commit.
 
-Source-of-truth priority:
-1. CodeQuest_AI_Control_Master_Blueprint_v3
-2. docs/CodeQuest_Core_Rules.md
-3. docs/CodeQuest_DB_Schema.md
-4. docs/CodeQuest_API_Contracts.md
-5. docs/CodeQuest_Feature_Prompts.md
-6. CodeQuest_Build_Log.md
-7. AGENTS.md
-
-Current repo status:
+Current repo status from latest Build Log:
 - Branch: main
-- Latest feature commit: 0543a9e feat: add frontend level completion flow
-- Previous docs commit: ea542f6 docs: record frontend course progress lock ui
-- Previous feature commit: 5deeddd feat: show course progress lock states
-- Latest completed feature: Frontend Complete Level Button / Progress Refresh Foundation
-- Frontend build passed: cd frontend && npm run build
-- Manual browser verification passed for frontend level completion flow.
+- Latest feature commit:
+  6aba27a feat: add xp rank recalculation foundation
+- Previous commits:
+  b5054d4 docs: record frontend level completion flow
+  0543a9e feat: add frontend level completion flow
+  ea542f6 docs: record frontend course progress lock ui
+  5deeddd feat: show course progress lock states
 
-Current completed features:
+Latest completed feature:
+Backend XPService + Rank Recalculation Foundation.
+
+Latest completed feature details:
+- Added backend XPService.
+- XPService centralizes XP addition and rank recalculation.
+- Rank thresholds:
+  BEGINNER 0
+  CODER 500
+  DEVELOPER 2000
+  ENGINEER 5000
+  ARCHITECT 12000
+  LEGEND 25000
+- Existing XP award amounts were preserved.
+- Level completion now recalculates rank after first-completion XP award.
+- Correct quiz submit now recalculates rank after quiz XP award.
+- Repeated level completion remains idempotent with xpAwarded=0.
+- Repeated correct quiz submit still follows existing MVP behavior and can award XP again; anti-farming/deduplication is not implemented.
+- No new endpoint was added.
+- No DB migration was added.
+- No frontend changes were made.
+- Backend tests passed with 191 tests, 0 failures, 0 errors.
+- Manual API verification passed:
+  starting profile xp=0/rank=BEGINNER
+  after one placeholder course XP=225/rank=BEGINNER
+  after two placeholder courses XP=450/rank=BEGINNER
+  after three placeholder courses XP=675/rank=CODER
+  repeated level completion stayed idempotent and XP/rank unchanged
+  safety checks found no password/token/secret/correctAnswer leakage.
+
+Current important completed features:
 - Auth register/login/refresh/logout/JWT/profile
 - Frontend auth/protected routes/dashboard shell
 - Course generation foundation
@@ -6278,28 +6569,9 @@ Current completed features:
 - Backend progress fetch endpoint
 - Frontend Course Progress / Lock UI Foundation
 - Frontend Complete Level Button / Progress Refresh Foundation
-
-Latest completed feature details:
-- `completeLevel(levelId)` helper exists in `frontend/src/services/courseApi.js`.
-- Course Map and Lesson view now show Complete Level for unlocked incomplete levels.
-- Locked levels do not expose normal enabled Complete Level action.
-- Already completed levels do not expose normal repeat-completion action.
-- Completing a level calls POST `/api/levels/{levelId}/complete`.
-- After completion, frontend refreshes progress through GET `/api/progress/courses/{courseId}`.
-- After completion, frontend refreshes profile XP using existing profile refresh callback.
-- Fresh placeholder course verification:
-  - initial 0/3 and 0%
-  - level 1 ready/unlocked
-  - level 2 locked
-  - boss locked
-  - complete level 1 -> 1/3, 33%, level 2 unlocked, boss locked, XP +50
-  - complete level 2 -> 2/3, 66%, boss unlocked, XP +75
-  - complete boss -> 3/3, 100%, course completed, XP +100
-- Existing lesson, quiz, flashcards, notes, and back navigation still work.
-- No secrets, tokens, passwords, roles, token hashes, correctAnswer, raw stack traces, or raw JSON dumps were visible.
+- Backend XPService + Rank Recalculation Foundation
 
 Current important unfinished features:
-- Proper XP/rank system / rank recalculation
 - Streak system
 - Weak concept detection
 - Coding problems persistence/fetch if not fully implemented
@@ -6314,7 +6586,7 @@ Current important unfinished features:
 - Resume bullets updated
 
 Recommended next safest MVP task:
-Backend Rank Update Foundation after XP changes, because XP is already awarded from quiz submit and level completion, but rank recalculation is still unimplemented. Keep it backend-only and narrow unless I ask otherwise.
+Backend Streak Foundation, because XP/rank recalculation is now done and the profile already exposes `streak`, but real streak update behavior is still unimplemented. Keep it backend-only and narrow unless I ask otherwise.
 
 Important boundaries:
 - Do not redesign.
@@ -6336,53 +6608,44 @@ Frontend: React + Vite + Tailwind
 Database: PostgreSQL + Flyway
 AI: Gemini API through GeminiService only
 Code execution: Piston API only; never execute user code inside backend
-Current module: Frontend / Level completion flow
-Last completed feature: Frontend Complete Level Button / Progress Refresh Foundation
-Latest feature commit: 0543a9e feat: add frontend level completion flow
-Previous docs commit: ea542f6 docs: record frontend course progress lock ui
-Previous feature commit: 5deeddd feat: show course progress lock states
-Tests/build passed: Frontend `cd frontend && npm run build` PASS after Frontend Complete Level Button / Progress Refresh Foundation
-Manual verification: Browser verification PASS. Backend and frontend were started locally; Gemini env vars were removed for predictable placeholder courses; login/register worked; fresh placeholder course generation worked; Course Map loaded; initial progress showed 0/3 completed and 0%; level 1 was ready/unlocked; level 2 and boss were locked; `Complete Level` was visible/enabled only for unlocked incomplete levels; completing level 1 updated progress to 1/3 and 33%, unlocked level 2, kept boss locked, and refreshed profile/dashboard XP by 50; completing level 2 updated progress to 2/3 and 66%, unlocked boss, and refreshed XP by 75 more; completing boss updated progress to 3/3 and 100%, showed course completed state, and refreshed XP by 100 more; locked levels could not be completed through normal UI; Lesson-view complete action worked; existing lesson, quiz, flashcards, notes, note save/preload, and back navigation flows remained working; UI did not expose accessToken, refreshToken, password, role, tokenHash, secrets, correctAnswer, raw backend stack trace, or raw JSON dump.
-Known bugs: None blocking. Existing progress JSONB/varchar bug was fixed before commit in the earlier progress feature. Frontend Complete Level Button / Progress Refresh Foundation required no backend change, no DB migration, no package/dependency change, and no docs/Build Log change during feature implementation.
-Next task candidates: Backend Rank Update Foundation after XP changes, Streak Foundation, Weak Concept Detection Foundation, Coding Problems Persistence/Fetch Foundation, Piston Run Code Foundation, Code Submit/History Foundation, AI Code Review Foundation, or Leaderboard Foundation. Choose one narrow MVP slice only.
-Recommended next safest MVP task: Backend Rank Update Foundation after XP changes, because XP is already awarded from quiz submit and level completion, but rank recalculation is still unimplemented.
+Current module: Backend / XP + Rank recalculation
+Last completed feature: Backend XPService + Rank Recalculation Foundation
+Latest feature commit: 6aba27a feat: add xp rank recalculation foundation
+Previous docs commit: b5054d4 docs: record frontend level completion flow
+Previous feature commit: 0543a9e feat: add frontend level completion flow
+Tests/build passed: Backend `cd backend && .\mvnw.cmd test` PASS with 191 tests, 0 failures, 0 errors after Backend XPService + Rank Recalculation Foundation
+Manual verification: PowerShell API verification PASS. Backend was started locally with PostgreSQL/JWT env vars and Gemini env vars removed; fresh user started with xp=0 and rank=BEGINNER; after one placeholder course profile showed XP=225 and rank=BEGINNER; after two placeholder courses profile showed XP=450 and rank=BEGINNER; after three placeholder courses profile showed XP=675 and rank=CODER; repeated already-completed level returned alreadyCompleted=True and xpAwarded=0; XP/rank stayed unchanged; profile safety checks returned false for password/token/secret/correctAnswer fields.
+Scope: Backend-only. Changed files were limited to XP/rank service wiring and tests: XPService, ProgressService, QuizService, XPServiceTest, ProgressServiceTest, QuizServiceTest. No frontend, DB migration, package, docs/Build Log, AI/Gemini, problem, leaderboard, Docker, CI/CD, deployment, streak, weak concept, Piston/code execution, or Phase 2 change during implementation.
+Next task candidates: Backend Streak Foundation, Weak Concept Detection Foundation, Coding Problems Persistence/Fetch Foundation, Piston Run Code Foundation, Code Submit/History Foundation, AI Code Review Foundation, Leaderboard Foundation, Docker/CI/CD/deployment polish. Choose one narrow MVP slice only.
+Recommended next safest MVP task: Backend Streak Foundation, because XP/rank recalculation is now done and profile already exposes streak, but real streak update behavior is still unimplemented.
 Rules: Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Prompts, Build Log, and AGENTS.md. Use Maven Wrapper only. Never use plain mvn. Do not redesign. Do not invent features. MVP first only. One feature per task. Always include manual verification steps after Codex prompts.
 ```
 
 ## Latest Safe Continuation Notes
-- Latest feature commit pushed to main: `0543a9e feat: add frontend level completion flow`.
-- Previous docs commit on main: `ea542f6 docs: record frontend course progress lock ui`.
-- Previous feature commit on main: `5deeddd feat: show course progress lock states`.
-- Frontend build after the Frontend Complete Level Button / Progress Refresh Foundation passed with `cd frontend && npm run build`.
-- Manual browser verification after the Frontend Complete Level Button / Progress Refresh Foundation passed.
+- Latest feature commit pushed to main: `6aba27a feat: add xp rank recalculation foundation`.
+- Previous docs commit on main: `b5054d4 docs: record frontend level completion flow`.
+- Previous feature commit on main: `0543a9e feat: add frontend level completion flow`.
+- Backend tests after Backend XPService + Rank Recalculation Foundation passed with `cd backend && .\mvnw.cmd test`: 191 tests, 0 failures, 0 errors.
+- Manual API verification after Backend XPService + Rank Recalculation Foundation passed.
+- XPService is implemented in the backend and centralizes XP addition + rank recalculation.
+- Rank thresholds are `BEGINNER=0`, `CODER=500`, `DEVELOPER=2000`, `ENGINEER=5000`, `ARCHITECT=12000`, and `LEGEND=25000`.
+- Existing XP amounts were preserved:
+  - placeholder level completion remains 50/75/100 XP
+  - level completion uses `level.xpReward`
+  - quiz submit uses existing quiz XP behavior
+- Level completion now recalculates rank after first-completion XP award.
+- Quiz submit now recalculates rank after correct-answer XP award.
+- Repeat level completion remains idempotent with `alreadyCompleted=true`, `xpAwarded=0`, and unchanged XP/rank.
+- Repeated correct quiz submit still follows existing MVP behavior and can award XP again; anti-farming/deduplication is not implemented.
+- User profile naturally shows updated rank from persisted `user.rank`.
 - Backend progress fetch endpoint remains GET `/api/progress/courses/{courseId}`.
 - Level completion endpoint remains POST `/api/levels/{levelId}/complete`.
 - Frontend Course Map still calls `getCourseProgress(courseId)` from `frontend/src/services/courseApi.js`.
-- Frontend now has `completeLevel(levelId)` in `frontend/src/services/courseApi.js`.
-- Frontend Course Map and Lesson view now call POST `/api/levels/{levelId}/complete` only from explicit Complete Level action.
-- Complete Level is shown/enabled only for unlocked incomplete levels in normal UI.
-- Locked levels do not expose an enabled Complete Level action.
-- Already-completed levels do not expose normal repeat-completion UI.
-- After level completion, frontend refreshes course progress through GET `/api/progress/courses/{courseId}`.
-- After level completion, frontend attempts profile XP refresh through the existing shared profile refresh callback.
-- Fresh placeholder courses still start at 0/3 completed and 0%.
-- Level 1 appears ready/unlocked for a fresh course.
-- Level 2 and boss appear locked for a fresh course.
-- Completing level 1 updates progress to 1/3 and 33%, unlocks level 2, keeps boss locked, and refreshes XP by 50.
-- Completing level 2 updates progress to 2/3 and 66%, unlocks boss, and refreshes XP by 75 more.
-- Completing boss updates progress to 3/3 and 100%, shows course completed state, and refreshes XP by 100 more.
-- Existing Lesson view still shows lesson content, quiz panel, flashcards panel, notes area, and back-to-course-map flow.
-- Notes save/preload flow still works.
-- Frontend complete-level failures should show safe inline UI messaging and should not expose raw backend details.
-- Frontend Complete Level Button / Progress Refresh Foundation changed only `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`.
-- No backend files changed for this frontend feature.
-- No DB migration was added.
-- No package/dependency files changed.
-- No React Router was added.
+- Frontend complete-level helper remains `completeLevel(levelId)` in `frontend/src/services/courseApi.js`.
+- Frontend Course Map and Lesson view call POST `/api/levels/{levelId}/complete` only from explicit Complete Level actions.
+- Frontend complete-level flow refreshes progress and profile XP after successful completion.
 - Backend still enforces unlock rules server-side.
-- Backend level completion still awards level XP once per user/level and is idempotent on repeat completion.
 - Backend progress fetch still computes user-scoped completed/unlocked state and courseCompleted.
-- Proper XP/rank recalculation is still not implemented.
 - Streak system is still not implemented.
 - Weak concept detection is still not implemented.
 - Coding problems persistence/fetch may still need a narrow MVP foundation if not fully implemented.
@@ -6392,5 +6655,5 @@ Rules: Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Pr
 - AI code review is still not implemented.
 - Leaderboard is still not implemented.
 - Docker, CI/CD, deployment, README, screenshots, demo video, and resume bullets remain unimplemented.
-- Next safest MVP task is likely Backend Rank Update Foundation after XP changes, because XP is now awarded by quiz submit and level completion but rank recalculation is still missing.
+- Next safest MVP task is likely Backend Streak Foundation, because XP/rank recalculation is now done and profile already exposes streak but real streak updates are still missing.
 
