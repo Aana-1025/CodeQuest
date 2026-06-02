@@ -5,14 +5,14 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Backend / Streak
-Current feature: Backend StreakService + Daily Login XP Guard completed, backend-tested, API-verified, committed, pushed, and awaiting Build Log docs commit
-Latest commit: `7641b3f feat: add login streak daily xp guard`
-Previous commit: `ca7d285 docs: record xp rank recalculation foundation`
-Previous feature commit: `6aba27a feat: add xp rank recalculation foundation`
+Current module: Backend / Quiz
+Current feature: Backend Weak Concept Detection Foundation completed, backend-tested, API-verified, committed, pushed, and awaiting Build Log docs commit
+Latest commit: `ff0a4d4 feat: add weak concepts to quiz submit`
+Previous commit: `bfa72d1 docs: record login streak daily xp guard`
+Previous feature commit: `7641b3f feat: add login streak daily xp guard`
 Current branch: main
-Test status: Backend `cd backend && .\mvnw.cmd test` PASS with 199 tests, 0 failures, 0 errors, 0 skipped. Manual API verification PASS before commit: backend was started locally with PostgreSQL/JWT env vars and Gemini env vars removed; fresh user registration stayed unchanged and returned `xp=0`, `rank=BEGINNER`, and blank/null `streak`; first successful login awarded daily login XP and returned `xp=30`, `rank=BEGINNER`, `streak=1`; profile fetch after login stayed `xp=30`, `rank=BEGINNER`, `streak=1`; second same-day login did not award XP again and stayed `xp=30`, `rank=BEGINNER`, `streak=1`; repeated profile fetch did not award XP; refresh-token flow did not award daily login XP; profile safety checks returned false for password/token/secret/correctAnswer fields; optional DB check confirmed `xp=30`, `rank=BEGINNER`, `streak=1`, and `last_login` not null. Scope checks PASS: frontend, DB migrations, backend/pom.xml, docs, Build Log, AI/Gemini, problem, leaderboard, and common security files were unchanged during feature implementation; backend changes were limited to `AuthService`, new `StreakService`, and focused auth/user/level/progress tests.
-Git status: clean after `7641b3f feat: add login streak daily xp guard` was pushed to `main`; Build Log docs update in progress
+Test status: Backend `cd backend && .\mvnw.cmd test` PASS with 202 tests, 0 failures, 0 errors, 0 skipped. Manual API verification PASS before commit: backend was started locally with PostgreSQL/JWT env vars; a fresh user was registered and logged in; an existing quiz row was selected from local PostgreSQL with `id=44821f81-730c-4b18-9b2b-fb6e70354366`, `correct_answer=B`, and `concept_tag=Trie Definition`; submitting wrong answer `A` returned `isCorrect=false`, `concept=Trie Definition`, and `weakConcepts={Trie Definition}`; submitting correct answer `B` returned `isCorrect=true`, `concept=Trie Definition`, and empty `weakConcepts`; response safety checks returned false for `correctAnswer`, `userId`, password fields, token fields, refresh token fields, tokenHash, and secret; no-token submit returned 401. Scope checks PASS: frontend, DB migrations, backend/pom.xml, docs, Build Log, AI/Gemini, auth, progress, user, problem, leaderboard, and common security files were unchanged during feature implementation; backend changes were limited to quiz submit service/DTO/tests.
+Git status: clean after `ff0a4d4 feat: add weak concepts to quiz submit` was pushed to `main`; Build Log docs update in progress
 
 ## Completed Features
 - [x] Project setup
@@ -72,7 +72,7 @@ Git status: clean after `7641b3f feat: add login streak daily xp guard` was push
 - [x] Notes
 - [x] Backend Quiz submit/scoring endpoint
 - [x] Frontend Quiz submit UI
-- [ ] Weak concept detection
+- [x] Weak concept detection / quiz submit weakConcepts foundation
 - [x] XP/rank system / rank recalculation foundation
 - [x] Streak system / daily login XP guard foundation
 - [ ] Piston run code
@@ -503,6 +503,17 @@ Git status: clean after `7641b3f feat: add login streak daily xp guard` was push
 - Refresh-token behavior, logout behavior, JWT claims, rank thresholds, quiz XP behavior, and level-completion XP behavior were not changed by the streak feature.
 - Backend StreakService + Daily Login XP Guard added no new public endpoint and no DB migration.
 - Backend StreakService + Daily Login XP Guard did not touch frontend, DB migrations, package files, docs/Build Log during implementation, AI/Gemini, course, flashcard, note, problem, leaderboard, Docker, CI/CD, deployment, weak concept detection, Piston/code execution, or Phase 2 features.
+- Backend Weak Concept Detection Foundation is implemented as a narrow response-only MVP feature in quiz submit.
+- `POST /api/quizzes/{quizQuestionId}/submit` now returns safe `weakConcepts` in addition to existing safe fields: `quizQuestionId`, `selectedAnswer`, `isCorrect`, `explanation`, and `concept`.
+- For wrong quiz answers, `weakConcepts` is derived from the backend-stored quiz `conceptTag`/concept field only.
+- Wrong-answer weak concept extraction trims the concept and returns a single-item list when the concept is nonblank.
+- Wrong-answer weak concept extraction returns an empty list for null/blank concepts.
+- Correct quiz answers always return an empty `weakConcepts` list.
+- Weak concept detection is implemented in `QuizService`, not in the controller.
+- Weak concept detection does not call Gemini and does not generate remedial levels.
+- Weak concept detection does not persist weak concept rows and does not add a DB migration.
+- Weak concept detection does not change quiz scoring, XP award rules, quiz attempt persistence/history, rank, streak, progress, unlock rules, frontend UI, Piston/code execution, leaderboard, or Phase 2 behavior.
+- Quiz submit response still must never expose `correctAnswer`, `userId`, passwords, tokens, refresh tokens, token hashes, role, secrets, raw entities, raw stack traces, or raw backend JSON dumps.
 - Backend tests after level unlock logic pass with 168 tests, 0 failures, 0 errors.
 - Backend tests after the progress feature and JSONB mapping fix pass with 159 tests, 0 failures, 0 errors.
 - Backend Quiz Attempt History/Fetch Foundation adds no migration and makes no frontend changes.
@@ -673,6 +684,7 @@ Git status: clean after `7641b3f feat: add login streak daily xp guard` was push
 
 ## Bugs / Issues
 - None blocking currently.
+- Backend Weak Concept Detection Foundation note: No blocking issue after manual API verification. Manual verification used existing quiz row `44821f81-730c-4b18-9b2b-fb6e70354366` with `correct_answer=B` and `concept_tag=Trie Definition`; wrong answer `A` returned `isCorrect=False`, `concept=Trie Definition`, and `weakConcepts={Trie Definition}`; correct answer `B` returned `isCorrect=True`, `concept=Trie Definition`, and empty `weakConcepts`; safety checks returned false for `correctAnswer`, `userId`, password, passwordHash, password_hash, token, refreshToken, tokenHash, and secret; no-token submit returned 401. Backend tests passed with 202 tests, 0 failures, 0 errors. Scope stayed backend-only with expected changes limited to `backend/src/main/java/com/codequest/quiz/QuizService.java`, `backend/src/main/java/com/codequest/quiz/dto/SubmitQuizAnswerResponse.java`, `backend/src/test/java/com/codequest/quiz/QuizControllerTest.java`, and `backend/src/test/java/com/codequest/quiz/QuizServiceTest.java`; no frontend, DB migration, package, docs, Build Log, AI/Gemini, auth, progress, user, problem, leaderboard, common security, Docker, CI/CD, deployment, Piston/code execution, or Phase 2 work.
 - Backend StreakService + Daily Login XP Guard note: No blocking issue after manual API verification. Manual verification confirmed registration stayed unchanged with `xp=0`, `rank=BEGINNER`, and blank/null `streak`; first successful login awarded daily login XP and returned `xp=30`, `rank=BEGINNER`, `streak=1`; profile fetch after login stayed `xp=30`, `rank=BEGINNER`, `streak=1`; second same-day login did not award XP again and stayed `xp=30`, `rank=BEGINNER`, `streak=1`; repeated profile fetches and refresh-token flow did not award daily login XP; safety checks returned false for password, passwordHash, password_hash, token, refreshToken, tokenHash, secret, and correctAnswer; DB check confirmed `xp=30`, `rank=BEGINNER`, `streak=1`, and `last_login` not null. Backend tests passed with 199 tests, 0 failures, 0 errors. Scope stayed backend-only with expected changes limited to `backend/src/main/java/com/codequest/auth/AuthService.java`, `backend/src/main/java/com/codequest/progress/StreakService.java`, `backend/src/test/java/com/codequest/progress/StreakServiceTest.java`, `backend/src/test/java/com/codequest/auth/AuthServiceTest.java`, `backend/src/test/java/com/codequest/auth/AuthControllerTest.java`, `backend/src/test/java/com/codequest/user/UserControllerTest.java`, `backend/src/test/java/com/codequest/user/UserServiceTest.java`, and `backend/src/test/java/com/codequest/level/LevelControllerTest.java`; no frontend, DB migration, package, docs, Build Log, AI/Gemini, problem, leaderboard, common security, Docker, CI/CD, deployment, weak concept, Piston/code execution, or Phase 2 work.
 - Backend XPService + Rank Recalculation Foundation note: No blocking issue after manual API verification. Manual verification confirmed fresh user profile started with `xp=0` and `rank=BEGINNER`; completing one placeholder course moved profile to `XP=225, Rank=BEGINNER`; completing two placeholder courses moved profile to `XP=450, Rank=BEGINNER`; completing three placeholder courses moved profile to `XP=675, Rank=CODER`; repeat level completion stayed idempotent with `alreadyCompleted=True`, `xpAwarded=0`, and unchanged XP/rank; profile safety checks returned false for password, passwordHash, password_hash, token, refreshToken, tokenHash, secret, and correctAnswer. Backend tests passed with 191 tests, 0 failures, 0 errors. Scope stayed backend-only with expected changes limited to `backend/src/main/java/com/codequest/progress/XPService.java`, `backend/src/main/java/com/codequest/progress/ProgressService.java`, `backend/src/main/java/com/codequest/quiz/QuizService.java`, `backend/src/test/java/com/codequest/progress/XPServiceTest.java`, `backend/src/test/java/com/codequest/progress/ProgressServiceTest.java`, and `backend/src/test/java/com/codequest/quiz/QuizServiceTest.java`; no frontend, DB migration, package, docs, Build Log, AI/Gemini, problem, leaderboard, Docker, CI/CD, deployment, streak, weak concept, Piston/code execution, or Phase 2 work.
 - Frontend Complete Level Button / Progress Refresh Foundation note: No blocking issue after manual browser verification. Manual browser verification confirmed fresh placeholder course initially showed 0/3 completed and 0%, level 1 ready/unlocked, level 2 locked, and boss locked; `Complete Level` was visible/enabled only for unlocked incomplete levels; completing level 1 updated progress to 1/3 and 33%, marked level 1 completed, unlocked level 2, kept boss locked, and refreshed dashboard/profile XP by 50; completing level 2 updated progress to 2/3 and 66%, unlocked boss, and refreshed XP by 75 more; completing boss updated progress to 3/3 and 100%, showed course completed state, and refreshed XP by 100 more; locked levels could not be completed through normal UI; Lesson-view complete action worked; Open Lesson, Back to Course Map, Quiz panel, Flashcards panel, Notes area, and note save/preload flow remained working; no accessToken, refreshToken, password, role, tokenHash, secrets, `correctAnswer`, raw backend stack trace, or raw JSON dump was visible. Frontend build passed. Scope stayed frontend-only with changes limited to `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`; no backend, DB migration, package, docs, AI/Gemini, auth, quiz backend, flashcard backend, note backend, problem, leaderboard, Docker, CI/CD, deployment, rank, streak, weak concept, Piston/code execution, or Phase 2 work.
@@ -926,6 +938,8 @@ Git status: clean after `7641b3f feat: add login streak daily xp guard` was push
 
 | 57 | 2026-06-02 | Backend StreakService + Daily Login XP Guard | Backend / Streak + Auth + User XP | backend/src/main/java/com/codequest/progress/StreakService.java; backend/src/main/java/com/codequest/auth/AuthService.java; backend/src/test/java/com/codequest/progress/StreakServiceTest.java; backend/src/test/java/com/codequest/auth/AuthServiceTest.java; backend/src/test/java/com/codequest/auth/AuthControllerTest.java; backend/src/test/java/com/codequest/user/UserControllerTest.java; backend/src/test/java/com/codequest/user/UserServiceTest.java; backend/src/test/java/com/codequest/level/LevelControllerTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 199 tests, 0 failures, 0 errors, 0 skipped. Manual API verification PASS: registration stayed unchanged with `xp=0`, `rank=BEGINNER`, blank/null `streak`; first login awarded daily login XP and returned `xp=30`, `rank=BEGINNER`, `streak=1`; second same-day login, repeated profile fetch, and refresh-token flow did not award XP again; DB showed `last_login` not null; safety checks passed. Scope checks clean: frontend, DB migrations, backend/pom.xml, docs/Build Log, AI/Gemini, problem, leaderboard, and common security diffs empty. | `7641b3f feat: add login streak daily xp guard`. Added backend StreakService and wired successful login to award +30 daily XP once per calendar day using XPService/rank recalculation. No new endpoint, no DB migration, no frontend change, no JWT/refresh/logout behavior change, no rank threshold change, no quiz/level XP change, no weak concept/leaderboard/Piston/deployment, and no Phase 2 feature. |
 
+| 58 | 2026-06-03 | Backend Weak Concept Detection Foundation | Backend / Quiz | backend/src/main/java/com/codequest/quiz/QuizService.java; backend/src/main/java/com/codequest/quiz/dto/SubmitQuizAnswerResponse.java; backend/src/test/java/com/codequest/quiz/QuizControllerTest.java; backend/src/test/java/com/codequest/quiz/QuizServiceTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 202 tests, 0 failures, 0 errors, 0 skipped. Manual API verification PASS: wrong answer `A` for quiz `44821f81-730c-4b18-9b2b-fb6e70354366` returned `isCorrect=False`, `concept=Trie Definition`, and `weakConcepts={Trie Definition}`; correct answer `B` returned `isCorrect=True` and empty `weakConcepts`; safety checks confirmed no `correctAnswer`, `userId`, password/token/secret fields; no-token submit returned 401. Scope checks clean: frontend, DB migrations, backend/pom.xml, docs/Build Log, AI/Gemini, auth, progress, user, problem, leaderboard, and common security diffs empty. | `ff0a4d4 feat: add weak concepts to quiz submit`. Added response-only weak concept detection to quiz submit. Wrong answers return a trimmed backend concept tag in `weakConcepts`; correct answers return an empty list. No Gemini call, no remedial generation, no persistence/migration, no frontend change, no scoring/XP/rank/streak/progress/unlock change, no Piston/leaderboard/deployment, and no Phase 2 feature. |
+
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -1024,6 +1038,8 @@ Git status: clean after `7641b3f feat: add login streak daily xp guard` was push
 | 2026-06-02 | `cd frontend && npm run build` after Frontend Complete Level Button / Progress Refresh Foundation | PASS | Frontend build passed after adding authenticated `completeLevel(levelId)` helper, per-level Complete Level UI, progress refresh, and profile XP refresh messaging. Vite build transformed 38 modules and completed successfully. | Yes |
 | 2026-06-02 | `cd backend && .\mvnw.cmd test` after Backend XPService + Rank Recalculation Foundation | PASS | Backend tests passed with 191 tests, 0 failures, 0 errors after adding XPService, rank threshold tests, level-completion rank recalculation coverage, idempotency preservation coverage, and quiz-submit rank recalculation coverage. | Yes |
 | 2026-06-02 | `cd backend && .\mvnw.cmd test` after Backend StreakService + Daily Login XP Guard | PASS | Backend tests passed with 199 tests, 0 failures, 0 errors, 0 skipped after adding StreakService, login daily XP guard, same-day/next-day/gap streak coverage, refresh/profile no-award guards, and updated login/profile/level expectations for daily login XP. | Yes |
+| 2026-06-03 | `cd backend && .\mvnw.cmd test` after Backend Weak Concept Detection Foundation | PASS | Backend tests passed with 202 tests, 0 failures, 0 errors, 0 skipped after adding `weakConcepts` to safe quiz submit response, wrong/correct/blank concept service coverage, and controller JSON checks. | Yes |
+
 
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
@@ -1123,6 +1139,8 @@ Git status: clean after `7641b3f feat: add login streak daily xp guard` was push
 | 2026-06-02 | Frontend Complete Level Button / Progress Refresh Foundation | Browser frontend check: start backend with PostgreSQL/JWT env vars and Gemini env vars removed -> start frontend with `npm run dev` -> open Vite URL -> register/login fresh user -> generate fresh placeholder course -> Open Course Map -> inspect initial progress and level states -> complete level 1 -> complete level 2 -> complete boss -> verify Lesson-view complete action and existing quiz/flashcards/notes/back flow -> inspect safety/browser console | Initial Course Map showed 0/3 completed, 0%, level 1 ready/unlocked, level 2 locked, and boss locked; `Complete Level` was visible/enabled only for unlocked incomplete levels; completing level 1 updated progress to 1/3 and 33%, marked level 1 completed, unlocked level 2, kept boss locked, and refreshed dashboard/profile XP by 50; completing level 2 updated progress to 2/3 and 66%, unlocked boss, and refreshed XP by 75 more; completing boss updated progress to 3/3 and 100%, showed course completed state, and refreshed XP by 100 more; locked levels could not be completed through normal UI; Lesson-view completion worked; Open Lesson, Back to Course Map, Quiz panel, Flashcards panel, Notes area, and note save/preload flow remained working; browser console had no red runtime errors; UI did not show accessToken, refreshToken, password, role, tokenHash, secrets, correctAnswer, raw backend stack trace, or raw JSON dump. | Passed |
 | 2026-06-02 | Backend XPService + Rank Recalculation Foundation | PowerShell-only backend check: start backend with PostgreSQL/JWT env vars and Gemini env vars removed -> register/login fresh user -> check starting profile -> generate and complete three fresh placeholder courses -> verify profile XP/rank after each course -> repeat already-completed level -> compare before/after profile -> run profile safety JSON checks -> scope checks | Starting profile showed `xp=0` and `rank=BEGINNER`; after course 1 profile showed `XP=225, Rank=BEGINNER`; after course 2 profile showed `XP=450, Rank=BEGINNER`; after course 3 profile showed `XP=675, Rank=CODER`; repeat completion returned `alreadyCompleted=True` and `xpAwarded=0`; XP and rank stayed unchanged after repeat; safety checks returned false for password, passwordHash, password_hash, token, refreshToken, tokenHash, secret, and correctAnswer; frontend, DB migrations, backend/pom.xml, docs/Build Log, AI/Gemini, problem, and leaderboard diffs were empty. | Passed |
 | 2026-06-02 | Backend StreakService + Daily Login XP Guard | PowerShell-only backend check: start backend with PostgreSQL/JWT env vars and Gemini env vars removed -> register fresh user -> first successful login -> profile fetch -> second same-day login -> repeated profile fetch -> refresh-token flow -> profile safety JSON checks -> optional DB check for last_login -> scope checks | Register stayed existing behavior with `xp=0`, `rank=BEGINNER`, and blank/null `streak`; first successful login awarded daily login XP and returned `xp=30`, `rank=BEGINNER`, `streak=1`; profile fetch after login stayed `xp=30`, `rank=BEGINNER`, `streak=1`; second same-day login did not award again and stayed `xp=30`, `rank=BEGINNER`, `streak=1`; repeated profile fetches did not award XP; refresh-token flow did not award XP; safety checks returned false for password, passwordHash, password_hash, token, refreshToken, tokenHash, secret, and correctAnswer; DB check showed `xp=30`, `rank=BEGINNER`, `streak=1`, and `last_login` not null; scope checks showed no frontend, DB migration, package, docs/Build Log, AI/Gemini, problem, leaderboard, or common security diff. | Passed |
+
+| 2026-06-03 | Backend Weak Concept Detection Foundation | PowerShell-only backend check: start backend with PostgreSQL/JWT env vars -> register/login fresh user -> query local quizzes with nonblank `concept_tag` -> choose quiz `44821f81-730c-4b18-9b2b-fb6e70354366` with correct answer `B` and concept `Trie Definition` -> submit wrong answer `A` -> submit correct answer `B` -> run response safety JSON checks -> no-token submit -> scope checks | Wrong answer returned `quizQuestionId=44821f81-730c-4b18-9b2b-fb6e70354366`, `selectedAnswer=A`, `isCorrect=False`, `concept=Trie Definition`, and `weakConcepts={Trie Definition}`; correct answer returned `selectedAnswer=B`, `isCorrect=True`, `concept=Trie Definition`, and empty `weakConcepts`; safety checks returned false for `correctAnswer`, `userId`, password, passwordHash, password_hash, token, refreshToken, tokenHash, and secret; no-token request returned 401; scope checks showed only quiz service/DTO/tests changed. | Passed |
 
 ## Backend Progress Fetch Endpoint Foundation Manual Test Commands
 Use these after the backend progress fetch endpoint task `f408fd6 feat: add course progress fetch endpoint`.
@@ -6789,6 +6807,251 @@ Important boundaries:
 - Existing `FORBIDDEN` ErrorDTO handling is reused.
 - Rank, streak, weak concept detection, progress percentage, course completion UI, leaderboard, achievements, Piston/code execution, and Phase 2 features remain unimplemented.
 
+## Backend Weak Concept Detection Foundation Manual Test Commands
+Use these after the backend weak concept task `ff0a4d4 feat: add weak concepts to quiz submit`.
+
+This is a backend-only feature, so manual verification should be done from PowerShell/API checks, not browser UI.
+
+### Automated verification
+
+```powershell
+cd backend
+.\mvnw.cmd test
+cd ..
+```
+
+Expected after this feature:
+```text
+Tests run: 202
+Failures: 0
+Errors: 0
+Skipped: 0
+BUILD SUCCESS
+```
+
+### Scope checks
+
+```powershell
+git status --short
+git diff -- frontend
+git diff -- backend/src/main/resources/db/migration
+git diff -- backend/pom.xml
+git diff -- docs
+git diff -- CodeQuest_Build_Log.md
+git diff -- backend/src/main/java/com/codequest/ai
+git diff -- backend/src/main/java/com/codequest/auth
+git diff -- backend/src/main/java/com/codequest/progress
+git diff -- backend/src/main/java/com/codequest/user
+git diff -- backend/src/main/java/com/codequest/problem
+git diff -- backend/src/main/java/com/codequest/leaderboard
+git diff -- backend/src/main/java/com/codequest/common/security
+```
+
+Expected before commit:
+```text
+Only these files are modified:
+ M backend/src/main/java/com/codequest/quiz/QuizService.java
+ M backend/src/main/java/com/codequest/quiz/dto/SubmitQuizAnswerResponse.java
+ M backend/src/test/java/com/codequest/quiz/QuizControllerTest.java
+ M backend/src/test/java/com/codequest/quiz/QuizServiceTest.java
+
+Frontend diff empty.
+DB migration diff empty.
+backend/pom.xml diff empty.
+docs diff empty.
+Build Log diff empty.
+AI/auth/progress/user/problem/leaderboard/common security diffs empty.
+```
+
+### Terminal 1 - Start backend
+
+Start backend with local PostgreSQL/JWT env vars.
+
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject
+
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
+$env:DATABASE_USERNAME="postgres"
+$env:DATABASE_PASSWORD="<your-local-postgres-password>"
+$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
+
+Remove-Item Env:GEMINI_API_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:GEMINI_MODEL -ErrorAction SilentlyContinue
+Remove-Item Env:GEMINI_BASE_URL -ErrorAction SilentlyContinue
+
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+Expected backend startup:
+```text
+Tomcat started on port 8080
+Started CodeQuestApplication
+```
+
+### Terminal 2 - Manual PowerShell API verification
+
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject
+$baseUrl = "http://localhost:8080"
+```
+
+Register and login a fresh user:
+```powershell
+$email = "weak_manual_" + (Get-Date -Format "yyyyMMddHHmmss") + "@example.com"
+
+$registerBody = @{
+  name = "Weak Manual User"
+  email = $email
+  password = "StrongPass123"
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/register" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body $registerBody
+
+$loginBody = @{
+  email = $email
+  password = "StrongPass123"
+} | ConvertTo-Json
+
+$loginResponse = Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/login" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body $loginBody
+
+$token = $loginResponse.accessToken
+$headers = @{ Authorization = "Bearer $token" }
+```
+
+Find an existing quiz row with a nonblank concept tag:
+```powershell
+$env:Path += ";C:\Program Files\PostgreSQL\17\bin"
+psql -U postgres -W -d codequest -c "select id, correct_answer, concept_tag from quizzes where concept_tag is not null and trim(concept_tag) <> '' limit 5;"
+```
+
+Verified manual row used during this feature:
+```text
+id = 44821f81-730c-4b18-9b2b-fb6e70354366
+correct_answer = B
+concept_tag = Trie Definition
+```
+
+Submit a wrong answer:
+```powershell
+$quizId = "44821f81-730c-4b18-9b2b-fb6e70354366"
+$correctAnswer = "B"
+$wrongAnswer = "A"
+
+$wrongBody = @{
+  selectedAnswer = $wrongAnswer
+} | ConvertTo-Json
+
+$wrongResponse = Invoke-RestMethod `
+  -Uri "$baseUrl/api/quizzes/$quizId/submit" `
+  -Method Post `
+  -Headers $headers `
+  -ContentType "application/json" `
+  -Body $wrongBody
+
+$wrongResponse | Select-Object quizQuestionId, selectedAnswer, isCorrect, concept, weakConcepts
+```
+
+Expected:
+```text
+quizQuestionId = 44821f81-730c-4b18-9b2b-fb6e70354366
+selectedAnswer = A
+isCorrect = False
+concept = Trie Definition
+weakConcepts = {Trie Definition}
+correctAnswer is not present
+```
+
+Submit the correct answer:
+```powershell
+$correctBody = @{
+  selectedAnswer = $correctAnswer
+} | ConvertTo-Json
+
+$correctResponse = Invoke-RestMethod `
+  -Uri "$baseUrl/api/quizzes/$quizId/submit" `
+  -Method Post `
+  -Headers $headers `
+  -ContentType "application/json" `
+  -Body $correctBody
+
+$correctResponse | Select-Object quizQuestionId, selectedAnswer, isCorrect, concept, weakConcepts
+```
+
+Expected:
+```text
+quizQuestionId = 44821f81-730c-4b18-9b2b-fb6e70354366
+selectedAnswer = B
+isCorrect = True
+concept = Trie Definition
+weakConcepts = empty list
+correctAnswer is not present
+```
+
+Safety check:
+```powershell
+$wrongJson = $wrongResponse | ConvertTo-Json -Depth 10
+$correctJson = $correctResponse | ConvertTo-Json -Depth 10
+
+$wrongJson.Contains("correctAnswer")
+$wrongJson.Contains("userId")
+$wrongJson.Contains("password")
+$wrongJson.Contains("passwordHash")
+$wrongJson.Contains("password_hash")
+$wrongJson.Contains("token")
+$wrongJson.Contains("refreshToken")
+$wrongJson.Contains("tokenHash")
+$wrongJson.Contains("secret")
+$correctJson.Contains("correctAnswer")
+$correctJson.Contains("userId")
+$correctJson.Contains("password")
+$correctJson.Contains("token")
+```
+
+Expected:
+```text
+All checks return False.
+```
+
+No-token check:
+```powershell
+try {
+  Invoke-RestMethod `
+    -Uri "$baseUrl/api/quizzes/$quizId/submit" `
+    -Method Post `
+    -ContentType "application/json" `
+    -Body $wrongBody
+} catch {
+  $_.Exception.Response.StatusCode.value__
+}
+```
+
+Expected:
+```text
+401
+```
+
+Important boundaries:
+- Feature is backend-only.
+- Endpoint remains POST `/api/quizzes/{quizQuestionId}/submit`.
+- Response includes `weakConcepts` but still keeps existing safe response fields backward-compatible.
+- Wrong answers with nonblank concept return a one-item `weakConcepts` list.
+- Correct answers return an empty `weakConcepts` list.
+- No Gemini call is made.
+- No remedial level generation is implemented.
+- No weak concept persistence table or DB migration is added.
+- No frontend UI is added.
+- Scoring, XP awards, quiz attempt persistence/history, rank, streak, progress, unlock rules, leaderboard, Piston/code execution, deployment, and Phase 2 behavior are unchanged.
+
+
 ## Next Chat Prompt
 Use this prompt when starting a fresh ChatGPT Project chat for CodeQuest:
 
@@ -6832,30 +7095,28 @@ npm run dev
 Current repo status from last chat:
 - Branch: main
 - Latest feature commit:
-  7641b3f feat: add login streak daily xp guard
+  ff0a4d4 feat: add weak concepts to quiz submit
 - Previous commits:
+  bfa72d1 docs: record login streak daily xp guard
+  7641b3f feat: add login streak daily xp guard
   ca7d285 docs: record xp rank recalculation foundation
   6aba27a feat: add xp rank recalculation foundation
-  b5054d4 docs: record frontend level completion flow
-  0543a9e feat: add frontend level completion flow
 - Latest completed feature:
-  Backend StreakService + Daily Login XP Guard
+  Backend Weak Concept Detection Foundation
 - Backend tests passed:
   cd backend
   .\mvnw.cmd test
-  Result: 199 tests, 0 failures, 0 errors, 0 skipped
+  Result: 202 tests, 0 failures, 0 errors, 0 skipped
 - Manual API verification passed:
-  backend started with PostgreSQL/JWT env vars and Gemini env vars removed;
-  registration stayed unchanged with xp=0/rank=BEGINNER/blank-null streak;
-  first successful login awarded +30 daily login XP and returned xp=30/rank=BEGINNER/streak=1;
-  profile fetch after login stayed xp=30/rank=BEGINNER/streak=1;
-  second same-day login did not award XP again;
-  repeated profile fetch did not award XP;
-  refresh-token flow did not award XP;
-  safety checks did not expose password/token/secret/correctAnswer fields;
-  optional DB check confirmed last_login is not null.
+  backend started with PostgreSQL/JWT env vars;
+  fresh user registered and logged in;
+  existing quiz row selected from local DB: id=44821f81-730c-4b18-9b2b-fb6e70354366, correct_answer=B, concept_tag=Trie Definition;
+  wrong answer A returned isCorrect=false, concept=Trie Definition, weakConcepts={Trie Definition};
+  correct answer B returned isCorrect=true and weakConcepts empty;
+  safety checks did not expose correctAnswer, userId, password fields, token fields, refresh token fields, tokenHash, or secrets;
+  no-token submit returned 401.
 - Scope checks passed:
-  frontend, DB migrations, backend/pom.xml, docs/Build Log, AI/Gemini, problem, leaderboard, and common security files were unchanged during feature implementation.
+  frontend, DB migrations, backend/pom.xml, docs/Build Log, AI/Gemini, auth, progress, user, problem, leaderboard, and common security files were unchanged during feature implementation.
 
 Current important completed features:
 - Auth register/login/refresh/logout/JWT/profile
@@ -6878,9 +7139,9 @@ Current important completed features:
 - Frontend complete-level button / progress refresh
 - Backend XPService + rank recalculation foundation
 - Backend StreakService + daily login XP guard
+- Backend Weak Concept Detection Foundation through quiz submit `weakConcepts`
 
 Current important unfinished features:
-- Weak concept detection
 - Coding problems persistence/fetch if not fully implemented
 - Piston run code
 - Code submit/history
@@ -6917,21 +7178,18 @@ We are building CodeQuest, a Java 21 + Spring Boot + React + PostgreSQL AI-assis
 
 Latest repo state:
 - Branch: main
-- Latest feature commit: 7641b3f feat: add login streak daily xp guard
-- Previous docs commit: ca7d285 docs: record xp rank recalculation foundation
-- Previous feature commit: 6aba27a feat: add xp rank recalculation foundation
-- Latest completed feature: Backend StreakService + Daily Login XP Guard
-- Backend tests passed: cd backend && .\mvnw.cmd test, 199 tests, 0 failures, 0 errors, 0 skipped
-- Manual API verification passed for streak:
-  - register stayed unchanged with xp=0, rank=BEGINNER, blank/null streak
-  - first successful login awarded +30 daily login XP and returned xp=30, rank=BEGINNER, streak=1
-  - profile fetch after login did not award XP
-  - second same-day login did not award XP again
-  - repeated profile fetch did not award XP
-  - refresh-token flow did not award XP
-  - safety checks did not expose password/token/secret/correctAnswer
-  - DB check confirmed xp=30, rank=BEGINNER, streak=1, last_login not null
-- Streak feature changed only AuthService, new StreakService, and focused auth/user/level/progress tests. No frontend, DB migration, package, docs/Build Log, AI/Gemini, problem, leaderboard, or common security changes during implementation.
+- Latest feature commit: ff0a4d4 feat: add weak concepts to quiz submit
+- Previous docs commit: bfa72d1 docs: record login streak daily xp guard
+- Previous feature commit: 7641b3f feat: add login streak daily xp guard
+- Latest completed feature: Backend Weak Concept Detection Foundation
+- Backend tests passed: cd backend && .\mvnw.cmd test, 202 tests, 0 failures, 0 errors, 0 skipped
+- Manual API verification passed for weak concepts:
+  - existing quiz row used: id=44821f81-730c-4b18-9b2b-fb6e70354366, correct_answer=B, concept_tag=Trie Definition
+  - wrong answer A returned isCorrect=false, concept=Trie Definition, weakConcepts={Trie Definition}
+  - correct answer B returned isCorrect=true, concept=Trie Definition, weakConcepts empty
+  - response safety checks did not expose correctAnswer, userId, password/token/secret fields
+  - no-token submit returned 401
+- Weak concept feature changed only QuizService, SubmitQuizAnswerResponse, QuizControllerTest, and QuizServiceTest. No frontend, DB migration, package, docs/Build Log, AI/Gemini, auth, progress, user, problem, leaderboard, or common security changes during implementation.
 
 Completed key features:
 - Auth register/login/refresh/logout/JWT/profile
@@ -6953,6 +7211,7 @@ Completed key features:
 - Frontend complete-level button and progress/profile refresh
 - Backend XPService + rank recalculation foundation
 - Backend StreakService + Daily Login XP Guard
+- Backend Weak Concept Detection Foundation through quiz submit weakConcepts
 
 Important rules/decisions:
 - Use Maven Wrapper only:
@@ -6966,7 +7225,7 @@ Important rules/decisions:
   npm run dev
 - Never use plain mvn.
 - PostgreSQL local runtime uses DATABASE_URL, DATABASE_USERNAME, DATABASE_PASSWORD, JWT_SECRET env vars.
-- Remove Gemini env vars for predictable placeholder manual tests.
+- Remove Gemini env vars for predictable placeholder manual tests when the feature does not need Gemini.
 - Do not expose secrets, tokens, passwords, roles, token hashes, correctAnswer, raw stack traces, or raw JSON dumps.
 - Do not accept userId from request body/query/path for user-owned behavior.
 - React state navigation only; no React Router unless explicitly scoped.
@@ -6974,7 +7233,6 @@ Important rules/decisions:
 - Do not commit until tests/build and manual verification pass.
 
 Remaining major MVP items:
-- Weak concept detection
 - Coding problems persistence/fetch if not fully implemented
 - Piston run code
 - Code submit/history
@@ -6985,32 +7243,38 @@ Remaining major MVP items:
 - Deployment
 - README/screenshots/demo polish
 
-Recommended next safest MVP task: Backend Weak Concept Detection Foundation, because quiz submit, quiz attempts/history, concept fields, XP/rank, streak, and profile foundations exist, but weak concept detection is still unfinished. Keep it narrow and backend-only unless the Build Log/API contracts say otherwise.
+Recommended next safest MVP task: Backend Coding Problems Persistence/Fetch Foundation if the latest repo/resources confirm coding problems are still not persisted/fetched. Keep it narrow and backend-only: persist AI coding problems from already validated AI output, return safe coding problem DTOs in GET /api/courses/{courseId}, do not implement Piston/run/submit/history/AI review yet, and do not expose hidden test cases if contracts say they must remain backend-only.
 ```
 
 ## Latest Safe Continuation Notes
-- Latest feature commit pushed to main: `7641b3f feat: add login streak daily xp guard`.
-- Previous docs commit on main: `ca7d285 docs: record xp rank recalculation foundation`.
-- Previous feature commit on main: `6aba27a feat: add xp rank recalculation foundation`.
-- Backend tests after Backend StreakService + Daily Login XP Guard passed with `cd backend && .\mvnw.cmd test`: 199 tests, 0 failures, 0 errors, 0 skipped.
-- Manual API verification after Backend StreakService + Daily Login XP Guard passed.
-- StreakService is implemented in the backend progress module.
-- StreakService uses server-side time through `Clock`; frontend/client time is not used.
-- Successful explicit login now runs streak logic after credentials are validated and before login response mapping.
-- Daily login XP is `+30 XP` and is awarded only once per user per server calendar day.
-- Daily login XP uses existing XPService, so rank recalculation stays centralized.
-- First login with `lastLogin=null` initializes streak to `1`, sets `lastLogin`, and awards `+30 XP`.
-- Same-day login does not award XP again and does not increment streak again.
-- Consecutive next-day login increments streak and awards `+30 XP`.
-- Login after a gap resets streak to `1` and awards `+30 XP`.
-- Registration behavior intentionally stayed unchanged. A fresh register response may show blank/null streak before first login.
-- Profile fetch does not award daily login XP.
-- Refresh-token flow does not award daily login XP.
-- Logout and JWT validation/filter activity do not award daily login XP.
-- Optional DB check after streak manual verification confirmed `xp=30`, `rank=BEGINNER`, `streak=1`, and `last_login` not null.
-- Backend StreakService + Daily Login XP Guard added no public endpoint and no DB migration.
-- Frontend was not changed for the streak feature.
+- Latest feature commit pushed to main: `ff0a4d4 feat: add weak concepts to quiz submit`.
+- Previous docs commit on main: `bfa72d1 docs: record login streak daily xp guard`.
+- Previous feature commit on main: `7641b3f feat: add login streak daily xp guard`.
+- Backend tests after Backend Weak Concept Detection Foundation passed with `cd backend && .\mvnw.cmd test`: 202 tests, 0 failures, 0 errors, 0 skipped.
+- Manual API verification after Backend Weak Concept Detection Foundation passed.
+- Weak concept detection is implemented narrowly in backend quiz submit response only.
+- `POST /api/quizzes/{quizQuestionId}/submit` now returns `weakConcepts` as a safe list of strings.
+- Existing quiz submit response fields remain backward-compatible: `quizQuestionId`, `selectedAnswer`, `isCorrect`, `explanation`, and `concept`.
+- Wrong answer behavior: if backend quiz `conceptTag`/concept is nonblank, `weakConcepts` contains the trimmed concept.
+- Wrong answer behavior: blank/null concept returns empty `weakConcepts`.
+- Correct answer behavior: `weakConcepts` is always empty.
+- Manual verification used quiz `44821f81-730c-4b18-9b2b-fb6e70354366` with correct answer `B` and concept `Trie Definition`.
+- Manual wrong answer `A` returned `isCorrect=False`, `concept=Trie Definition`, and `weakConcepts={Trie Definition}`.
+- Manual correct answer `B` returned `isCorrect=True`, `concept=Trie Definition`, and empty `weakConcepts`.
+- Response safety checks confirmed no `correctAnswer`, `userId`, password fields, token fields, refresh token fields, tokenHash, or secret fields in wrong/correct submit responses.
+- No-token submit returned 401.
+- Backend Weak Concept Detection Foundation changed only quiz service/DTO/tests.
+- No frontend files changed for weak concept detection.
+- No DB migration was added for weak concept detection.
+- No Gemini call was added for weak concept detection.
+- No remedial level generation was added.
+- No weak concept persistence table was added.
+- Quiz scoring behavior did not change.
+- Quiz attempt persistence/history behavior did not change.
+- Quiz XP award behavior did not change.
 - XPService remains the centralized XP/rank utility.
+- StreakService remains implemented and unchanged.
+- Daily login XP remains `+30 XP` once per user per server calendar day on explicit successful login only.
 - Rank thresholds remain `BEGINNER=0`, `CODER=500`, `DEVELOPER=2000`, `ENGINEER=5000`, `ARCHITECT=12000`, and `LEGEND=25000`.
 - Existing XP amounts remain preserved:
   - daily login XP is +30 once per day
@@ -7027,7 +7291,6 @@ Recommended next safest MVP task: Backend Weak Concept Detection Foundation, bec
 - Frontend complete-level flow refreshes progress and profile XP after successful completion.
 - Backend still enforces unlock rules server-side.
 - Backend progress fetch still computes user-scoped completed/unlocked state and courseCompleted.
-- Weak concept detection is still not implemented.
 - Coding problems persistence/fetch may still need a narrow MVP foundation if not fully implemented.
 - Piston run code is still not implemented.
 - Code submit is still not implemented.
@@ -7035,5 +7298,4 @@ Recommended next safest MVP task: Backend Weak Concept Detection Foundation, bec
 - AI code review is still not implemented.
 - Leaderboard is still not implemented.
 - Docker, CI/CD, deployment, README, screenshots, demo video, and resume bullets remain unimplemented.
-- Next safest MVP task is likely Backend Weak Concept Detection Foundation, because quiz attempts/history and concept data exist and streak/XP/rank are now implemented, but weak concept detection is still missing.
-
+- Next safest MVP task is likely Backend Coding Problems Persistence/Fetch Foundation if the current repo/resources confirm coding problems are still not persisted/fetched; keep it separate from Piston/run/submit/history/AI review.
