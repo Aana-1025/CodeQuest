@@ -5,14 +5,14 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Backend / XP + Rank recalculation
-Current feature: Backend XPService + Rank Recalculation Foundation completed, backend-tested, API-verified, committed, pushed, and awaiting Build Log docs commit
-Latest commit: `6aba27a feat: add xp rank recalculation foundation`
-Previous commit: `b5054d4 docs: record frontend level completion flow`
-Previous feature commit: `0543a9e feat: add frontend level completion flow`
+Current module: Backend / Streak
+Current feature: Backend StreakService + Daily Login XP Guard completed, backend-tested, API-verified, committed, pushed, and awaiting Build Log docs commit
+Latest commit: `7641b3f feat: add login streak daily xp guard`
+Previous commit: `ca7d285 docs: record xp rank recalculation foundation`
+Previous feature commit: `6aba27a feat: add xp rank recalculation foundation`
 Current branch: main
-Test status: Backend `cd backend && .\mvnw.cmd test` PASS. Manual API verification PASS before commit: backend was started locally with PostgreSQL/JWT env vars and Gemini env vars removed for predictable placeholder course generation; fresh user profile started with `xp=0` and `rank=BEGINNER`; after completing one placeholder course profile showed `XP=225, Rank=BEGINNER`; after two placeholder courses profile showed `XP=450, Rank=BEGINNER`; after three placeholder courses profile showed `XP=675, Rank=CODER`; repeat completion stayed idempotent with `alreadyCompleted=True`, `xpAwarded=0`, and unchanged XP/rank; profile safety check returned false for password/token/secret/correctAnswer fields. Scope checks PASS: frontend, DB migrations, backend/pom.xml, docs, Build Log, AI/Gemini, problem, and leaderboard files were unchanged during feature implementation; backend changes were limited to progress XP service/rank use and quiz/progress tests.
-Git status: clean after `6aba27a feat: add xp rank recalculation foundation` was pushed to `main`; Build Log docs update in progress
+Test status: Backend `cd backend && .\mvnw.cmd test` PASS with 199 tests, 0 failures, 0 errors, 0 skipped. Manual API verification PASS before commit: backend was started locally with PostgreSQL/JWT env vars and Gemini env vars removed; fresh user registration stayed unchanged and returned `xp=0`, `rank=BEGINNER`, and blank/null `streak`; first successful login awarded daily login XP and returned `xp=30`, `rank=BEGINNER`, `streak=1`; profile fetch after login stayed `xp=30`, `rank=BEGINNER`, `streak=1`; second same-day login did not award XP again and stayed `xp=30`, `rank=BEGINNER`, `streak=1`; repeated profile fetch did not award XP; refresh-token flow did not award daily login XP; profile safety checks returned false for password/token/secret/correctAnswer fields; optional DB check confirmed `xp=30`, `rank=BEGINNER`, `streak=1`, and `last_login` not null. Scope checks PASS: frontend, DB migrations, backend/pom.xml, docs, Build Log, AI/Gemini, problem, leaderboard, and common security files were unchanged during feature implementation; backend changes were limited to `AuthService`, new `StreakService`, and focused auth/user/level/progress tests.
+Git status: clean after `7641b3f feat: add login streak daily xp guard` was pushed to `main`; Build Log docs update in progress
 
 ## Completed Features
 - [x] Project setup
@@ -67,13 +67,14 @@ Git status: clean after `6aba27a feat: add xp rank recalculation foundation` was
 - [x] Frontend Course Progress / Lock UI Foundation
 - [x] Frontend Complete Level Button / Progress Refresh Foundation
 - [x] Backend XPService + Rank Recalculation Foundation
+- [x] Backend StreakService + Daily Login XP Guard
 - [x] Flashcards
 - [x] Notes
 - [x] Backend Quiz submit/scoring endpoint
 - [x] Frontend Quiz submit UI
 - [ ] Weak concept detection
 - [x] XP/rank system / rank recalculation foundation
-- [ ] Streak system
+- [x] Streak system / daily login XP guard foundation
 - [ ] Piston run code
 - [ ] Code submit
 - [ ] Code submissions history
@@ -485,6 +486,23 @@ Git status: clean after `6aba27a feat: add xp rank recalculation foundation` was
 - Backend XPService + Rank Recalculation Foundation did not add a new endpoint and did not change public response DTO shapes.
 - Backend XPService + Rank Recalculation Foundation did not add a DB migration because rank already existed on the user model/schema.
 - Backend XPService + Rank Recalculation Foundation did not touch frontend, DB migrations, package files, docs/Build Log during implementation, AI/Gemini, auth, course, flashcard, note, problem, leaderboard, Docker, CI/CD, deployment, streak, weak concept detection, Piston/code execution, or Phase 2 features.
+- Backend StreakService + Daily Login XP Guard is implemented.
+- `StreakService` lives in the backend progress module and is independent of HTTP/client input.
+- `StreakService` uses server-side time through `java.time.Clock` so streak behavior is testable and not based on frontend/client time.
+- Daily login XP is `+30 XP` and is awarded only once per authenticated user per server calendar day.
+- Daily login XP uses existing `XPService`, so rank recalculation happens automatically if daily login XP crosses a rank threshold.
+- First successful login with `lastLogin=null` sets streak to `1`, sets `lastLogin`, and awards `+30 XP`.
+- Same-day successful login does not award XP again and does not increment streak again.
+- Consecutive next-day successful login increments streak and awards `+30 XP`.
+- Login after a gap resets streak to `1` and awards `+30 XP`.
+- Invalid/null existing streak data is normalized safely during streak processing.
+- Daily login XP is not awarded on registration, profile fetch, refresh-token flow, logout, or JWT validation/filter activity.
+- Registration behavior intentionally stayed unchanged. A fresh register response may still show blank/null streak before the first login; login initializes streak correctly.
+- Login response naturally shows updated XP/rank/streak because streak logic runs after credential validation and before response mapping.
+- Profile response naturally shows persisted XP/rank/streak, but profile fetch itself does not mutate streak or award XP.
+- Refresh-token behavior, logout behavior, JWT claims, rank thresholds, quiz XP behavior, and level-completion XP behavior were not changed by the streak feature.
+- Backend StreakService + Daily Login XP Guard added no new public endpoint and no DB migration.
+- Backend StreakService + Daily Login XP Guard did not touch frontend, DB migrations, package files, docs/Build Log during implementation, AI/Gemini, course, flashcard, note, problem, leaderboard, Docker, CI/CD, deployment, weak concept detection, Piston/code execution, or Phase 2 features.
 - Backend tests after level unlock logic pass with 168 tests, 0 failures, 0 errors.
 - Backend tests after the progress feature and JSONB mapping fix pass with 159 tests, 0 failures, 0 errors.
 - Backend Quiz Attempt History/Fetch Foundation adds no migration and makes no frontend changes.
@@ -655,6 +673,7 @@ Git status: clean after `6aba27a feat: add xp rank recalculation foundation` was
 
 ## Bugs / Issues
 - None blocking currently.
+- Backend StreakService + Daily Login XP Guard note: No blocking issue after manual API verification. Manual verification confirmed registration stayed unchanged with `xp=0`, `rank=BEGINNER`, and blank/null `streak`; first successful login awarded daily login XP and returned `xp=30`, `rank=BEGINNER`, `streak=1`; profile fetch after login stayed `xp=30`, `rank=BEGINNER`, `streak=1`; second same-day login did not award XP again and stayed `xp=30`, `rank=BEGINNER`, `streak=1`; repeated profile fetches and refresh-token flow did not award daily login XP; safety checks returned false for password, passwordHash, password_hash, token, refreshToken, tokenHash, secret, and correctAnswer; DB check confirmed `xp=30`, `rank=BEGINNER`, `streak=1`, and `last_login` not null. Backend tests passed with 199 tests, 0 failures, 0 errors. Scope stayed backend-only with expected changes limited to `backend/src/main/java/com/codequest/auth/AuthService.java`, `backend/src/main/java/com/codequest/progress/StreakService.java`, `backend/src/test/java/com/codequest/progress/StreakServiceTest.java`, `backend/src/test/java/com/codequest/auth/AuthServiceTest.java`, `backend/src/test/java/com/codequest/auth/AuthControllerTest.java`, `backend/src/test/java/com/codequest/user/UserControllerTest.java`, `backend/src/test/java/com/codequest/user/UserServiceTest.java`, and `backend/src/test/java/com/codequest/level/LevelControllerTest.java`; no frontend, DB migration, package, docs, Build Log, AI/Gemini, problem, leaderboard, common security, Docker, CI/CD, deployment, weak concept, Piston/code execution, or Phase 2 work.
 - Backend XPService + Rank Recalculation Foundation note: No blocking issue after manual API verification. Manual verification confirmed fresh user profile started with `xp=0` and `rank=BEGINNER`; completing one placeholder course moved profile to `XP=225, Rank=BEGINNER`; completing two placeholder courses moved profile to `XP=450, Rank=BEGINNER`; completing three placeholder courses moved profile to `XP=675, Rank=CODER`; repeat level completion stayed idempotent with `alreadyCompleted=True`, `xpAwarded=0`, and unchanged XP/rank; profile safety checks returned false for password, passwordHash, password_hash, token, refreshToken, tokenHash, secret, and correctAnswer. Backend tests passed with 191 tests, 0 failures, 0 errors. Scope stayed backend-only with expected changes limited to `backend/src/main/java/com/codequest/progress/XPService.java`, `backend/src/main/java/com/codequest/progress/ProgressService.java`, `backend/src/main/java/com/codequest/quiz/QuizService.java`, `backend/src/test/java/com/codequest/progress/XPServiceTest.java`, `backend/src/test/java/com/codequest/progress/ProgressServiceTest.java`, and `backend/src/test/java/com/codequest/quiz/QuizServiceTest.java`; no frontend, DB migration, package, docs, Build Log, AI/Gemini, problem, leaderboard, Docker, CI/CD, deployment, streak, weak concept, Piston/code execution, or Phase 2 work.
 - Frontend Complete Level Button / Progress Refresh Foundation note: No blocking issue after manual browser verification. Manual browser verification confirmed fresh placeholder course initially showed 0/3 completed and 0%, level 1 ready/unlocked, level 2 locked, and boss locked; `Complete Level` was visible/enabled only for unlocked incomplete levels; completing level 1 updated progress to 1/3 and 33%, marked level 1 completed, unlocked level 2, kept boss locked, and refreshed dashboard/profile XP by 50; completing level 2 updated progress to 2/3 and 66%, unlocked boss, and refreshed XP by 75 more; completing boss updated progress to 3/3 and 100%, showed course completed state, and refreshed XP by 100 more; locked levels could not be completed through normal UI; Lesson-view complete action worked; Open Lesson, Back to Course Map, Quiz panel, Flashcards panel, Notes area, and note save/preload flow remained working; no accessToken, refreshToken, password, role, tokenHash, secrets, `correctAnswer`, raw backend stack trace, or raw JSON dump was visible. Frontend build passed. Scope stayed frontend-only with changes limited to `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`; no backend, DB migration, package, docs, AI/Gemini, auth, quiz backend, flashcard backend, note backend, problem, leaderboard, Docker, CI/CD, deployment, rank, streak, weak concept, Piston/code execution, or Phase 2 work.
 - Frontend Course Progress / Lock UI Foundation note: No blocking issue after manual browser verification. Manual browser verification confirmed Course Map loads after login/course generation, progress summary appears, fresh placeholder course shows 0/3 completed and 0%, level 1 is ready/unlocked, level 2 and boss are locked, locked levels show a safe unlock explanation and disabled `Open Lesson`, level 1 still opens the existing Lesson view, quiz/flashcards/notes/back flow remain working, locked level 2 and boss cannot be opened, and no accessToken, refreshToken, password, role, tokenHash, secrets, `correctAnswer`, raw backend stack trace, or raw JSON dump was visible. Frontend build passed. Scope stayed frontend-only with changes limited to `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`; no backend, DB migration, package, docs, AI/Gemini, auth, quiz backend, flashcard backend, note backend, problem, leaderboard, Docker, CI/CD, deployment, complete-level button, rank, streak, weak concept, Piston/code execution, or Phase 2 work.
@@ -905,6 +924,8 @@ Git status: clean after `6aba27a feat: add xp rank recalculation foundation` was
 | 55 | 2026-06-02 | Frontend Complete Level Button / Progress Refresh Foundation | Frontend / Level Completion + Progress Refresh | frontend/src/pages/DashboardShell.jsx; frontend/src/services/courseApi.js | Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: after backend/frontend startup with Gemini env vars removed, fresh placeholder course showed 0/3 and 0%, level 1 ready, level 2 locked, boss locked; completing level 1 updated progress to 1/3 and 33%, unlocked level 2, kept boss locked, and refreshed XP by 50; completing level 2 updated progress to 2/3 and 66%, unlocked boss, and refreshed XP by 75; completing boss updated progress to 3/3 and 100%, showed course completed state, and refreshed XP by 100; locked levels could not be completed through normal UI; Lesson complete flow, quiz, flashcards, notes, and back navigation remained working; no secrets/raw errors/correctAnswer were visible. Scope checks clean: backend, migrations, package files, docs/Build Log, AI/Gemini, auth, quiz backend, flashcard backend, note backend, problem, leaderboard, Docker, CI/CD, deployment unchanged. | `0543a9e feat: add frontend level completion flow`. Added authenticated `completeLevel(levelId)` frontend helper, per-level Complete Level UI for unlocked incomplete levels, per-level loading/success/error state, progress refresh through GET `/api/progress/courses/{courseId}`, and profile XP refresh through the existing shared profile refresh callback. No backend/API/DB/package change, no React Router, no rank/streak/weak concept/leaderboard/Piston/deployment, and no Phase 2 feature. |
 | 56 | 2026-06-02 | Backend XPService + Rank Recalculation Foundation | Backend / XP + Rank | backend/src/main/java/com/codequest/progress/XPService.java; backend/src/main/java/com/codequest/progress/ProgressService.java; backend/src/main/java/com/codequest/quiz/QuizService.java; backend/src/test/java/com/codequest/progress/XPServiceTest.java; backend/src/test/java/com/codequest/progress/ProgressServiceTest.java; backend/src/test/java/com/codequest/quiz/QuizServiceTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 191 tests, 0 failures, 0 errors. Manual API verification PASS: starting profile `xp=0`, `rank=BEGINNER`; after one placeholder course `XP=225`, `Rank=BEGINNER`; after two courses `XP=450`, `Rank=BEGINNER`; after three courses `XP=675`, `Rank=CODER`; repeat completion returned `alreadyCompleted=True`, `xpAwarded=0`, and kept XP/rank unchanged; safety checks passed. Scope checks clean: frontend, DB migrations, backend/pom.xml, docs/Build Log, AI/Gemini, problem, and leaderboard diffs empty. | `6aba27a feat: add xp rank recalculation foundation`. Added XPService rank threshold foundation and wired existing level-completion and quiz-submit XP awards through it. Preserved existing XP amounts and response shapes. No new endpoint, no DB migration, no frontend change, no anti-farming change for repeated correct quiz submits, no streak/weak concept/leaderboard/Piston/deployment, and no Phase 2 feature. |
 
+| 57 | 2026-06-02 | Backend StreakService + Daily Login XP Guard | Backend / Streak + Auth + User XP | backend/src/main/java/com/codequest/progress/StreakService.java; backend/src/main/java/com/codequest/auth/AuthService.java; backend/src/test/java/com/codequest/progress/StreakServiceTest.java; backend/src/test/java/com/codequest/auth/AuthServiceTest.java; backend/src/test/java/com/codequest/auth/AuthControllerTest.java; backend/src/test/java/com/codequest/user/UserControllerTest.java; backend/src/test/java/com/codequest/user/UserServiceTest.java; backend/src/test/java/com/codequest/level/LevelControllerTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 199 tests, 0 failures, 0 errors, 0 skipped. Manual API verification PASS: registration stayed unchanged with `xp=0`, `rank=BEGINNER`, blank/null `streak`; first login awarded daily login XP and returned `xp=30`, `rank=BEGINNER`, `streak=1`; second same-day login, repeated profile fetch, and refresh-token flow did not award XP again; DB showed `last_login` not null; safety checks passed. Scope checks clean: frontend, DB migrations, backend/pom.xml, docs/Build Log, AI/Gemini, problem, leaderboard, and common security diffs empty. | `7641b3f feat: add login streak daily xp guard`. Added backend StreakService and wired successful login to award +30 daily XP once per calendar day using XPService/rank recalculation. No new endpoint, no DB migration, no frontend change, no JWT/refresh/logout behavior change, no rank threshold change, no quiz/level XP change, no weak concept/leaderboard/Piston/deployment, and no Phase 2 feature. |
+
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -1002,6 +1023,7 @@ Git status: clean after `6aba27a feat: add xp rank recalculation foundation` was
 
 | 2026-06-02 | `cd frontend && npm run build` after Frontend Complete Level Button / Progress Refresh Foundation | PASS | Frontend build passed after adding authenticated `completeLevel(levelId)` helper, per-level Complete Level UI, progress refresh, and profile XP refresh messaging. Vite build transformed 38 modules and completed successfully. | Yes |
 | 2026-06-02 | `cd backend && .\mvnw.cmd test` after Backend XPService + Rank Recalculation Foundation | PASS | Backend tests passed with 191 tests, 0 failures, 0 errors after adding XPService, rank threshold tests, level-completion rank recalculation coverage, idempotency preservation coverage, and quiz-submit rank recalculation coverage. | Yes |
+| 2026-06-02 | `cd backend && .\mvnw.cmd test` after Backend StreakService + Daily Login XP Guard | PASS | Backend tests passed with 199 tests, 0 failures, 0 errors, 0 skipped after adding StreakService, login daily XP guard, same-day/next-day/gap streak coverage, refresh/profile no-award guards, and updated login/profile/level expectations for daily login XP. | Yes |
 
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
@@ -1100,6 +1122,7 @@ Git status: clean after `6aba27a feat: add xp rank recalculation foundation` was
 
 | 2026-06-02 | Frontend Complete Level Button / Progress Refresh Foundation | Browser frontend check: start backend with PostgreSQL/JWT env vars and Gemini env vars removed -> start frontend with `npm run dev` -> open Vite URL -> register/login fresh user -> generate fresh placeholder course -> Open Course Map -> inspect initial progress and level states -> complete level 1 -> complete level 2 -> complete boss -> verify Lesson-view complete action and existing quiz/flashcards/notes/back flow -> inspect safety/browser console | Initial Course Map showed 0/3 completed, 0%, level 1 ready/unlocked, level 2 locked, and boss locked; `Complete Level` was visible/enabled only for unlocked incomplete levels; completing level 1 updated progress to 1/3 and 33%, marked level 1 completed, unlocked level 2, kept boss locked, and refreshed dashboard/profile XP by 50; completing level 2 updated progress to 2/3 and 66%, unlocked boss, and refreshed XP by 75 more; completing boss updated progress to 3/3 and 100%, showed course completed state, and refreshed XP by 100 more; locked levels could not be completed through normal UI; Lesson-view completion worked; Open Lesson, Back to Course Map, Quiz panel, Flashcards panel, Notes area, and note save/preload flow remained working; browser console had no red runtime errors; UI did not show accessToken, refreshToken, password, role, tokenHash, secrets, correctAnswer, raw backend stack trace, or raw JSON dump. | Passed |
 | 2026-06-02 | Backend XPService + Rank Recalculation Foundation | PowerShell-only backend check: start backend with PostgreSQL/JWT env vars and Gemini env vars removed -> register/login fresh user -> check starting profile -> generate and complete three fresh placeholder courses -> verify profile XP/rank after each course -> repeat already-completed level -> compare before/after profile -> run profile safety JSON checks -> scope checks | Starting profile showed `xp=0` and `rank=BEGINNER`; after course 1 profile showed `XP=225, Rank=BEGINNER`; after course 2 profile showed `XP=450, Rank=BEGINNER`; after course 3 profile showed `XP=675, Rank=CODER`; repeat completion returned `alreadyCompleted=True` and `xpAwarded=0`; XP and rank stayed unchanged after repeat; safety checks returned false for password, passwordHash, password_hash, token, refreshToken, tokenHash, secret, and correctAnswer; frontend, DB migrations, backend/pom.xml, docs/Build Log, AI/Gemini, problem, and leaderboard diffs were empty. | Passed |
+| 2026-06-02 | Backend StreakService + Daily Login XP Guard | PowerShell-only backend check: start backend with PostgreSQL/JWT env vars and Gemini env vars removed -> register fresh user -> first successful login -> profile fetch -> second same-day login -> repeated profile fetch -> refresh-token flow -> profile safety JSON checks -> optional DB check for last_login -> scope checks | Register stayed existing behavior with `xp=0`, `rank=BEGINNER`, and blank/null `streak`; first successful login awarded daily login XP and returned `xp=30`, `rank=BEGINNER`, `streak=1`; profile fetch after login stayed `xp=30`, `rank=BEGINNER`, `streak=1`; second same-day login did not award again and stayed `xp=30`, `rank=BEGINNER`, `streak=1`; repeated profile fetches did not award XP; refresh-token flow did not award XP; safety checks returned false for password, passwordHash, password_hash, token, refreshToken, tokenHash, secret, and correctAnswer; DB check showed `xp=30`, `rank=BEGINNER`, `streak=1`, and `last_login` not null; scope checks showed no frontend, DB migration, package, docs/Build Log, AI/Gemini, problem, leaderboard, or common security diff. | Passed |
 
 ## Backend Progress Fetch Endpoint Foundation Manual Test Commands
 Use these after the backend progress fetch endpoint task `f408fd6 feat: add course progress fetch endpoint`.
@@ -2025,6 +2048,290 @@ Important boundaries:
 - No frontend changes were made.
 - Streak, weak concept detection, leaderboard, Piston/code execution, deployment, and Phase 2 remain unimplemented.
 
+
+## Backend StreakService + Daily Login XP Guard Manual Test Commands
+Use these after the backend streak task `7641b3f feat: add login streak daily xp guard`.
+
+This is a backend-only feature, so manual verification should be done from PowerShell/API checks, not browser UI.
+
+### Automated verification
+
+```powershell
+cd backend
+.\mvnw.cmd test
+cd ..
+```
+
+Expected after this feature:
+```text
+Tests run: 199
+Failures: 0
+Errors: 0
+Skipped: 0
+BUILD SUCCESS
+```
+
+### Scope checks
+
+```powershell
+git status --short
+git diff -- frontend
+git diff -- backend/src/main/resources/db/migration
+git diff -- backend/pom.xml
+git diff -- docs
+git diff -- CodeQuest_Build_Log.md
+git diff -- backend/src/main/java/com/codequest/ai
+git diff -- backend/src/main/java/com/codequest/problem
+git diff -- backend/src/main/java/com/codequest/leaderboard
+git diff -- backend/src/main/java/com/codequest/common/security
+```
+
+Expected before commit:
+```text
+Only these files are modified:
+ M backend/src/main/java/com/codequest/auth/AuthService.java
+ M backend/src/test/java/com/codequest/auth/AuthControllerTest.java
+ M backend/src/test/java/com/codequest/auth/AuthServiceTest.java
+ M backend/src/test/java/com/codequest/level/LevelControllerTest.java
+ M backend/src/test/java/com/codequest/user/UserControllerTest.java
+ M backend/src/test/java/com/codequest/user/UserServiceTest.java
+?? backend/src/main/java/com/codequest/progress/StreakService.java
+?? backend/src/test/java/com/codequest/progress/StreakServiceTest.java
+
+Frontend diff empty.
+DB migration diff empty.
+backend/pom.xml diff empty.
+docs diff empty.
+Build Log diff empty.
+AI/problem/leaderboard/common security diffs empty.
+```
+
+### Terminal 1 - Start backend
+
+Start backend with local PostgreSQL/JWT env vars. Remove Gemini env vars so placeholder course generation is predictable.
+
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject
+
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
+$env:DATABASE_USERNAME="postgres"
+$env:DATABASE_PASSWORD="<your-local-postgres-password>"
+$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
+
+Remove-Item Env:GEMINI_API_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:GEMINI_MODEL -ErrorAction SilentlyContinue
+Remove-Item Env:GEMINI_BASE_URL -ErrorAction SilentlyContinue
+
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+Expected backend startup:
+```text
+Tomcat started on port 8080
+Started CodeQuestApplication
+```
+
+### Terminal 2 - Manual PowerShell API verification
+
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject
+$baseUrl = "http://localhost:8080"
+```
+
+Register a fresh user:
+```powershell
+$email = "streak_manual_" + (Get-Date -Format "yyyyMMddHHmmss") + "@example.com"
+
+$registerBody = @{
+  name = "Streak Manual User"
+  email = $email
+  password = "StrongPass123"
+} | ConvertTo-Json
+
+$registerResponse = Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/register" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body $registerBody
+
+$registerResponse | Select-Object xp, rank, streak
+```
+
+Expected:
+```text
+xp = 0
+rank = BEGINNER
+streak may be 0 or blank/null depending on existing register response mapping
+```
+
+First login should award daily login XP:
+```powershell
+$loginBody = @{
+  email = $email
+  password = "StrongPass123"
+} | ConvertTo-Json
+
+$loginResponse1 = Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/login" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body $loginBody
+
+$token1 = $loginResponse1.accessToken
+$headers1 = @{ Authorization = "Bearer $token1" }
+
+$loginResponse1 | Select-Object xp, rank, streak
+```
+
+Expected:
+```text
+xp = 30
+rank = BEGINNER
+streak = 1
+```
+
+Profile after first login:
+```powershell
+$profileAfterLogin1 = Invoke-RestMethod `
+  -Uri "$baseUrl/api/user/profile" `
+  -Method Get `
+  -Headers $headers1
+
+$profileAfterLogin1 | Select-Object xp, rank, streak
+```
+
+Expected:
+```text
+xp = 30
+rank = BEGINNER
+streak = 1
+```
+
+Second same-day login should not award daily XP again:
+```powershell
+$loginResponse2 = Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/login" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body $loginBody
+
+$token2 = $loginResponse2.accessToken
+$headers2 = @{ Authorization = "Bearer $token2" }
+
+$loginResponse2 | Select-Object xp, rank, streak
+```
+
+Expected:
+```text
+xp = 30
+rank = BEGINNER
+streak = 1
+```
+
+Profile fetch should not award XP:
+```powershell
+$profileBeforeRepeatedFetch = Invoke-RestMethod `
+  -Uri "$baseUrl/api/user/profile" `
+  -Method Get `
+  -Headers $headers2
+
+$profileAfterRepeatedFetch = Invoke-RestMethod `
+  -Uri "$baseUrl/api/user/profile" `
+  -Method Get `
+  -Headers $headers2
+
+$profileBeforeRepeatedFetch | Select-Object xp, rank, streak
+$profileAfterRepeatedFetch | Select-Object xp, rank, streak
+```
+
+Expected both times:
+```text
+xp = 30
+rank = BEGINNER
+streak = 1
+```
+
+Refresh token flow should not award XP:
+```powershell
+$refreshBody = @{
+  refreshToken = $loginResponse2.refreshToken
+} | ConvertTo-Json
+
+$refreshResponse = Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/refresh" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body $refreshBody
+
+$profileAfterRefresh = Invoke-RestMethod `
+  -Uri "$baseUrl/api/user/profile" `
+  -Method Get `
+  -Headers $headers2
+
+$profileAfterRefresh | Select-Object xp, rank, streak
+```
+
+Expected:
+```text
+xp = 30
+rank = BEGINNER
+streak = 1
+```
+
+Safety check:
+```powershell
+$profileJson = $profileAfterRefresh | ConvertTo-Json -Depth 10
+$profileJson.Contains("password")
+$profileJson.Contains("passwordHash")
+$profileJson.Contains("password_hash")
+$profileJson.Contains("token")
+$profileJson.Contains("refreshToken")
+$profileJson.Contains("tokenHash")
+$profileJson.Contains("secret")
+$profileJson.Contains("correctAnswer")
+```
+
+Expected:
+```text
+False
+False
+False
+False
+False
+False
+False
+False
+```
+
+Optional DB check for last_login:
+```powershell
+$env:Path += ";C:\Program Files\PostgreSQL\17\bin"
+psql -U postgres -W -d codequest -c "select email, xp, rank, streak, last_login from users where email='$email';"
+```
+
+Expected:
+```text
+email matches fresh user
+xp = 30
+rank = BEGINNER
+streak = 1
+last_login is not null
+```
+
+Important boundaries:
+- Daily login XP is +30.
+- Daily login XP is awarded only once per user per calendar day.
+- Daily login XP is awarded only by successful explicit login.
+- Daily login XP is not awarded by registration, profile fetch, refresh-token flow, logout, or JWT validation.
+- StreakService uses server-side time through Clock, not frontend/client time.
+- Daily login XP uses XPService, so rank recalculation remains centralized.
+- Registration behavior remains unchanged; first login initializes streak.
+- No new endpoint was added.
+- No DB migration was added.
+- No frontend changes were made.
+- Refresh token, logout, JWT claims, rank thresholds, quiz XP, and level-completion XP were not changed.
+- Weak concept detection, leaderboard, Piston/code execution, deployment, and Phase 2 remain unimplemented.
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -6483,72 +6790,72 @@ Important boundaries:
 - Rank, streak, weak concept detection, progress percentage, course completion UI, leaderboard, achievements, Piston/code execution, and Phase 2 features remain unimplemented.
 
 ## Next Chat Prompt
-Paste this prompt into a fresh ChatGPT Project chat whenever the current chat becomes slow or confusing.
+Use this prompt when starting a fresh ChatGPT Project chat for CodeQuest:
 
 ```text
-This is a continuation chat for my CodeQuest Java Developer Portfolio Project.
+You are continuing my CodeQuest project from the previous ChatGPT Project chat.
 
-Important context:
-This ChatGPT Project has had many previous long chats for the same CodeQuest project. Those older chats became slow because we worked on many backend/frontend features step by step. You are a continuation chat of those previous chats. Please analyze the current project resources carefully and continue from the latest state. If you notice your replies/thinking becoming slow later because this chat becomes too long, please tell me to start a fresh chat inside the same ChatGPT Project so we can continue smoothly.
+First, deeply analyze all uploaded project resources and the latest CodeQuest_Build_Log.md before giving any Codex prompt.
 
-Very important workflow:
-- We use Maven Wrapper, NOT installed Maven.
-- Never use plain `mvn`.
-- For backend tests always use:
-  cd backend
-  .\mvnw.cmd test
-- If stale compiled class issues happen, use:
-  cd backend
-  .\mvnw.cmd clean test
-- For backend run:
-  cd backend
-  .\mvnw.cmd spring-boot:run
-- For frontend build:
-  cd frontend
-  npm run build
-- For frontend dev server:
-  cd frontend
-  npm run dev
+Important:
+- This is a continuation chat.
+- I have already worked on CodeQuest across many previous ChatGPT chats, so do not restart from scratch.
+- If this chat becomes slow or you feel your responses are taking too long, tell me to start another new chat and give me a detailed continuation summary.
+- Use the latest CodeQuest_Build_Log.md as the current source of truth.
+- Also follow AGENTS.md, CodeQuest_Core_Rules, CodeQuest_DB_Schema, CodeQuest_API_Contracts, CodeQuest_Feature_Prompts, and the master blueprint.
+- Do not miss anything from the Build Log.
+- Do not invent features.
+- Do not redesign anything.
+- MVP first only.
+- One feature per task.
 
-Current repo status from latest Build Log:
+Very important command rule:
+This project uses Maven Wrapper, not plain Maven.
+Never tell me to run plain `mvn`.
+For backend tests, always use:
+cd backend
+.\mvnw.cmd test
+
+For clean backend tests:
+cd backend
+.\mvnw.cmd clean test
+
+For backend run:
+cd backend
+.\mvnw.cmd spring-boot:run
+
+For frontend:
+cd frontend
+npm run build
+npm run dev
+
+Current repo status from last chat:
 - Branch: main
 - Latest feature commit:
-  6aba27a feat: add xp rank recalculation foundation
+  7641b3f feat: add login streak daily xp guard
 - Previous commits:
+  ca7d285 docs: record xp rank recalculation foundation
+  6aba27a feat: add xp rank recalculation foundation
   b5054d4 docs: record frontend level completion flow
   0543a9e feat: add frontend level completion flow
-  ea542f6 docs: record frontend course progress lock ui
-  5deeddd feat: show course progress lock states
-
-Latest completed feature:
-Backend XPService + Rank Recalculation Foundation.
-
-Latest completed feature details:
-- Added backend XPService.
-- XPService centralizes XP addition and rank recalculation.
-- Rank thresholds:
-  BEGINNER 0
-  CODER 500
-  DEVELOPER 2000
-  ENGINEER 5000
-  ARCHITECT 12000
-  LEGEND 25000
-- Existing XP award amounts were preserved.
-- Level completion now recalculates rank after first-completion XP award.
-- Correct quiz submit now recalculates rank after quiz XP award.
-- Repeated level completion remains idempotent with xpAwarded=0.
-- Repeated correct quiz submit still follows existing MVP behavior and can award XP again; anti-farming/deduplication is not implemented.
-- No new endpoint was added.
-- No DB migration was added.
-- No frontend changes were made.
-- Backend tests passed with 191 tests, 0 failures, 0 errors.
+- Latest completed feature:
+  Backend StreakService + Daily Login XP Guard
+- Backend tests passed:
+  cd backend
+  .\mvnw.cmd test
+  Result: 199 tests, 0 failures, 0 errors, 0 skipped
 - Manual API verification passed:
-  starting profile xp=0/rank=BEGINNER
-  after one placeholder course XP=225/rank=BEGINNER
-  after two placeholder courses XP=450/rank=BEGINNER
-  after three placeholder courses XP=675/rank=CODER
-  repeated level completion stayed idempotent and XP/rank unchanged
-  safety checks found no password/token/secret/correctAnswer leakage.
+  backend started with PostgreSQL/JWT env vars and Gemini env vars removed;
+  registration stayed unchanged with xp=0/rank=BEGINNER/blank-null streak;
+  first successful login awarded +30 daily login XP and returned xp=30/rank=BEGINNER/streak=1;
+  profile fetch after login stayed xp=30/rank=BEGINNER/streak=1;
+  second same-day login did not award XP again;
+  repeated profile fetch did not award XP;
+  refresh-token flow did not award XP;
+  safety checks did not expose password/token/secret/correctAnswer fields;
+  optional DB check confirmed last_login is not null.
+- Scope checks passed:
+  frontend, DB migrations, backend/pom.xml, docs/Build Log, AI/Gemini, problem, leaderboard, and common security files were unchanged during feature implementation.
 
 Current important completed features:
 - Auth register/login/refresh/logout/JWT/profile
@@ -6568,11 +6875,11 @@ Current important completed features:
 - Backend level unlock rules
 - Backend progress fetch endpoint
 - Frontend Course Progress / Lock UI Foundation
-- Frontend Complete Level Button / Progress Refresh Foundation
-- Backend XPService + Rank Recalculation Foundation
+- Frontend complete-level button / progress refresh
+- Backend XPService + rank recalculation foundation
+- Backend StreakService + daily login XP guard
 
 Current important unfinished features:
-- Streak system
 - Weak concept detection
 - Coding problems persistence/fetch if not fully implemented
 - Piston run code
@@ -6583,61 +6890,135 @@ Current important unfinished features:
 - CI/CD
 - Deployment
 - README/screenshots/demo polish
-- Resume bullets updated
 
-Recommended next safest MVP task:
-Backend Streak Foundation, because XP/rank recalculation is now done and the profile already exposes `streak`, but real streak update behavior is still unimplemented. Keep it backend-only and narrow unless I ask otherwise.
+My workflow requirement:
+After every Codex prompt, you must give me manual verification steps.
+- If frontend changes: I will verify in browser.
+- If backend-only changes: I will verify using PowerShell API commands.
+- If full-stack changes: give both PowerShell/API and browser steps.
+- Always tell me what to type, where to type it, and expected output.
+- Do not tell me to commit until tests/build and manual verification pass.
+- After commit/push, I will ask you to update the full Build Log.
 
-Important boundaries:
-- Do not redesign.
-- Do not invent features.
-- Do not implement multiple tasks at once.
-- Do not add dependencies unless absolutely required and approved.
-- Do not touch frontend for backend-only tasks.
-- Do not update Build Log inside Codex unless I explicitly ask.
-- Always include manual verification steps after Codex prompt.
+Now based on the latest Build Log and all sources:
+1. Tell me the next safest MVP task.
+2. If anything manual is needed before Codex, tell me first.
+3. Then give me one strict detailed Codex prompt only for that task.
+4. Include exact files Codex may touch, files Codex must not touch, tests/build commands, diff safety checks, manual verification steps, and required Codex final response format.
 ```
 
 ## New Chat Continuation Summary Template
+Copy this into a new chat if this chat becomes slow:
+
 ```text
-Project: CodeQuest
-Phase: MVP
-Architecture: Modular monolith
-Backend: Java 21 + Spring Boot
-Frontend: React + Vite + Tailwind
-Database: PostgreSQL + Flyway
-AI: Gemini API through GeminiService only
-Code execution: Piston API only; never execute user code inside backend
-Current module: Backend / XP + Rank recalculation
-Last completed feature: Backend XPService + Rank Recalculation Foundation
-Latest feature commit: 6aba27a feat: add xp rank recalculation foundation
-Previous docs commit: b5054d4 docs: record frontend level completion flow
-Previous feature commit: 0543a9e feat: add frontend level completion flow
-Tests/build passed: Backend `cd backend && .\mvnw.cmd test` PASS with 191 tests, 0 failures, 0 errors after Backend XPService + Rank Recalculation Foundation
-Manual verification: PowerShell API verification PASS. Backend was started locally with PostgreSQL/JWT env vars and Gemini env vars removed; fresh user started with xp=0 and rank=BEGINNER; after one placeholder course profile showed XP=225 and rank=BEGINNER; after two placeholder courses profile showed XP=450 and rank=BEGINNER; after three placeholder courses profile showed XP=675 and rank=CODER; repeated already-completed level returned alreadyCompleted=True and xpAwarded=0; XP/rank stayed unchanged; profile safety checks returned false for password/token/secret/correctAnswer fields.
-Scope: Backend-only. Changed files were limited to XP/rank service wiring and tests: XPService, ProgressService, QuizService, XPServiceTest, ProgressServiceTest, QuizServiceTest. No frontend, DB migration, package, docs/Build Log, AI/Gemini, problem, leaderboard, Docker, CI/CD, deployment, streak, weak concept, Piston/code execution, or Phase 2 change during implementation.
-Next task candidates: Backend Streak Foundation, Weak Concept Detection Foundation, Coding Problems Persistence/Fetch Foundation, Piston Run Code Foundation, Code Submit/History Foundation, AI Code Review Foundation, Leaderboard Foundation, Docker/CI/CD/deployment polish. Choose one narrow MVP slice only.
-Recommended next safest MVP task: Backend Streak Foundation, because XP/rank recalculation is now done and profile already exposes streak, but real streak update behavior is still unimplemented.
-Rules: Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Prompts, Build Log, and AGENTS.md. Use Maven Wrapper only. Never use plain mvn. Do not redesign. Do not invent features. MVP first only. One feature per task. Always include manual verification steps after Codex prompts.
+CodeQuest continuation summary:
+
+We are building CodeQuest, a Java 21 + Spring Boot + React + PostgreSQL AI-assisted Java learning MVP. Continue from the latest CodeQuest_Build_Log.md and project resources. Do not restart from scratch. MVP first only. One feature per task. Use Maven Wrapper only; never use plain mvn.
+
+Latest repo state:
+- Branch: main
+- Latest feature commit: 7641b3f feat: add login streak daily xp guard
+- Previous docs commit: ca7d285 docs: record xp rank recalculation foundation
+- Previous feature commit: 6aba27a feat: add xp rank recalculation foundation
+- Latest completed feature: Backend StreakService + Daily Login XP Guard
+- Backend tests passed: cd backend && .\mvnw.cmd test, 199 tests, 0 failures, 0 errors, 0 skipped
+- Manual API verification passed for streak:
+  - register stayed unchanged with xp=0, rank=BEGINNER, blank/null streak
+  - first successful login awarded +30 daily login XP and returned xp=30, rank=BEGINNER, streak=1
+  - profile fetch after login did not award XP
+  - second same-day login did not award XP again
+  - repeated profile fetch did not award XP
+  - refresh-token flow did not award XP
+  - safety checks did not expose password/token/secret/correctAnswer
+  - DB check confirmed xp=30, rank=BEGINNER, streak=1, last_login not null
+- Streak feature changed only AuthService, new StreakService, and focused auth/user/level/progress tests. No frontend, DB migration, package, docs/Build Log, AI/Gemini, problem, leaderboard, or common security changes during implementation.
+
+Completed key features:
+- Auth register/login/refresh/logout/JWT/profile
+- Frontend auth/protected routes/dashboard shell
+- Course generation foundation
+- Gemini integration with PromptBuilder, ResponseParser, fallback, safe diagnostics, HTTP diagnostics, retry-once for transient 5xx
+- SourceType badge fix
+- Course fetch endpoint
+- Frontend course map and lesson view
+- Quiz and flashcards persistence/fetch/display
+- Notes save/fetch + frontend editor/preload
+- Quiz submit/scoring
+- Quiz attempt persistence/history + frontend attempt history display
+- Quiz correct-answer XP award + frontend XP refresh
+- Backend level completion/progress foundation
+- Backend unlock rules
+- Backend progress fetch endpoint
+- Frontend progress/lock UI
+- Frontend complete-level button and progress/profile refresh
+- Backend XPService + rank recalculation foundation
+- Backend StreakService + Daily Login XP Guard
+
+Important rules/decisions:
+- Use Maven Wrapper only:
+  cd backend
+  .\mvnw.cmd test
+  .\mvnw.cmd clean test
+  .\mvnw.cmd spring-boot:run
+- Frontend:
+  cd frontend
+  npm run build
+  npm run dev
+- Never use plain mvn.
+- PostgreSQL local runtime uses DATABASE_URL, DATABASE_USERNAME, DATABASE_PASSWORD, JWT_SECRET env vars.
+- Remove Gemini env vars for predictable placeholder manual tests.
+- Do not expose secrets, tokens, passwords, roles, token hashes, correctAnswer, raw stack traces, or raw JSON dumps.
+- Do not accept userId from request body/query/path for user-owned behavior.
+- React state navigation only; no React Router unless explicitly scoped.
+- Do not update Build Log inside Codex prompts.
+- Do not commit until tests/build and manual verification pass.
+
+Remaining major MVP items:
+- Weak concept detection
+- Coding problems persistence/fetch if not fully implemented
+- Piston run code
+- Code submit/history
+- AI code review
+- Leaderboard
+- Docker
+- CI/CD
+- Deployment
+- README/screenshots/demo polish
+
+Recommended next safest MVP task: Backend Weak Concept Detection Foundation, because quiz submit, quiz attempts/history, concept fields, XP/rank, streak, and profile foundations exist, but weak concept detection is still unfinished. Keep it narrow and backend-only unless the Build Log/API contracts say otherwise.
 ```
 
 ## Latest Safe Continuation Notes
-- Latest feature commit pushed to main: `6aba27a feat: add xp rank recalculation foundation`.
-- Previous docs commit on main: `b5054d4 docs: record frontend level completion flow`.
-- Previous feature commit on main: `0543a9e feat: add frontend level completion flow`.
-- Backend tests after Backend XPService + Rank Recalculation Foundation passed with `cd backend && .\mvnw.cmd test`: 191 tests, 0 failures, 0 errors.
-- Manual API verification after Backend XPService + Rank Recalculation Foundation passed.
-- XPService is implemented in the backend and centralizes XP addition + rank recalculation.
-- Rank thresholds are `BEGINNER=0`, `CODER=500`, `DEVELOPER=2000`, `ENGINEER=5000`, `ARCHITECT=12000`, and `LEGEND=25000`.
-- Existing XP amounts were preserved:
+- Latest feature commit pushed to main: `7641b3f feat: add login streak daily xp guard`.
+- Previous docs commit on main: `ca7d285 docs: record xp rank recalculation foundation`.
+- Previous feature commit on main: `6aba27a feat: add xp rank recalculation foundation`.
+- Backend tests after Backend StreakService + Daily Login XP Guard passed with `cd backend && .\mvnw.cmd test`: 199 tests, 0 failures, 0 errors, 0 skipped.
+- Manual API verification after Backend StreakService + Daily Login XP Guard passed.
+- StreakService is implemented in the backend progress module.
+- StreakService uses server-side time through `Clock`; frontend/client time is not used.
+- Successful explicit login now runs streak logic after credentials are validated and before login response mapping.
+- Daily login XP is `+30 XP` and is awarded only once per user per server calendar day.
+- Daily login XP uses existing XPService, so rank recalculation stays centralized.
+- First login with `lastLogin=null` initializes streak to `1`, sets `lastLogin`, and awards `+30 XP`.
+- Same-day login does not award XP again and does not increment streak again.
+- Consecutive next-day login increments streak and awards `+30 XP`.
+- Login after a gap resets streak to `1` and awards `+30 XP`.
+- Registration behavior intentionally stayed unchanged. A fresh register response may show blank/null streak before first login.
+- Profile fetch does not award daily login XP.
+- Refresh-token flow does not award daily login XP.
+- Logout and JWT validation/filter activity do not award daily login XP.
+- Optional DB check after streak manual verification confirmed `xp=30`, `rank=BEGINNER`, `streak=1`, and `last_login` not null.
+- Backend StreakService + Daily Login XP Guard added no public endpoint and no DB migration.
+- Frontend was not changed for the streak feature.
+- XPService remains the centralized XP/rank utility.
+- Rank thresholds remain `BEGINNER=0`, `CODER=500`, `DEVELOPER=2000`, `ENGINEER=5000`, `ARCHITECT=12000`, and `LEGEND=25000`.
+- Existing XP amounts remain preserved:
+  - daily login XP is +30 once per day
   - placeholder level completion remains 50/75/100 XP
   - level completion uses `level.xpReward`
   - quiz submit uses existing quiz XP behavior
-- Level completion now recalculates rank after first-completion XP award.
-- Quiz submit now recalculates rank after correct-answer XP award.
-- Repeat level completion remains idempotent with `alreadyCompleted=true`, `xpAwarded=0`, and unchanged XP/rank.
+- Repeated level completion remains idempotent with `alreadyCompleted=true`, `xpAwarded=0`, and unchanged XP/rank.
 - Repeated correct quiz submit still follows existing MVP behavior and can award XP again; anti-farming/deduplication is not implemented.
-- User profile naturally shows updated rank from persisted `user.rank`.
 - Backend progress fetch endpoint remains GET `/api/progress/courses/{courseId}`.
 - Level completion endpoint remains POST `/api/levels/{levelId}/complete`.
 - Frontend Course Map still calls `getCourseProgress(courseId)` from `frontend/src/services/courseApi.js`.
@@ -6646,7 +7027,6 @@ Rules: Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Pr
 - Frontend complete-level flow refreshes progress and profile XP after successful completion.
 - Backend still enforces unlock rules server-side.
 - Backend progress fetch still computes user-scoped completed/unlocked state and courseCompleted.
-- Streak system is still not implemented.
 - Weak concept detection is still not implemented.
 - Coding problems persistence/fetch may still need a narrow MVP foundation if not fully implemented.
 - Piston run code is still not implemented.
@@ -6655,5 +7035,5 @@ Rules: Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Pr
 - AI code review is still not implemented.
 - Leaderboard is still not implemented.
 - Docker, CI/CD, deployment, README, screenshots, demo video, and resume bullets remain unimplemented.
-- Next safest MVP task is likely Backend Streak Foundation, because XP/rank recalculation is now done and profile already exposes streak but real streak updates are still missing.
+- Next safest MVP task is likely Backend Weak Concept Detection Foundation, because quiz attempts/history and concept data exist and streak/XP/rank are now implemented, but weak concept detection is still missing.
 
