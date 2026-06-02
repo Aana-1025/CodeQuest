@@ -5,13 +5,14 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Frontend / Course progress lock UI foundation
-Current feature: Frontend Course Progress / Lock UI Foundation completed, frontend-built, browser-verified, committed, and pushed
-Latest commit: `5deeddd feat: show course progress lock states`
-Previous commit: `8ed5cce docs: record course progress fetch endpoint`
+Current module: Frontend / Level completion flow
+Current feature: Frontend Complete Level Button / Progress Refresh Foundation completed, frontend-built, browser-verified, committed, pushed, and documented
+Latest commit: `0543a9e feat: add frontend level completion flow`
+Previous commit: `ea542f6 docs: record frontend course progress lock ui`
+Previous feature commit: `5deeddd feat: show course progress lock states`
 Current branch: main
-Test status: Frontend `cd frontend && npm run build` PASS. Build output confirmed Vite production build succeeded with 38 modules transformed and generated `dist/index.html`, CSS, and JS assets. Manual browser verification PASS before commit: backend was started locally with PostgreSQL/JWT env vars and Gemini env vars removed for predictable placeholder course generation; frontend was started with `npm run dev`; browser Course Map loaded successfully after login and course generation; progress summary appeared for a fresh placeholder course; initial progress showed 0/3 completed and 0%; level 1 displayed as ready/unlocked; level 2 displayed as locked; boss displayed as locked; locked level cards showed safe unlock explanation and disabled `Open Lesson`; level 1 opened the existing Lesson view successfully; lesson content, quiz panel, flashcards panel, notes area, and back-to-course-map flow remained working; locked level 2 and locked boss could not be opened; UI did not show accessToken, refreshToken, password, role, tokenHash, secrets, correctAnswer, raw backend stack traces, or raw JSON dumps. Scope checks PASS: backend, DB migrations, package files, docs, Build Log, AI/Gemini, auth, quiz, flashcard, note, problem, leaderboard, Docker, CI/CD, and deployment files unchanged during feature implementation; frontend changes limited to `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`. No complete-level button was added.
-Git status: clean after Frontend Course Progress / Lock UI Foundation feature commit; Build Log docs update pending
+Test status: Frontend `cd frontend && npm run build` PASS. Codex reported Vite production build succeeded with 38 modules transformed and generated output in `frontend/dist`. Manual browser verification PASS before commit: backend was started locally with PostgreSQL/JWT env vars and Gemini env vars removed for predictable placeholder course generation; frontend was started with `npm run dev`; fresh placeholder course generation worked; Course Map initially showed 0/3 completed and 0%; level 1 was ready/unlocked; level 2 was locked; boss was locked; `Complete Level` was visible/enabled only for unlocked incomplete levels; completing level 1 updated progress to 1/3 and 33%, marked level 1 completed, unlocked level 2, kept boss locked, and refreshed dashboard/profile XP by 50; completing level 2 updated progress to 2/3 and 66%, unlocked boss, and refreshed XP by 75 more; completing boss updated progress to 3/3 and 100%, showed course completed state, and refreshed XP by 100 more; locked levels could not be completed through normal UI; Lesson-view complete flow worked; Open Lesson, Back to Course Map, Quiz panel, Flashcards panel, Notes area, and note save/preload flow remained working; UI did not show accessToken, refreshToken, password, role, tokenHash, secrets, correctAnswer, raw backend stack traces, or raw JSON dumps. Scope checks PASS: backend, DB migrations, package files, docs, Build Log, AI/Gemini, auth, quiz backend, flashcard backend, note backend, problem, leaderboard, Docker, CI/CD, and deployment files unchanged during feature implementation; frontend changes limited to `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`.
+Git status: clean after `0543a9e feat: add frontend level completion flow` was pushed to `main`; Build Log docs update in progress
 
 ## Completed Features
 - [x] Project setup
@@ -64,6 +65,7 @@ Git status: clean after Frontend Course Progress / Lock UI Foundation feature co
 - [x] Backend Progress / Level Complete Foundation
 - [x] Backend Progress Fetch Endpoint Foundation
 - [x] Frontend Course Progress / Lock UI Foundation
+- [x] Frontend Complete Level Button / Progress Refresh Foundation
 - [x] Flashcards
 - [x] Notes
 - [x] Backend Quiz submit/scoring endpoint
@@ -445,13 +447,28 @@ Git status: clean after Frontend Course Progress / Lock UI Foundation feature co
 - Progress fetch failures show a safe inline message and must not crash the Course Map or expose raw backend details.
 - Frontend Course Progress / Lock UI Foundation intentionally does not call POST `/api/levels/{levelId}/complete` and does not implement a complete-level button yet.
 - Frontend Course Progress / Lock UI Foundation did not change backend files, DB migrations, package files, React Router, API contracts, Gemini/AI, quiz submit, notes backend, rank, streak, weak concept detection, leaderboard, Piston/code execution, deployment, or Phase 2 features.
+- Frontend Complete Level Button / Progress Refresh Foundation is implemented.
+- Frontend complete-level helper `completeLevel(levelId)` is implemented in `frontend/src/services/courseApi.js`.
+- Frontend complete-level flow calls authenticated POST `/api/levels/{levelId}/complete` using the existing Bearer token/API helper pattern.
+- Frontend complete-level flow sends no userId and no client ownership fields; backend derives user ownership from JWT/SecurityContext.
+- Course Map and Lesson view now provide a `Complete Level` action for unlocked, not-yet-completed levels.
+- Locked levels do not expose an enabled normal complete action.
+- Already completed levels show completed state and do not expose normal repeat-completion UI for XP re-award.
+- Complete-level requests use per-level loading/success/error state so duplicate clicks are prevented and messages do not confuse multiple levels.
+- After a successful level completion, the frontend refreshes course progress through GET `/api/progress/courses/{courseId}`.
+- After a successful level completion, the frontend attempts to refresh the authenticated profile through the existing shared profile refresh callback so dashboard/profile XP updates.
+- If profile refresh fails after completion, completion success remains visible and only a safe small follow-up message is shown.
+- Frontend complete-level error handling shows safe user-facing messages for 401, 403, 404, and generic failures without exposing raw backend JSON or stack traces.
+- The required locked-level message stays safe: `Complete previous levels before unlocking this level.`
+- Frontend complete-level state stays in React component state only and is not stored in localStorage or sessionStorage.
+- Frontend Complete Level Button / Progress Refresh Foundation did not change backend files, DB migrations, package files, React Router, API contracts, Gemini/AI, auth, quiz backend, flashcard backend, note backend, problem, leaderboard, Docker, CI/CD, deployment, rank, streak, weak concept detection, Piston/code execution, or Phase 2 features.
 - Backend tests after level unlock logic pass with 168 tests, 0 failures, 0 errors.
 - Backend tests after the progress feature and JSONB mapping fix pass with 159 tests, 0 failures, 0 errors.
 - Backend Quiz Attempt History/Fetch Foundation adds no migration and makes no frontend changes.
 - Backend Quiz Attempt Persistence Foundation does not change frontend files.
 - Backend Quiz Attempt Persistence Foundation does not change AI/Gemini, course generation/fetch, flashcards, or notes behavior.
 - Backend Quiz Attempt Persistence Foundation does not implement XP/progress/rank/streak, weak concept detection, level unlock, course completion, leaderboard, Piston/code execution, deployment, or Phase 2 features.
-- Quiz submit, quiz attempt persistence/history, quiz XP award/refresh, backend level completion progress foundation, backend level unlock enforcement, backend progress fetch, and frontend Course Map progress/lock UI are implemented; frontend complete-level button, rank, streak, weak concept detection, leaderboard, and code execution remain unimplemented.
+- Quiz submit, quiz attempt persistence/history, quiz XP award/refresh, backend level completion progress foundation, backend level unlock enforcement, backend progress fetch, and frontend Course Map progress/lock UI are implemented; rank, streak, weak concept detection, leaderboard, and code execution remain unimplemented.
 - GeminiService + PromptBuilder foundation is implemented in the isolated backend `ai` module.
 - GeminiService + PromptBuilder foundation originally did not call Gemini over network and did not wire into `CourseService` or `CourseController`.
 - GeminiService + PromptBuilder foundation uses env-backed Gemini placeholders:
@@ -615,6 +632,7 @@ Git status: clean after Frontend Course Progress / Lock UI Foundation feature co
 
 ## Bugs / Issues
 - None blocking currently.
+- Frontend Complete Level Button / Progress Refresh Foundation note: No blocking issue after manual browser verification. Manual browser verification confirmed fresh placeholder course initially showed 0/3 completed and 0%, level 1 ready/unlocked, level 2 locked, and boss locked; `Complete Level` was visible/enabled only for unlocked incomplete levels; completing level 1 updated progress to 1/3 and 33%, marked level 1 completed, unlocked level 2, kept boss locked, and refreshed dashboard/profile XP by 50; completing level 2 updated progress to 2/3 and 66%, unlocked boss, and refreshed XP by 75 more; completing boss updated progress to 3/3 and 100%, showed course completed state, and refreshed XP by 100 more; locked levels could not be completed through normal UI; Lesson-view complete action worked; Open Lesson, Back to Course Map, Quiz panel, Flashcards panel, Notes area, and note save/preload flow remained working; no accessToken, refreshToken, password, role, tokenHash, secrets, `correctAnswer`, raw backend stack trace, or raw JSON dump was visible. Frontend build passed. Scope stayed frontend-only with changes limited to `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`; no backend, DB migration, package, docs, AI/Gemini, auth, quiz backend, flashcard backend, note backend, problem, leaderboard, Docker, CI/CD, deployment, rank, streak, weak concept, Piston/code execution, or Phase 2 work.
 - Frontend Course Progress / Lock UI Foundation note: No blocking issue after manual browser verification. Manual browser verification confirmed Course Map loads after login/course generation, progress summary appears, fresh placeholder course shows 0/3 completed and 0%, level 1 is ready/unlocked, level 2 and boss are locked, locked levels show a safe unlock explanation and disabled `Open Lesson`, level 1 still opens the existing Lesson view, quiz/flashcards/notes/back flow remain working, locked level 2 and boss cannot be opened, and no accessToken, refreshToken, password, role, tokenHash, secrets, `correctAnswer`, raw backend stack trace, or raw JSON dump was visible. Frontend build passed. Scope stayed frontend-only with changes limited to `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`; no backend, DB migration, package, docs, AI/Gemini, auth, quiz backend, flashcard backend, note backend, problem, leaderboard, Docker, CI/CD, deployment, complete-level button, rank, streak, weak concept, Piston/code execution, or Phase 2 work.
 - Backend Progress Fetch Endpoint Foundation note: No blocking issue after manual verification. Manual PowerShell verification confirmed initial progress returns `completedLevels=0`, `totalLevels=3`, `progressPercent=0`, `courseCompleted=false`, level 1 unlocked, level 2 locked, and boss locked; after level 1 completion progress returns `completedLevels=1`, `progressPercent=33`, level 1 completed with `completedAt`, level 2 unlocked, and boss locked; after level 2 completion progress returns `completedLevels=2`, `progressPercent=66`, and boss unlocked; after boss completion progress returns `completedLevels=3`, `progressPercent=100`, `courseCompleted=true`, and all levels completed/unlocked; second user isolation returns fresh progress with no completedAt leakage; missing course returns 404; no-token request returns 401; response safety check showed no `userId`, password fields, role, tokens, secrets, `correctAnswer`, or note content. Backend tests passed with 177 tests, 0 failures, 0 errors. Scope stayed backend-only with expected changes to progress controller/service/repository/DTOs and progress tests; no frontend, migration, AI, auth, quiz, flashcard, note, problem, leaderboard, course, level, common exception, package, README, Docker, or CI/CD changes.
 - Backend Level Unlock Logic Foundation note: No blocking issue after manual verification. Manual PowerShell verification confirmed locked level 2 returns 403 before level 1 completion, locked boss returns 403 before all previous levels are completed, locked attempts do not change XP, completing level 1 unlocks level 2, boss stays locked until level 2 is complete, completing level 2 then unlocks boss, repeat completion remains idempotent with `alreadyCompleted=true` and `xpAwarded=0`, final XP matched expected total 225, no-token request returned 401, random valid level UUID returned 404, and response safety check showed only safe fields. Backend tests passed with 168 tests, 0 failures, 0 errors. Scope stayed backend-only with expected changes to level/progress repositories/services/controller tests and no frontend, migration, AI, auth, quiz, flashcard, note, problem, leaderboard, package, README, Docker, CI/CD, or common exception changes.
@@ -860,6 +878,7 @@ Git status: clean after Frontend Course Progress / Lock UI Foundation feature co
 | 52 | 2026-05-16 | Backend Level Unlock Logic Foundation | Backend / Progress + Level | backend/src/main/java/com/codequest/level/LevelController.java; backend/src/main/java/com/codequest/level/LevelRepository.java; backend/src/main/java/com/codequest/progress/ProgressRepository.java; backend/src/main/java/com/codequest/progress/ProgressService.java; backend/src/test/java/com/codequest/level/LevelControllerTest.java; backend/src/test/java/com/codequest/progress/ProgressServiceTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 168 tests, 0 failures, 0 errors. Manual PowerShell verification PASS: locked level 2 returned 403 before level 1, locked boss returned 403 before previous levels, locked attempts did not change XP, level 1/level 2/boss completed in order with XP 50/75/100, repeat level 1 returned `alreadyCompleted=true` and `xpAwarded=0`, final XP check returned true for expected 225, no-token returned 401, random valid UUID returned 404, and success responses exposed only safe fields. | `12cae38 feat: enforce level unlock rules`. Added backend unlock enforcement to the existing level completion flow. Level 1 is unlocked by default; later levels and boss levels require all earlier course levels completed by the same authenticated user. Reused existing `FORBIDDEN` ErrorDTO handling for locked levels. No frontend, migration, AI/Gemini, auth, quiz, flashcard, note, problem, leaderboard, common exception, package, README, Docker, CI/CD, rank, streak, weak concept, progress percentage, Piston, deployment, or Phase 2 work. |
 | 53 | 2026-05-16 | Backend Progress Fetch Endpoint Foundation | Backend / Progress | backend/src/main/java/com/codequest/progress/ProgressController.java; backend/src/main/java/com/codequest/progress/ProgressRepository.java; backend/src/main/java/com/codequest/progress/ProgressService.java; backend/src/main/java/com/codequest/progress/dto/CourseProgressResponse.java; backend/src/main/java/com/codequest/progress/dto/LevelProgressResponse.java; backend/src/test/java/com/codequest/progress/ProgressControllerTest.java; backend/src/test/java/com/codequest/progress/ProgressServiceTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 177 tests, 0 failures, 0 errors. Manual PowerShell verification PASS: initial course progress showed 0/3, 0%, level 1 unlocked and later levels locked; after level 1 progress showed 1/3, 33%, level 2 unlocked and boss locked; after level 2 progress showed 2/3, 66%, boss unlocked; after boss progress showed 3/3, 100%, `courseCompleted=true`, and all levels completed/unlocked; second user isolation showed fresh 0/3 progress; missing course returned 404; no-token returned 401; response safety checks passed. | `f408fd6 feat: add course progress fetch endpoint`. Added authenticated GET `/api/progress/courses/{courseId}` with safe current-user course progress DTOs, ordered level progress items, completed/unlocked/completedAt calculation, integer progress percentage, course completion flag, 404/401 handling, and user-scoped isolation. No frontend, migration, AI/Gemini, auth, quiz, flashcard, note, problem, leaderboard, course, level, common exception, package, README, Docker, CI/CD, rank, streak, weak concept, Piston, deployment, or Phase 2 work. |
 | 54 | 2026-05-16 | Frontend Course Progress / Lock UI Foundation | Frontend / Course Map + Progress UI | frontend/src/pages/DashboardShell.jsx; frontend/src/services/courseApi.js | Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: after backend/frontend startup, login and placeholder course generation worked; Course Map loaded with progress summary; fresh course showed 0/3 completed, 0%, level 1 ready/unlocked, level 2 locked, boss locked; locked cards showed safe unlock explanation and disabled `Open Lesson`; level 1 opened the existing Lesson view; lesson content, quiz panel, flashcards panel, notes area, and back flow still worked; locked level 2 and locked boss could not be opened; no tokens/passwords/secrets/correctAnswer/raw backend stack trace/raw JSON dump were visible. Scope checks clean: backend, migrations, package files, docs/Build Log, AI/Gemini, auth, quiz, flashcard, note, problem, leaderboard, Docker, CI/CD, deployment unchanged. | `5deeddd feat: show course progress lock states`. Added `getCourseProgress(courseId)` frontend helper, fetched progress alongside course details in DashboardShell Course Map, merged progress by `levelId`, added progress summary/progress bar/completed-ready-locked badges/completedAt display, disabled locked lesson opening, and added safe progress error handling. No complete-level button, no backend/API/DB/package change, no React Router, and no Phase 2 feature. |
+| 55 | 2026-06-02 | Frontend Complete Level Button / Progress Refresh Foundation | Frontend / Level Completion + Progress Refresh | frontend/src/pages/DashboardShell.jsx; frontend/src/services/courseApi.js | Frontend `cd frontend && npm run build` PASS. Manual browser verification PASS: after backend/frontend startup with Gemini env vars removed, fresh placeholder course showed 0/3 and 0%, level 1 ready, level 2 locked, boss locked; completing level 1 updated progress to 1/3 and 33%, unlocked level 2, kept boss locked, and refreshed XP by 50; completing level 2 updated progress to 2/3 and 66%, unlocked boss, and refreshed XP by 75; completing boss updated progress to 3/3 and 100%, showed course completed state, and refreshed XP by 100; locked levels could not be completed through normal UI; Lesson complete flow, quiz, flashcards, notes, and back navigation remained working; no secrets/raw errors/correctAnswer were visible. Scope checks clean: backend, migrations, package files, docs/Build Log, AI/Gemini, auth, quiz backend, flashcard backend, note backend, problem, leaderboard, Docker, CI/CD, deployment unchanged. | `0543a9e feat: add frontend level completion flow`. Added authenticated `completeLevel(levelId)` frontend helper, per-level Complete Level UI for unlocked incomplete levels, per-level loading/success/error state, progress refresh through GET `/api/progress/courses/{courseId}`, and profile XP refresh through the existing shared profile refresh callback. No backend/API/DB/package change, no React Router, no rank/streak/weak concept/leaderboard/Piston/deployment, and no Phase 2 feature. |
 
 
 ## Test Results Log
@@ -956,6 +975,7 @@ Git status: clean after Frontend Course Progress / Lock UI Foundation feature co
 | 2026-05-16 | `cd backend && .\mvnw.cmd test` after Backend Progress Fetch Endpoint Foundation | PASS | Backend tests passed with 177 tests, 0 failures, 0 errors after adding authenticated GET `/api/progress/courses/{courseId}`, safe course/level progress DTOs, user-scoped completed/unlocked calculation, progress percentage/course completion calculation, and focused progress service/controller tests. | Yes |
 | 2026-05-16 | `cd frontend && npm run build` after Frontend Course Progress / Lock UI Foundation | PASS | Frontend build passed after adding `getCourseProgress(courseId)`, Course Map progress summary, completed/ready/locked badges, locked lesson disabling, and safe progress error handling. Vite build transformed 38 modules and completed successfully. | Yes |
 
+| 2026-06-02 | `cd frontend && npm run build` after Frontend Complete Level Button / Progress Refresh Foundation | PASS | Frontend build passed after adding authenticated `completeLevel(levelId)` helper, per-level Complete Level UI, progress refresh, and profile XP refresh messaging. Vite build transformed 38 modules and completed successfully. | Yes |
 
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
@@ -1052,6 +1072,7 @@ Git status: clean after Frontend Course Progress / Lock UI Foundation feature co
 | 2026-05-16 | Backend Progress Fetch Endpoint Foundation | PowerShell-only backend check: start backend without Gemini env vars -> register/login fresh user -> generate placeholder course -> save level 1, level 2, and boss IDs -> GET `/api/progress/courses/{courseId}` before completion -> complete level 1 -> GET progress -> complete level 2 -> GET progress -> complete boss -> GET progress -> register/login second user -> GET same course progress -> random valid course UUID GET -> no-token GET -> response safety JSON check | Initial progress returned `completedLevels=0`, `totalLevels=3`, `progressPercent=0`, `courseCompleted=false`, level 1 unlocked, level 2 locked, and boss locked; after level 1 progress returned `completedLevels=1`, `progressPercent=33`, level 1 completed with `completedAt`, level 2 unlocked, and boss locked; after level 2 progress returned `completedLevels=2`, `progressPercent=66`, and boss unlocked; after boss progress returned `completedLevels=3`, `progressPercent=100`, `courseCompleted=true`, and all levels completed/unlocked; second user saw fresh 0/3 progress with no completedAt leakage; missing course returned 404; no-token returned 401; safety check found no `userId`, password fields, role, token fields, secrets, `correctAnswer`, or note content. | Passed |
 | 2026-05-16 | Frontend Course Progress / Lock UI Foundation | Browser frontend check: start backend with PostgreSQL/JWT env vars and Gemini env vars removed -> start frontend with `npm run dev` -> open Vite URL -> register/login -> generate fresh placeholder course -> Open Course Map -> inspect progress summary and level states -> open level 1 lesson -> return to Course Map -> verify locked level 2 and boss cannot open -> inspect safety/browser console | Course Map loaded successfully; progress summary appeared for a fresh placeholder course; initial state showed 0/3 completed and 0%; level 1 displayed ready/unlocked; level 2 displayed locked; boss displayed locked; locked levels showed safe unlock explanation and disabled `Open Lesson`; level 1 opened existing Lesson view; lesson content, quiz panel, flashcards panel, notes area, and back-to-course-map flow remained working; locked level 2 and boss could not be opened; UI did not show accessToken, refreshToken, password, role, tokenHash, secrets, correctAnswer, raw backend stack trace, or raw JSON dump. | Passed |
 
+| 2026-06-02 | Frontend Complete Level Button / Progress Refresh Foundation | Browser frontend check: start backend with PostgreSQL/JWT env vars and Gemini env vars removed -> start frontend with `npm run dev` -> open Vite URL -> register/login fresh user -> generate fresh placeholder course -> Open Course Map -> inspect initial progress and level states -> complete level 1 -> complete level 2 -> complete boss -> verify Lesson-view complete action and existing quiz/flashcards/notes/back flow -> inspect safety/browser console | Initial Course Map showed 0/3 completed, 0%, level 1 ready/unlocked, level 2 locked, and boss locked; `Complete Level` was visible/enabled only for unlocked incomplete levels; completing level 1 updated progress to 1/3 and 33%, marked level 1 completed, unlocked level 2, kept boss locked, and refreshed dashboard/profile XP by 50; completing level 2 updated progress to 2/3 and 66%, unlocked boss, and refreshed XP by 75 more; completing boss updated progress to 3/3 and 100%, showed course completed state, and refreshed XP by 100 more; locked levels could not be completed through normal UI; Lesson-view completion worked; Open Lesson, Back to Course Map, Quiz panel, Flashcards panel, Notes area, and note save/preload flow remained working; browser console had no red runtime errors; UI did not show accessToken, refreshToken, password, role, tokenHash, secrets, correctAnswer, raw backend stack trace, or raw JSON dump. | Passed |
 
 ## Backend Progress Fetch Endpoint Foundation Manual Test Commands
 Use these after the backend progress fetch endpoint task `f408fd6 feat: add course progress fetch endpoint`.
@@ -1538,6 +1559,191 @@ Important boundaries:
 - No complete-level button is implemented in this feature.
 - No POST `/api/levels/{levelId}/complete` call is made by the frontend in this feature.
 - Rank, streak, weak concept detection, leaderboard, Piston/code execution, deployment, and Phase 2 remain unimplemented.
+
+## Frontend Complete Level Button / Progress Refresh Foundation Manual Test Commands
+Use these after the frontend level completion task `0543a9e feat: add frontend level completion flow`.
+
+This feature is frontend-only. Browser verification is required before commit. Backend tests are not required if backend files stayed unchanged, but the backend must be running for the browser smoke test.
+
+### Automated verification
+
+```powershell
+cd frontend
+npm run build
+cd ..
+```
+
+Expected:
+```text
+Vite production build succeeds.
+38 modules transformed.
+BUILD/output generated in frontend/dist.
+```
+
+### Scope checks
+
+```powershell
+git status --short
+git diff -- backend
+git diff -- backend/src/main/resources/db/migration
+git diff -- frontend/package.json
+git diff -- frontend/package-lock.json
+git diff -- docs
+git diff -- CodeQuest_Build_Log.md
+```
+
+Expected before commit:
+```text
+Only these files are modified:
+ M frontend/src/pages/DashboardShell.jsx
+ M frontend/src/services/courseApi.js
+
+All diff checks for backend, migrations, package files, docs, and Build Log are empty.
+```
+
+### Terminal 1 - Start backend
+
+Start backend with local PostgreSQL/JWT env vars. Remove Gemini env vars so placeholder course generation is predictable.
+
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject
+
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
+$env:DATABASE_USERNAME="postgres"
+$env:DATABASE_PASSWORD="<your-local-postgres-password>"
+$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
+
+Remove-Item Env:GEMINI_API_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:GEMINI_MODEL -ErrorAction SilentlyContinue
+Remove-Item Env:GEMINI_BASE_URL -ErrorAction SilentlyContinue
+
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+Expected backend startup:
+```text
+Tomcat started on port 8080
+Started CodeQuestApplication
+```
+
+### Terminal 2 - Start frontend
+
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject\frontend
+npm run dev
+```
+
+Expected Vite startup:
+```text
+Local: http://localhost:5173/
+```
+
+### Browser checks
+
+1. Open the Vite URL shown by `npm run dev`.
+2. Register or login with a fresh user.
+3. Generate a fresh placeholder course with a unique topic, for example:
+
+```text
+Topic: Frontend Complete Level Manual Test <current timestamp>
+Difficulty: BEGINNER
+Goal: Test complete level UI
+```
+
+4. Click `Open Course Map`.
+5. Confirm initial Course Map state:
+
+```text
+0 / 3 completed
+0%
+Level 1: Ready / Unlocked
+Level 2: Locked
+Boss: Locked
+Complete Level visible/enabled only for Level 1
+Complete Level not enabled for Level 2 or Boss
+```
+
+6. Click `Complete Level` for level 1.
+7. Expected after level 1 completion:
+
+```text
+Level 1 becomes Completed.
+Level 1 normal Complete Level action disappears or is disabled as completed.
+Progress becomes 1 / 3.
+Progress percent becomes 33%.
+Level 2 becomes Ready / Unlocked.
+Boss remains Locked.
+Dashboard/profile XP increases by 50 for placeholder level 1.
+A safe success message appears.
+```
+
+8. Complete level 2.
+9. Expected after level 2 completion:
+
+```text
+Level 2 becomes Completed.
+Progress becomes 2 / 3.
+Progress percent becomes 66%.
+Boss becomes Ready / Unlocked.
+Dashboard/profile XP increases by 75 more.
+A safe success message appears.
+```
+
+10. Complete boss.
+11. Expected after boss completion:
+
+```text
+Boss becomes Completed.
+Progress becomes 3 / 3.
+Progress percent becomes 100%.
+Course completed state/badge appears.
+Dashboard/profile XP increases by 100 more.
+A safe success message appears.
+```
+
+12. Confirm locked levels cannot be completed before they unlock.
+13. Open a lesson and verify the Lesson-view `Complete Level` action works for an unlocked incomplete lesson.
+14. Confirm existing flows still work:
+
+```text
+Open Lesson works.
+Back to Course Map works.
+Quiz panel is visible.
+Flashcards panel is visible.
+Notes area is visible.
+Note save/preload still works if tested.
+```
+
+15. Confirm browser console has no red runtime errors.
+16. Confirm UI does not display:
+
+```text
+accessToken
+refreshToken
+password
+role
+tokenHash
+secret
+correctAnswer
+raw backend stack trace
+raw JSON dump
+```
+
+Important boundaries:
+- Frontend only.
+- Changed files should be limited to `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`.
+- No backend files should change.
+- No DB migration should be added.
+- No package/dependency files should change.
+- No React Router should be added.
+- No localStorage/sessionStorage progress persistence should be added.
+- Complete Level calls existing backend endpoint POST `/api/levels/{levelId}/complete`.
+- Complete Level should not send userId or ownership fields.
+- Progress refresh should use GET `/api/progress/courses/{courseId}` after completion.
+- Profile XP refresh should use the existing shared profile refresh callback.
+- Rank, streak, weak concept detection, leaderboard, Piston/code execution, deployment, and Phase 2 remain unimplemented.
+
 
 ## Verification Protocol After Every Codex Task
 Before committing any Codex-generated change, always do this:
@@ -6013,9 +6219,15 @@ Very important workflow:
 - If stale compiled class issues happen, use:
   cd backend
   .\mvnw.cmd clean test
+- For backend run use:
+  cd backend
+  .\mvnw.cmd spring-boot:run
 - For frontend build use:
   cd frontend
   npm run build
+- For frontend dev server use:
+  cd frontend
+  npm run dev
 - My system is Windows + PowerShell.
 - Repo path usually:
   C:\Users\hp\Desktop\CodeQuestFinalProject
@@ -6038,107 +6250,80 @@ Source-of-truth priority:
 6. CodeQuest_Build_Log.md
 7. AGENTS.md
 
-For Codex specifically, inspect:
-- AGENTS.md
-- docs/CodeQuest_Core_Rules.md
-- docs/CodeQuest_DB_Schema.md
-- docs/CodeQuest_API_Contracts.md
-- docs/CodeQuest_Feature_Prompts.md
-- CodeQuest_Build_Log.md
+Current repo status:
+- Branch: main
+- Latest feature commit: 0543a9e feat: add frontend level completion flow
+- Previous docs commit: ea542f6 docs: record frontend course progress lock ui
+- Previous feature commit: 5deeddd feat: show course progress lock states
+- Latest completed feature: Frontend Complete Level Button / Progress Refresh Foundation
+- Frontend build passed: cd frontend && npm run build
+- Manual browser verification passed for frontend level completion flow.
 
-Current latest state:
-- Phase: MVP
-- Current module: Frontend / Course progress lock UI foundation
-- Latest completed feature: Frontend Course Progress / Lock UI Foundation
-- Latest feature commit: 5deeddd feat: show course progress lock states
-- Previous docs commit: 8ed5cce docs: record course progress fetch endpoint
-- Frontend build after feature passed:
-  cd frontend
-  npm run build
-- Manual browser verification passed:
-  - backend started locally with PostgreSQL/JWT env vars and Gemini env vars removed
-  - frontend started with npm run dev
-  - login/register worked
-  - placeholder course generation worked
-  - Course Map loaded
-  - progress summary appeared
-  - fresh course showed 0/3 completed and 0%
-  - level 1 displayed Ready/Unlocked
-  - level 2 displayed Locked
-  - boss displayed Locked
-  - locked levels showed safe unlock explanation
-  - locked level Open Lesson actions were disabled
-  - level 1 opened the existing Lesson view
-  - lesson content, quiz panel, flashcards panel, notes area, and back flow still worked
-  - locked level 2 and boss could not be opened
-  - UI did not expose tokens, passwords, role, secrets, correctAnswer, raw backend stack traces, or raw JSON dumps
-- Scope checks passed:
-  - frontend-only change
-  - changed files: frontend/src/pages/DashboardShell.jsx and frontend/src/services/courseApi.js
-  - no backend changes
-  - no DB migrations
-  - no package/dependency changes
-  - no docs/Build Log change during implementation
-  - no AI/Gemini/auth/quiz backend/flashcard backend/note backend/problem/leaderboard/Docker/CI/CD/deployment changes
-  - no complete-level button was added
-
-Implemented so far:
-- Project setup
-- Backend health
-- DB/Flyway
-- Swagger/OpenAPI
-- Global ErrorDTO/GlobalExceptionHandler
-- Auth register/login
-- JWT/refresh/logout
-- User profile
+Current completed features:
+- Auth register/login/refresh/logout/JWT/profile
 - Frontend auth/protected routes/dashboard shell
 - Course generation foundation
-- Frontend course generation UI
-- GeminiService/PromptBuilder/ResponseParser and safe Gemini fallback/retry diagnostics
-- Backend course fetch endpoint
-- Frontend Course Map and Lesson view
-- Frontend Quiz Panel and Flashcards Panel
-- Backend quiz and flashcard persistence/fetch
-- Frontend real quiz/flashcard compatibility
-- Backend notes save/get and frontend notes editor/preload
-- Backend quiz submit/scoring
-- Frontend quiz submit integration
-- Backend quiz attempt persistence/history
-- Frontend quiz attempt history display
-- Backend quiz XP award foundation and frontend XP refresh after correct quiz submit
-- Backend progress / level complete foundation
-- Backend level unlock logic foundation
-- Backend progress fetch endpoint foundation
+- Gemini integration with parser/fallback/retry
+- Course fetch endpoint
+- Frontend course map
+- Lesson view
+- Quiz/flashcards persistence/fetch/display
+- Notes backend save/fetch + frontend editor/preload
+- Quiz submit/scoring
+- Quiz attempt persistence/history
+- XP award for correct quiz submit
+- Frontend XP refresh after correct quiz submit
+- Backend level completion progress foundation
+- Backend level unlock rules
+- Backend progress fetch endpoint
 - Frontend Course Progress / Lock UI Foundation
+- Frontend Complete Level Button / Progress Refresh Foundation
 
-Important latest behavior:
-- GET `/api/progress/courses/{courseId}` returns current-user course progress.
-- Frontend Course Map fetches that progress endpoint and displays progress summary plus level completed/ready/locked states.
-- Locked levels cannot be opened from the frontend Course Map.
-- Frontend still does not complete levels because no complete-level button has been implemented yet.
-- Backend still enforces level unlock rules, so locked level completion also fails server-side with 403.
-- `POST /api/levels/{levelId}/complete` exists and works from PowerShell but is not wired into frontend UI yet.
+Latest completed feature details:
+- `completeLevel(levelId)` helper exists in `frontend/src/services/courseApi.js`.
+- Course Map and Lesson view now show Complete Level for unlocked incomplete levels.
+- Locked levels do not expose normal enabled Complete Level action.
+- Already completed levels do not expose normal repeat-completion action.
+- Completing a level calls POST `/api/levels/{levelId}/complete`.
+- After completion, frontend refreshes progress through GET `/api/progress/courses/{courseId}`.
+- After completion, frontend refreshes profile XP using existing profile refresh callback.
+- Fresh placeholder course verification:
+  - initial 0/3 and 0%
+  - level 1 ready/unlocked
+  - level 2 locked
+  - boss locked
+  - complete level 1 -> 1/3, 33%, level 2 unlocked, boss locked, XP +50
+  - complete level 2 -> 2/3, 66%, boss unlocked, XP +75
+  - complete boss -> 3/3, 100%, course completed, XP +100
+- Existing lesson, quiz, flashcards, notes, and back navigation still work.
+- No secrets, tokens, passwords, roles, token hashes, correctAnswer, raw stack traces, or raw JSON dumps were visible.
 
-Still not implemented:
-- Frontend complete-level button/integration
-- Rank recalculation/final rank system
+Current important unfinished features:
+- Proper XP/rank system / rank recalculation
 - Streak system
 - Weak concept detection
+- Coding problems persistence/fetch if not fully implemented
 - Piston run code
-- Code submit
-- Code submissions history
+- Code submit/history
 - AI code review
 - Leaderboard
 - Docker
 - CI/CD
 - Deployment
-- README/screenshots/demo video/resume bullets
+- README/screenshots/demo polish
+- Resume bullets updated
 
-Next safest MVP task recommendation:
-Frontend Level Complete Button Integration.
-Reason: backend already supports authenticated level completion and unlock enforcement, and frontend now displays progress/lock state. The next narrow slice should add a frontend Complete Level action for unlocked lessons, call POST `/api/levels/{levelId}/complete`, refresh course progress and profile XP, and keep locked levels disabled. Do not add rank/streak/weak concepts/leaderboard/Piston in that task.
+Recommended next safest MVP task:
+Backend Rank Update Foundation after XP changes, because XP is already awarded from quiz submit and level completion, but rank recalculation is still unimplemented. Keep it backend-only and narrow unless I ask otherwise.
 
-Give me one strict Codex prompt for the next safest MVP task only. Include exact files to touch, files not to touch, build/test commands, diff safety checks, and manual browser verification steps before commit.
+Important boundaries:
+- Do not redesign.
+- Do not invent features.
+- Do not implement multiple tasks at once.
+- Do not add dependencies unless absolutely required and approved.
+- Do not touch frontend for backend-only tasks.
+- Do not update Build Log inside Codex unless I explicitly ask.
+- Always include manual verification steps after Codex prompt.
 ```
 
 ## New Chat Continuation Summary Template
@@ -6151,51 +6336,61 @@ Frontend: React + Vite + Tailwind
 Database: PostgreSQL + Flyway
 AI: Gemini API through GeminiService only
 Code execution: Piston API only; never execute user code inside backend
-Current module: Frontend / Course progress lock UI foundation
-Last completed feature: Frontend Course Progress / Lock UI Foundation
-Latest feature commit: 5deeddd feat: show course progress lock states
-Previous docs commit: 8ed5cce docs: record course progress fetch endpoint
-Tests/build passed: Frontend `cd frontend && npm run build` PASS after Course Progress / Lock UI Foundation
-Manual verification: Browser verification PASS. Backend and frontend were started locally; login/register worked; placeholder course generation worked without Gemini env vars; Course Map loaded; progress summary appeared; fresh placeholder course showed 0/3 completed and 0%; level 1 was ready/unlocked; level 2 and boss were locked; locked levels showed safe unlock explanation and disabled Open Lesson actions; level 1 opened the existing Lesson view; lesson content, quiz panel, flashcards panel, notes area, and back flow remained working; locked level 2 and boss could not be opened; UI did not expose accessToken, refreshToken, password, role, tokenHash, secrets, correctAnswer, raw backend stack trace, or raw JSON dump.
-Known bugs: None blocking. Existing progress JSONB/varchar bug was fixed before commit in the earlier progress feature. Frontend Course Progress / Lock UI Foundation required no backend change, no DB migration, no package/dependency change, and no complete-level button.
-Next task candidates: Frontend Level Complete Button Integration, Backend Rank Update Foundation after XP changes, Streak Foundation, Weak Concept Detection Foundation, Piston Run Code Foundation, or Leaderboard Foundation. Choose one narrow MVP slice only.
-Rules: Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Prompts, Build Log, and AGENTS.md. Do not redesign anything. Do not add Phase 2 features. Use Maven Wrapper only: `cd backend && .\mvnw.cmd test`. For backend-only features, give detailed PowerShell manual verification steps. For frontend features, give browser manual verification steps. For full-stack changes, give both PowerShell API checks and browser checks.
+Current module: Frontend / Level completion flow
+Last completed feature: Frontend Complete Level Button / Progress Refresh Foundation
+Latest feature commit: 0543a9e feat: add frontend level completion flow
+Previous docs commit: ea542f6 docs: record frontend course progress lock ui
+Previous feature commit: 5deeddd feat: show course progress lock states
+Tests/build passed: Frontend `cd frontend && npm run build` PASS after Frontend Complete Level Button / Progress Refresh Foundation
+Manual verification: Browser verification PASS. Backend and frontend were started locally; Gemini env vars were removed for predictable placeholder courses; login/register worked; fresh placeholder course generation worked; Course Map loaded; initial progress showed 0/3 completed and 0%; level 1 was ready/unlocked; level 2 and boss were locked; `Complete Level` was visible/enabled only for unlocked incomplete levels; completing level 1 updated progress to 1/3 and 33%, unlocked level 2, kept boss locked, and refreshed profile/dashboard XP by 50; completing level 2 updated progress to 2/3 and 66%, unlocked boss, and refreshed XP by 75 more; completing boss updated progress to 3/3 and 100%, showed course completed state, and refreshed XP by 100 more; locked levels could not be completed through normal UI; Lesson-view complete action worked; existing lesson, quiz, flashcards, notes, note save/preload, and back navigation flows remained working; UI did not expose accessToken, refreshToken, password, role, tokenHash, secrets, correctAnswer, raw backend stack trace, or raw JSON dump.
+Known bugs: None blocking. Existing progress JSONB/varchar bug was fixed before commit in the earlier progress feature. Frontend Complete Level Button / Progress Refresh Foundation required no backend change, no DB migration, no package/dependency change, and no docs/Build Log change during feature implementation.
+Next task candidates: Backend Rank Update Foundation after XP changes, Streak Foundation, Weak Concept Detection Foundation, Coding Problems Persistence/Fetch Foundation, Piston Run Code Foundation, Code Submit/History Foundation, AI Code Review Foundation, or Leaderboard Foundation. Choose one narrow MVP slice only.
+Recommended next safest MVP task: Backend Rank Update Foundation after XP changes, because XP is already awarded from quiz submit and level completion, but rank recalculation is still unimplemented.
+Rules: Follow master blueprint, Core Rules, DB Schema, API Contracts, Feature Prompts, Build Log, and AGENTS.md. Use Maven Wrapper only. Never use plain mvn. Do not redesign. Do not invent features. MVP first only. One feature per task. Always include manual verification steps after Codex prompts.
 ```
 
-
 ## Latest Safe Continuation Notes
-- Latest feature commit pushed to main: `5deeddd feat: show course progress lock states`.
-- Previous docs commit on main: `8ed5cce docs: record course progress fetch endpoint`.
-- Frontend build after the Course Progress / Lock UI Foundation passed with `cd frontend && npm run build`.
-- Manual browser verification after the Course Progress / Lock UI Foundation passed.
+- Latest feature commit pushed to main: `0543a9e feat: add frontend level completion flow`.
+- Previous docs commit on main: `ea542f6 docs: record frontend course progress lock ui`.
+- Previous feature commit on main: `5deeddd feat: show course progress lock states`.
+- Frontend build after the Frontend Complete Level Button / Progress Refresh Foundation passed with `cd frontend && npm run build`.
+- Manual browser verification after the Frontend Complete Level Button / Progress Refresh Foundation passed.
 - Backend progress fetch endpoint remains GET `/api/progress/courses/{courseId}`.
 - Level completion endpoint remains POST `/api/levels/{levelId}/complete`.
-- Frontend Course Map now calls `getCourseProgress(courseId)` from `frontend/src/services/courseApi.js`.
-- Frontend Course Map now shows progress summary, completed count, total count, progress percent, and a progress bar.
-- Fresh placeholder courses show 0/3 completed and 0% progress before any level completion.
+- Frontend Course Map still calls `getCourseProgress(courseId)` from `frontend/src/services/courseApi.js`.
+- Frontend now has `completeLevel(levelId)` in `frontend/src/services/courseApi.js`.
+- Frontend Course Map and Lesson view now call POST `/api/levels/{levelId}/complete` only from explicit Complete Level action.
+- Complete Level is shown/enabled only for unlocked incomplete levels in normal UI.
+- Locked levels do not expose an enabled Complete Level action.
+- Already-completed levels do not expose normal repeat-completion UI.
+- After level completion, frontend refreshes course progress through GET `/api/progress/courses/{courseId}`.
+- After level completion, frontend attempts profile XP refresh through the existing shared profile refresh callback.
+- Fresh placeholder courses still start at 0/3 completed and 0%.
 - Level 1 appears ready/unlocked for a fresh course.
 - Level 2 and boss appear locked for a fresh course.
-- Locked levels show a safe explanation and disabled `Open Lesson` action.
-- Ready/unlocked and completed levels can open the existing Lesson view.
+- Completing level 1 updates progress to 1/3 and 33%, unlocks level 2, keeps boss locked, and refreshes XP by 50.
+- Completing level 2 updates progress to 2/3 and 66%, unlocks boss, and refreshes XP by 75 more.
+- Completing boss updates progress to 3/3 and 100%, shows course completed state, and refreshes XP by 100 more.
 - Existing Lesson view still shows lesson content, quiz panel, flashcards panel, notes area, and back-to-course-map flow.
-- Progress fetch failures should show safe inline UI messaging and should not expose raw backend details.
-- Frontend Course Progress / Lock UI Foundation changed only `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`.
+- Notes save/preload flow still works.
+- Frontend complete-level failures should show safe inline UI messaging and should not expose raw backend details.
+- Frontend Complete Level Button / Progress Refresh Foundation changed only `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`.
 - No backend files changed for this frontend feature.
 - No DB migration was added.
 - No package/dependency files changed.
 - No React Router was added.
-- No complete-level button was added.
-- Frontend does not yet call POST `/api/levels/{levelId}/complete`.
 - Backend still enforces unlock rules server-side.
 - Backend level completion still awards level XP once per user/level and is idempotent on repeat completion.
-- Backend progress fetch still computes user-scoped completed/unlocked state and course progress.
-- Rank system is still not implemented.
+- Backend progress fetch still computes user-scoped completed/unlocked state and courseCompleted.
+- Proper XP/rank recalculation is still not implemented.
 - Streak system is still not implemented.
 - Weak concept detection is still not implemented.
+- Coding problems persistence/fetch may still need a narrow MVP foundation if not fully implemented.
 - Piston run code is still not implemented.
 - Code submit is still not implemented.
 - Code submissions history is still not implemented.
 - AI code review is still not implemented.
 - Leaderboard is still not implemented.
 - Docker, CI/CD, deployment, README, screenshots, demo video, and resume bullets remain unimplemented.
-- Next safest MVP task is likely Frontend Level Complete Button Integration because backend level completion/unlock and frontend lock display are now both available.
+- Next safest MVP task is likely Backend Rank Update Foundation after XP changes, because XP is now awarded by quiz submit and level completion but rank recalculation is still missing.
+
