@@ -90,6 +90,29 @@ async function getCourseProgress(courseId) {
   return handleResponse(response);
 }
 
+async function completeLevel(levelId) {
+  const accessToken = getAccessToken();
+
+  if (!accessToken) {
+    const error = new Error("Access token is missing.");
+    error.status = 401;
+    throw error;
+  }
+
+  if (!levelId) {
+    throw new Error("Level ID is missing.");
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/levels/${levelId}/complete`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+    },
+  });
+
+  return handleResponse(response);
+}
+
 async function saveNoteForLevel({ levelId, content }) {
   const accessToken = getAccessToken();
 
@@ -195,6 +218,7 @@ export {
   generateCourse,
   getCourseById,
   getCourseProgress,
+  completeLevel,
   saveNoteForLevel,
   getNoteForLevel,
   submitQuizAnswer,

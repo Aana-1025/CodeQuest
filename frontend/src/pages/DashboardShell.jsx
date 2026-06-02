@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import {
+  completeLevel,
   generateCourse,
   getCourseById,
   getCourseProgress,
@@ -238,6 +239,26 @@ function getProgressErrorMessage(error) {
   return "Could not load progress right now.";
 }
 
+function getCompleteLevelErrorMessage(error) {
+  if (error?.status === 401) {
+    return "Please log in again to complete this level.";
+  }
+
+  if (error?.status === 403) {
+    return "Complete previous levels before unlocking this level.";
+  }
+
+  if (error?.status === 404) {
+    return "This level is no longer available.";
+  }
+
+  if (error?.status === 409) {
+    return "This level was already completed.";
+  }
+
+  return "Could not complete this level right now.";
+}
+
 function mergeCourseMapLevels(courseMap, courseProgress) {
   const progressLevels = Array.isArray(courseProgress?.levels) ? courseProgress.levels : [];
   const progressByLevelId = new Map(
@@ -279,6 +300,10 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
   const [courseMap, setCourseMap] = useState(null);
   const [courseProgress, setCourseProgress] = useState(null);
   const [courseProgressError, setCourseProgressError] = useState("");
+  const [levelCompletionLoading, setLevelCompletionLoading] = useState({});
+  const [levelCompletionErrors, setLevelCompletionErrors] = useState({});
+  const [levelCompletionSuccess, setLevelCompletionSuccess] = useState({});
+  const [levelCompletionMessages, setLevelCompletionMessages] = useState({});
   const [selectedLevel, setSelectedLevel] = useState(null);
   const [quizSelections, setQuizSelections] = useState({});
   const [quizSubmitLoading, setQuizSubmitLoading] = useState({});
@@ -297,6 +322,47 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
   const [quizAttemptHistoryLoading, setQuizAttemptHistoryLoading] = useState(false);
   const [quizAttemptHistoryError, setQuizAttemptHistoryError] = useState("");
   const [quizAttemptHistoryLoaded, setQuizAttemptHistoryLoaded] = useState(false);
+
+  const clearLevelCompletionFeedback = (levelId) => {
+    if (!levelId) {
+      return;
+    }
+
+    setLevelCompletionErrors((current) => {
+      if (current[levelId] === undefined) {
+        return current;
+      }
+
+      const nextErrors = { ...current };
+      delete nextErrors[levelId];
+      return nextErrors;
+    });
+    setLevelCompletionSuccess((current) => {
+      if (current[levelId] === undefined) {
+        return current;
+      }
+
+      const nextSuccess = { ...current };
+      delete nextSuccess[levelId];
+      return nextSuccess;
+    });
+    setLevelCompletionMessages((current) => {
+      if (current[levelId] === undefined) {
+        return current;
+      }
+
+      const nextMessages = { ...current };
+      delete nextMessages[levelId];
+      return nextMessages;
+    });
+  };
+
+  const resetLevelCompletionState = () => {
+    setLevelCompletionLoading({});
+    setLevelCompletionErrors({});
+    setLevelCompletionSuccess({});
+    setLevelCompletionMessages({});
+  };
 
   useEffect(() => {
     setQuizSelections({});
@@ -399,6 +465,7 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
       setCourseProgress(null);
       setCourseMapError("");
       setCourseProgressError("");
+      resetLevelCompletionState();
       setSelectedLevel(null);
     } catch (error) {
       setGenerationError(error.message || "Failed to generate course.");
@@ -421,6 +488,7 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
     setCourseMapLoading(true);
     setCourseMapError("");
     setCourseProgressError("");
+    resetLevelCompletionState();
 
     try {
       const [courseResult, progressResult] = await Promise.allSettled([
@@ -453,11 +521,36 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
     }
   };
 
+  const refreshCurrentCourseProgress = async (courseId, { clearOnError = false } = {}) => {
+    try {
+      const progress = await getCourseProgress(courseId);
+      setCourseProgress(progress);
+      setCourseProgressError("");
+      setSelectedLevel((currentLevel) => {
+        if (!currentLevel?.levelId || !courseMap) {
+          return currentLevel;
+        }
+
+        const mergedLevels = mergeCourseMapLevels(courseMap, progress);
+        return mergedLevels.find((level) => level.levelId === currentLevel.levelId) ?? currentLevel;
+      });
+      return progress;
+    } catch (error) {
+      if (clearOnError) {
+        setCourseProgress(null);
+      }
+
+      setCourseProgressError(getProgressErrorMessage(error));
+      throw error;
+    }
+  };
+
   const handleBackToDashboard = () => {
     setCourseMapError("");
     setCourseMap(null);
     setCourseProgress(null);
     setCourseProgressError("");
+    resetLevelCompletionState();
     setSelectedLevel(null);
   };
 
@@ -466,11 +559,75 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
       return;
     }
 
+    clearLevelCompletionFeedback(level.levelId);
     setSelectedLevel(level);
   };
 
   const handleBackToCourseMap = () => {
     setSelectedLevel(null);
+  };
+
+  const handleCompleteLevel = async (level) => {
+    const levelId = level?.levelId;
+    const courseId = courseMap?.courseId;
+
+    if (!levelId || !courseId) {
+      return;
+    }
+
+    clearLevelCompletionFeedback(levelId);
+    setLevelCompletionLoading((current) => ({
+      ...current,
+      [levelId]: true,
+    }));
+
+    try {
+      const response = await completeLevel(levelId);
+      const successMessage = response?.alreadyCompleted
+        ? "This level is already completed."
+        : response?.xpAwarded > 0
+          ? `Level completed. You earned ${response.xpAwarded} XP.`
+          : "Level completed.";
+
+      setLevelCompletionSuccess((current) => ({
+        ...current,
+        [levelId]: successMessage,
+      }));
+
+      const completionMessages = [];
+
+      try {
+        await refreshCurrentCourseProgress(courseId);
+      } catch {
+        completionMessages.push("Level completion was saved, but course progress could not be refreshed right now.");
+      }
+
+      if (!response?.alreadyCompleted && typeof onRefreshProfile === "function") {
+        try {
+          const refreshedProfile = await onRefreshProfile();
+          if (typeof refreshedProfile?.xp === "number") {
+            completionMessages.push(`Current XP: ${refreshedProfile.xp}`);
+          }
+        } catch {
+          completionMessages.push("Level completion is visible, but profile XP could not be refreshed right now.");
+        }
+      }
+
+      setLevelCompletionMessages((current) => ({
+        ...current,
+        [levelId]: completionMessages.join(" "),
+      }));
+    } catch (error) {
+      setLevelCompletionErrors((current) => ({
+        ...current,
+        [levelId]: getCompleteLevelErrorMessage(error),
+      }));
+    } finally {
+      setLevelCompletionLoading((current) => ({
+        ...current,
+        [levelId]: false,
+      }));
+    }
   };
 
   const handleQuizOptionSelect = (questionIndex, optionIndex) => {
@@ -687,6 +844,12 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
   if (courseMap && selectedLevel) {
     const quizQuestions = normalizeQuizQuestions(selectedLevel);
     const flashcards = normalizeFlashcards(selectedLevel);
+    const selectedLevelId = selectedLevel.levelId;
+    const selectedLevelCompleteLoading = Boolean(levelCompletionLoading[selectedLevelId]);
+    const selectedLevelCompleteError = levelCompletionErrors[selectedLevelId];
+    const selectedLevelCompleteSuccess = levelCompletionSuccess[selectedLevelId];
+    const selectedLevelCompleteMessage = levelCompletionMessages[selectedLevelId];
+    const canCompleteSelectedLevel = Boolean(selectedLevelId) && selectedLevel.unlocked && !selectedLevel.completed;
 
     return (
       <div className="min-h-screen bg-slate-50">
@@ -738,6 +901,47 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
                   <p className="text-sm text-slate-500">Level Type</p>
                   <p className="mt-1 text-base font-semibold text-slate-900">{selectedLevel.isBoss ? "Boss" : "Standard"}</p>
                 </div>
+              </div>
+
+              <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-base font-semibold text-slate-900">Level Completion</h3>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Mark this level complete after you finish the lesson to refresh progress and XP.
+                    </p>
+                  </div>
+                  {canCompleteSelectedLevel ? (
+                    <button
+                      type="button"
+                      onClick={() => handleCompleteLevel(selectedLevel)}
+                      disabled={selectedLevelCompleteLoading}
+                      className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                    >
+                      {selectedLevelCompleteLoading ? "Completing..." : "Complete Level"}
+                    </button>
+                  ) : (
+                    <span className="text-sm font-semibold text-emerald-700">
+                      {selectedLevel.completed ? "This level is already completed." : "Complete previous levels first."}
+                    </span>
+                  )}
+                </div>
+
+                {selectedLevelCompleteError && (
+                  <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+                    {selectedLevelCompleteError}
+                  </div>
+                )}
+
+                {selectedLevelCompleteSuccess && (
+                  <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="status">
+                    {selectedLevelCompleteSuccess}
+                  </div>
+                )}
+
+                {selectedLevelCompleteMessage && (
+                  <p className="mt-3 text-sm text-slate-600">{selectedLevelCompleteMessage}</p>
+                )}
               </div>
             </div>
 
@@ -1109,6 +1313,11 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
                 {mergedLevels.map((level) => {
                   const progressBadge = getLevelProgressBadge(level);
                   const lockedExplanation = getLockedExplanation(level);
+                  const isCompleteButtonVisible = level.unlocked && !level.completed;
+                  const isLevelCompleting = Boolean(levelCompletionLoading[level.levelId]);
+                  const levelCompleteError = levelCompletionErrors[level.levelId];
+                  const levelCompleteSuccess = levelCompletionSuccess[level.levelId];
+                  const levelCompleteMessage = levelCompletionMessages[level.levelId];
 
                   return (
                     <div key={level.levelId ?? `${level.orderNumber}-${level.title}`} className="rounded-xl border border-slate-200 bg-slate-50 p-5">
@@ -1137,14 +1346,47 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
                         <p className="mt-3 text-sm text-rose-700">{lockedExplanation}</p>
                       )}
 
-                      <button
-                        type="button"
-                        onClick={() => handleOpenLesson(level)}
-                        disabled={level.progressAvailable && !level.unlocked}
-                        className="mt-4 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
-                      >
-                        Open Lesson
-                      </button>
+                      <div className="mt-4 flex flex-wrap items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenLesson(level)}
+                          disabled={level.progressAvailable && !level.unlocked}
+                          className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                        >
+                          Open Lesson
+                        </button>
+
+                        {isCompleteButtonVisible && (
+                          <button
+                            type="button"
+                            onClick={() => handleCompleteLevel(level)}
+                            disabled={isLevelCompleting}
+                            className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                          >
+                            {isLevelCompleting ? "Completing..." : "Complete Level"}
+                          </button>
+                        )}
+                      </div>
+
+                      {level.completed && (
+                        <p className="mt-3 text-sm text-emerald-700">This level is already completed.</p>
+                      )}
+
+                      {levelCompleteError && (
+                        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+                          {levelCompleteError}
+                        </div>
+                      )}
+
+                      {levelCompleteSuccess && (
+                        <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="status">
+                          {levelCompleteSuccess}
+                        </div>
+                      )}
+
+                      {levelCompleteMessage && (
+                        <p className="mt-3 text-sm text-slate-600">{levelCompleteMessage}</p>
+                      )}
                     </div>
                   );
                 })}
