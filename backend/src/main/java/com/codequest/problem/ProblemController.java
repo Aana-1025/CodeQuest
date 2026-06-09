@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.codequest.common.security.CurrentUserPrincipal;
 import com.codequest.problem.dto.RunCodeRequest;
 import com.codequest.problem.dto.RunCodeResponse;
+import com.codequest.problem.dto.SubmitCodeRequest;
+import com.codequest.problem.dto.SubmitCodeResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -43,6 +45,23 @@ public class ProblemController {
             @Valid @RequestBody RunCodeRequest request
     ) {
         RunCodeResponse response = problemService.runCode(problemId, request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{problemId}/submit")
+    @Operation(summary = "Submit code", description = "Execute code through the configured code runner, persist the submission, and award XP only for the first accepted submission")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Code submitted successfully"),
+            @ApiResponse(responseCode = "400", description = "Validation failed"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing token"),
+            @ApiResponse(responseCode = "503", description = "Code runner unavailable")
+    })
+    public ResponseEntity<SubmitCodeResponse> submitCode(
+            @AuthenticationPrincipal CurrentUserPrincipal currentUser,
+            @PathVariable("problemId") UUID problemId,
+            @Valid @RequestBody SubmitCodeRequest request
+    ) {
+        SubmitCodeResponse response = problemService.submitCode(currentUser.userId(), problemId, request);
         return ResponseEntity.ok(response);
     }
 }

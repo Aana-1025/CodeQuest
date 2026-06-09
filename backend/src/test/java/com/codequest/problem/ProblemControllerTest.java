@@ -2,11 +2,13 @@ package com.codequest.problem;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.Map;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -22,6 +24,7 @@ import com.codequest.auth.dto.LoginRequest;
 import com.codequest.auth.dto.LoginResponse;
 import com.codequest.auth.dto.RegisterRequest;
 import com.codequest.problem.dto.RunCodeResponse;
+import com.codequest.problem.dto.SubmitCodeResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @SpringBootTest
@@ -145,6 +148,163 @@ class ProblemControllerTest {
                                   "code": "public class Main {}",
                                   "stdin": "",
                                   "expectedOutput": ""
+                                }
+                                """))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("CODE_RUNNER_UNAVAILABLE"))
+                .andExpect(jsonPath("$.message").value("Code runner is currently unavailable. Please try again later."))
+                .andExpect(jsonPath("$.stackTrace").doesNotExist());
+    }
+
+    @Test
+    void shouldReturnSafeSubmitCodeResponseForAuthenticatedUser() throws Exception {
+        LoginResponse loginResponse = registerAndLogin("problemsubmit-" + System.currentTimeMillis() + "@example.com");
+        UUID problemId = UUID.randomUUID();
+        when(problemService.submitCode(eq(loginResponse.userId()), eq(problemId), any())).thenReturn(new SubmitCodeResponse(
+                problemId,
+                "java",
+                "Hello CodeQuest\n",
+                "",
+                "Hello CodeQuest\n",
+                0,
+                null,
+                true,
+                100,
+                true,
+                "Solution accepted. XP awarded."
+        ));
+
+        mockMvc.perform(post("/api/problems/{problemId}/submit", problemId)
+                        .header("Authorization", "Bearer " + loginResponse.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "language": "java",
+                                  "code": "public class Main {}",
+                                  "stdin": "",
+                                  "expectedOutput": "Hello CodeQuest"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.problemId").value(problemId.toString()))
+                .andExpect(jsonPath("$.language").value("java"))
+                .andExpect(jsonPath("$.stdout").value("Hello CodeQuest\n"))
+                .andExpect(jsonPath("$.stderr").value(""))
+                .andExpect(jsonPath("$.output").value("Hello CodeQuest\n"))
+                .andExpect(jsonPath("$.exitCode").value(0))
+                .andExpect(jsonPath("$.passed").value(true))
+                .andExpect(jsonPath("$.xpAwarded").value(100))
+                .andExpect(jsonPath("$.firstAccepted").value(true))
+                .andExpect(jsonPath("$.message").value("Solution accepted. XP awarded."))
+                .andExpect(jsonPath("$.userId").doesNotExist())
+                .andExpect(jsonPath("$.token").doesNotExist())
+                .andExpect(jsonPath("$.password").doesNotExist())
+                .andExpect(jsonPath("$.passwordHash").doesNotExist())
+                .andExpect(jsonPath("$.correctAnswer").doesNotExist())
+                .andExpect(jsonPath("$.hidden").doesNotExist())
+                .andExpect(jsonPath("$.compile").doesNotExist())
+                .andExpect(jsonPath("$.run").doesNotExist())
+                .andExpect(jsonPath("$.stackTrace").doesNotExist());
+    }
+
+    @Test
+    void shouldReturn401WhenSubmittingCodeWithoutAuthentication() throws Exception {
+        mockMvc.perform(post("/api/problems/{problemId}/submit", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "language": "java",
+                                  "code": "public class Main {}",
+                                  "stdin": "",
+                                  "expectedOutput": "Hello"
+                                }
+                                """))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void shouldReturn400AndNotCallServiceWhenSubmitLanguageIsBlank() throws Exception {
+        LoginResponse loginResponse = registerAndLogin("problemsubmitbadlang-" + System.currentTimeMillis() + "@example.com");
+
+        mockMvc.perform(post("/api/problems/{problemId}/submit", UUID.randomUUID())
+                        .header("Authorization", "Bearer " + loginResponse.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "language": "",
+                                  "code": "public class Main {}",
+                                  "stdin": "",
+                                  "expectedOutput": "Hello"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+        verifyNoInteractions(problemService);
+    }
+
+    @Test
+    void shouldReturn400AndNotCallServiceWhenSubmitCodeIsBlank() throws Exception {
+        LoginResponse loginResponse = registerAndLogin("problemsubmitblank-" + System.currentTimeMillis() + "@example.com");
+
+        mockMvc.perform(post("/api/problems/{problemId}/submit", UUID.randomUUID())
+                        .header("Authorization", "Bearer " + loginResponse.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "language": "java",
+                                  "code": " ",
+                                  "stdin": "",
+                                  "expectedOutput": "Hello"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+        verifyNoInteractions(problemService);
+    }
+
+    @Test
+    void shouldReturn400AndNotCallServiceWhenSubmitCodeIsTooLong() throws Exception {
+        LoginResponse loginResponse = registerAndLogin("problemsubmitlong-" + System.currentTimeMillis() + "@example.com");
+        String longCode = "a".repeat(20001);
+        String requestBody = objectMapper.writeValueAsString(Map.of(
+                "language", "java",
+                "code", longCode,
+                "stdin", "",
+                "expectedOutput", "Hello"
+        ));
+
+        mockMvc.perform(post("/api/problems/{problemId}/submit", UUID.randomUUID())
+                        .header("Authorization", "Bearer " + loginResponse.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+        verifyNoInteractions(problemService);
+    }
+
+    @Test
+    void shouldReturn503WhenSubmitMapsRunnerUnavailable() throws Exception {
+        LoginResponse loginResponse = registerAndLogin("problemsubmit503-" + System.currentTimeMillis() + "@example.com");
+        UUID problemId = UUID.randomUUID();
+        when(problemService.submitCode(eq(loginResponse.userId()), eq(problemId), any())).thenThrow(
+                new com.codequest.common.exception.ApiException(
+                        com.codequest.common.exception.ErrorCode.CODE_RUNNER_UNAVAILABLE,
+                        "Code runner is currently unavailable. Please try again later."
+                )
+        );
+
+        mockMvc.perform(post("/api/problems/{problemId}/submit", problemId)
+                        .header("Authorization", "Bearer " + loginResponse.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "language": "java",
+                                  "code": "public class Main {}",
+                                  "stdin": "",
+                                  "expectedOutput": "Hello"
                                 }
                                 """))
                 .andExpect(status().isServiceUnavailable())
