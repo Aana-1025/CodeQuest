@@ -4,10 +4,16 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -23,6 +29,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.codequest.auth.dto.LoginRequest;
 import com.codequest.auth.dto.LoginResponse;
 import com.codequest.auth.dto.RegisterRequest;
+import com.codequest.problem.dto.CodeSubmissionHistoryItemResponse;
+import com.codequest.problem.dto.CodeSubmissionHistoryResponse;
 import com.codequest.problem.dto.RunCodeResponse;
 import com.codequest.problem.dto.SubmitCodeResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -313,6 +321,127 @@ class ProblemControllerTest {
                 .andExpect(jsonPath("$.stackTrace").doesNotExist());
     }
 
+    @Test
+    void shouldReturnSubmissionHistoryForAuthenticatedUserWithDefaultPagination() throws Exception {
+        LoginResponse loginResponse = registerAndLogin("problemhistorydefault-" + System.currentTimeMillis() + "@example.com");
+        UUID problemId = UUID.randomUUID();
+        when(problemService.getSubmissionHistory(eq(loginResponse.userId()), eq(problemId), eq(0), eq(20)))
+                .thenReturn(historyResponse(problemId, 0, 20));
+
+        mockMvc.perform(get("/api/problems/{problemId}/submissions", problemId)
+                        .header("Authorization", "Bearer " + loginResponse.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.problemId").value(problemId.toString()))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(20))
+                .andExpect(jsonPath("$.totalItems").value(1))
+                .andExpect(jsonPath("$.totalPages").value(1))
+                .andExpect(jsonPath("$.items[0].problemId").value(problemId.toString()))
+                .andExpect(jsonPath("$.items[0].language").value("java"))
+                .andExpect(jsonPath("$.items[0].code").value("public class Main { public static void main(String[] args) { System.out.println(2); } }"))
+                .andExpect(jsonPath("$.items[0].passed").value(true))
+                .andExpect(jsonPath("$.items[0].passedTestCases").value(1))
+                .andExpect(jsonPath("$.items[0].totalTestCases").value(1))
+                .andExpect(jsonPath("$.items[0].userId").doesNotExist())
+                .andExpect(jsonPath("$.items[0].password").doesNotExist())
+                .andExpect(jsonPath("$.items[0].passwordHash").doesNotExist())
+                .andExpect(jsonPath("$.items[0].password_hash").doesNotExist())
+                .andExpect(jsonPath("$.items[0].token").doesNotExist())
+                .andExpect(jsonPath("$.items[0].accessToken").doesNotExist())
+                .andExpect(jsonPath("$.items[0].refreshToken").doesNotExist())
+                .andExpect(jsonPath("$.items[0].tokenHash").doesNotExist())
+                .andExpect(jsonPath("$.items[0].role").doesNotExist())
+                .andExpect(jsonPath("$.items[0].secret").doesNotExist())
+                .andExpect(jsonPath("$.items[0].correctAnswer").doesNotExist())
+                .andExpect(jsonPath("$.items[0].hidden").doesNotExist())
+                .andExpect(jsonPath("$.items[0].expectedOutput").doesNotExist())
+                .andExpect(jsonPath("$.items[0].stdin").doesNotExist())
+                .andExpect(jsonPath("$.items[0].compile").doesNotExist())
+                .andExpect(jsonPath("$.items[0].run").doesNotExist())
+                .andExpect(jsonPath("$.stackTrace").doesNotExist())
+                .andExpect(content().string(not(containsString("java.lang"))))
+                .andExpect(content().string(not(containsString("org.springframework"))));
+    }
+
+    @Test
+    void shouldReturnSubmissionHistoryForAuthenticatedUserWithExplicitPagination() throws Exception {
+        LoginResponse loginResponse = registerAndLogin("problemhistorypage-" + System.currentTimeMillis() + "@example.com");
+        UUID problemId = UUID.randomUUID();
+        when(problemService.getSubmissionHistory(eq(loginResponse.userId()), eq(problemId), eq(1), eq(1)))
+                .thenReturn(historyResponse(problemId, 1, 1));
+
+        mockMvc.perform(get("/api/problems/{problemId}/submissions", problemId)
+                        .param("page", "1")
+                        .param("size", "1")
+                        .header("Authorization", "Bearer " + loginResponse.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page").value(1))
+                .andExpect(jsonPath("$.size").value(1));
+    }
+
+    @Test
+    void shouldReturn401WhenFetchingSubmissionHistoryWithoutAuthentication() throws Exception {
+        mockMvc.perform(get("/api/problems/{problemId}/submissions", UUID.randomUUID()))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void shouldReturn400WhenSubmissionHistoryPageIsInvalid() throws Exception {
+        LoginResponse loginResponse = registerAndLogin("problemhistorybadpage-" + System.currentTimeMillis() + "@example.com");
+        UUID problemId = UUID.randomUUID();
+        when(problemService.getSubmissionHistory(eq(loginResponse.userId()), eq(problemId), eq(-1), eq(20))).thenThrow(
+                new com.codequest.common.exception.ApiException(
+                        com.codequest.common.exception.ErrorCode.BAD_REQUEST,
+                        "Page must be greater than or equal to 0."
+                )
+        );
+
+        mockMvc.perform(get("/api/problems/{problemId}/submissions", problemId)
+                        .param("page", "-1")
+                        .header("Authorization", "Bearer " + loginResponse.accessToken()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.message").value("Page must be greater than or equal to 0."));
+    }
+
+    @Test
+    void shouldReturn400WhenSubmissionHistorySizeIsInvalid() throws Exception {
+        LoginResponse loginResponse = registerAndLogin("problemhistorybadsize-" + System.currentTimeMillis() + "@example.com");
+        UUID problemId = UUID.randomUUID();
+        when(problemService.getSubmissionHistory(eq(loginResponse.userId()), eq(problemId), eq(0), eq(51))).thenThrow(
+                new com.codequest.common.exception.ApiException(
+                        com.codequest.common.exception.ErrorCode.BAD_REQUEST,
+                        "Size must be less than or equal to 50."
+                )
+        );
+
+        mockMvc.perform(get("/api/problems/{problemId}/submissions", problemId)
+                        .param("size", "51")
+                        .header("Authorization", "Bearer " + loginResponse.accessToken()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.message").value("Size must be less than or equal to 50."));
+    }
+
+    @Test
+    void shouldReturn400WhenSubmissionHistorySizeIsZero() throws Exception {
+        LoginResponse loginResponse = registerAndLogin("problemhistorysizezero-" + System.currentTimeMillis() + "@example.com");
+        UUID problemId = UUID.randomUUID();
+        when(problemService.getSubmissionHistory(eq(loginResponse.userId()), eq(problemId), eq(0), eq(0))).thenThrow(
+                new com.codequest.common.exception.ApiException(
+                        com.codequest.common.exception.ErrorCode.BAD_REQUEST,
+                        "Size must be at least 1."
+                )
+        );
+
+        mockMvc.perform(get("/api/problems/{problemId}/submissions", problemId)
+                        .param("size", "0")
+                        .header("Authorization", "Bearer " + loginResponse.accessToken()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
+                .andExpect(jsonPath("$.message").value("Size must be at least 1."));
+    }
+
     private LoginResponse registerAndLogin(String email) throws Exception {
         RegisterRequest registerRequest = new RegisterRequest("Problem Test", email, "ProblemPass123");
         mockMvc.perform(post("/api/auth/register")
@@ -330,5 +459,28 @@ class ProblemControllerTest {
                 .getContentAsString();
 
         return objectMapper.readValue(loginResponseStr, LoginResponse.class);
+    }
+
+    private CodeSubmissionHistoryResponse historyResponse(UUID problemId, int page, int size) {
+        return new CodeSubmissionHistoryResponse(
+                problemId,
+                page,
+                size,
+                1,
+                1,
+                List.of(new CodeSubmissionHistoryItemResponse(
+                        UUID.randomUUID(),
+                        problemId,
+                        "java",
+                        "public class Main { public static void main(String[] args) { System.out.println(2); } }",
+                        true,
+                        1,
+                        1,
+                        null,
+                        null,
+                        null,
+                        Instant.parse("2026-06-09T10:01:00Z")
+                ))
+        );
     }
 }

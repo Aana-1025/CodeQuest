@@ -12,6 +12,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -22,9 +23,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 import com.codequest.common.exception.ApiException;
 import com.codequest.common.exception.ErrorCode;
+import com.codequest.problem.dto.CodeSubmissionHistoryItemResponse;
+import com.codequest.problem.dto.CodeSubmissionHistoryResponse;
 import com.codequest.problem.dto.PistonRequest;
 import com.codequest.problem.dto.PistonResponse;
 import com.codequest.problem.dto.RunCodeRequest;
@@ -301,6 +307,145 @@ class ProblemServiceTest {
         verify(xpService, never()).addXpAndRecalculateRank(any(User.class), anyInt());
     }
 
+    @Test
+    void getSubmissionHistory_shouldReturnOnlyRequestedProblemForAuthenticatedUserNewestFirst() {
+        UUID userId = UUID.randomUUID();
+        UUID problemId = UUID.randomUUID();
+        UUID otherProblemId = UUID.randomUUID();
+        UUID otherUserId = UUID.randomUUID();
+        CodeSubmission olderSubmission = createSubmission(userId, problemId, false, "System.out.println(1);", Instant.parse("2026-06-09T10:00:00Z"));
+        CodeSubmission newerSubmission = createSubmission(userId, problemId, true, "System.out.println(2);", Instant.parse("2026-06-09T10:01:00Z"));
+        CodeSubmission sameUserOtherProblem = createSubmission(userId, otherProblemId, true, "System.out.println(3);", Instant.parse("2026-06-09T10:02:00Z"));
+        CodeSubmission otherUserSameProblem = createSubmission(otherUserId, problemId, true, "System.out.println(4);", Instant.parse("2026-06-09T10:03:00Z"));
+
+        when(codeSubmissionRepository.findByUser_IdAndProblemId(eq(userId), eq(problemId), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(newerSubmission, olderSubmission)));
+
+        CodeSubmissionHistoryResponse response = problemService.getSubmissionHistory(userId, problemId, 0, 20);
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(codeSubmissionRepository).findByUser_IdAndProblemId(eq(userId), eq(problemId), pageableCaptor.capture());
+        assertEquals(0, pageableCaptor.getValue().getPageNumber());
+        assertEquals(20, pageableCaptor.getValue().getPageSize());
+        assertEquals("submittedAt: DESC", pageableCaptor.getValue().getSort().toString());
+
+        assertEquals(problemId, response.problemId());
+        assertEquals(0, response.page());
+        assertEquals(20, response.size());
+        assertEquals(2, response.totalItems());
+        assertEquals(1, response.totalPages());
+        assertEquals(2, response.items().size());
+        assertEquals(newerSubmission.getId(), response.items().get(0).submissionId());
+        assertEquals(olderSubmission.getId(), response.items().get(1).submissionId());
+        assertFalse(response.items().stream().anyMatch(item -> item.problemId().equals(otherProblemId)));
+        assertFalse(response.items().stream().anyMatch(item -> item.code().equals(sameUserOtherProblem.getCode())));
+        assertFalse(response.items().stream().anyMatch(item -> item.code().equals(otherUserSameProblem.getCode())));
+    }
+
+    @Test
+    void getSubmissionHistory_shouldReturnEmptyItemsWhenNoHistoryExists() {
+        UUID userId = UUID.randomUUID();
+        UUID problemId = UUID.randomUUID();
+        when(codeSubmissionRepository.findByUser_IdAndProblemId(eq(userId), eq(problemId), any(Pageable.class)))
+                .thenReturn(Page.empty());
+
+        CodeSubmissionHistoryResponse response = problemService.getSubmissionHistory(userId, problemId, 0, 20);
+
+        assertEquals(problemId, response.problemId());
+        assertEquals(0, response.totalItems());
+        assertEquals(0, response.totalPages());
+        assertTrue(response.items().isEmpty());
+    }
+
+    @Test
+    void getSubmissionHistory_shouldSupportPaginationMetadata() {
+        UUID userId = UUID.randomUUID();
+        UUID problemId = UUID.randomUUID();
+        CodeSubmission submission = createSubmission(userId, problemId, true, "System.out.println(2);", Instant.parse("2026-06-09T10:01:00Z"));
+        Pageable pageable = org.springframework.data.domain.PageRequest.of(1, 1);
+        Page<CodeSubmission> page = new PageImpl<>(List.of(submission), pageable, 2);
+        when(codeSubmissionRepository.findByUser_IdAndProblemId(eq(userId), eq(problemId), any(Pageable.class)))
+                .thenReturn(page);
+
+        CodeSubmissionHistoryResponse response = problemService.getSubmissionHistory(userId, problemId, 1, 1);
+
+        assertEquals(1, response.page());
+        assertEquals(1, response.size());
+        assertEquals(2, response.totalItems());
+        assertEquals(2, response.totalPages());
+        assertEquals(1, response.items().size());
+    }
+
+    @Test
+    void getSubmissionHistory_shouldRejectNegativePage() {
+        ApiException exception = assertThrows(ApiException.class,
+                () -> problemService.getSubmissionHistory(UUID.randomUUID(), UUID.randomUUID(), -1, 20));
+
+        assertEquals(ErrorCode.BAD_REQUEST, exception.getErrorCode());
+        assertEquals("Page must be greater than or equal to 0.", exception.getMessage());
+        verify(codeSubmissionRepository, never()).findByUser_IdAndProblemId(any(UUID.class), any(UUID.class), any(Pageable.class));
+    }
+
+    @Test
+    void getSubmissionHistory_shouldRejectSizeZero() {
+        ApiException exception = assertThrows(ApiException.class,
+                () -> problemService.getSubmissionHistory(UUID.randomUUID(), UUID.randomUUID(), 0, 0));
+
+        assertEquals(ErrorCode.BAD_REQUEST, exception.getErrorCode());
+        assertEquals("Size must be at least 1.", exception.getMessage());
+        verify(codeSubmissionRepository, never()).findByUser_IdAndProblemId(any(UUID.class), any(UUID.class), any(Pageable.class));
+    }
+
+    @Test
+    void getSubmissionHistory_shouldRejectSizeGreaterThanFifty() {
+        ApiException exception = assertThrows(ApiException.class,
+                () -> problemService.getSubmissionHistory(UUID.randomUUID(), UUID.randomUUID(), 0, 51));
+
+        assertEquals(ErrorCode.BAD_REQUEST, exception.getErrorCode());
+        assertEquals("Size must be less than or equal to 50.", exception.getMessage());
+        verify(codeSubmissionRepository, never()).findByUser_IdAndProblemId(any(UUID.class), any(UUID.class), any(Pageable.class));
+    }
+
+    @Test
+    void getSubmissionHistory_shouldMapOnlySafeFields() {
+        UUID userId = UUID.randomUUID();
+        UUID problemId = UUID.randomUUID();
+        Instant submittedAt = Instant.parse("2026-06-09T10:01:00Z");
+        CodeSubmission submission = new CodeSubmission(
+                UUID.randomUUID(),
+                createUser(userId),
+                problemId,
+                "java",
+                "public class Main {}",
+                true,
+                1,
+                1,
+                null,
+                null,
+                null,
+                submittedAt,
+                submittedAt,
+                submittedAt
+        );
+        when(codeSubmissionRepository.findByUser_IdAndProblemId(eq(userId), eq(problemId), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(submission)));
+
+        CodeSubmissionHistoryResponse response = problemService.getSubmissionHistory(userId, problemId, 0, 20);
+        CodeSubmissionHistoryItemResponse item = response.items().getFirst();
+
+        assertEquals(submission.getId(), item.submissionId());
+        assertEquals(problemId, item.problemId());
+        assertEquals("java", item.language());
+        assertEquals("public class Main {}", item.code());
+        assertTrue(item.passed());
+        assertEquals(1, item.passedTestCases());
+        assertEquals(1, item.totalTestCases());
+        assertNull(item.runtimeMs());
+        assertNull(item.memoryKb());
+        assertNull(item.aiReview());
+        assertEquals(submittedAt, item.submittedAt());
+    }
+
     private User createUser(UUID userId) {
         User user = new User();
         user.setId(userId);
@@ -310,6 +455,25 @@ class ProblemServiceTest {
         user.setXp(0);
         user.setRank(UserRank.BEGINNER);
         return user;
+    }
+
+    private CodeSubmission createSubmission(UUID userId, UUID problemId, boolean passed, String code, Instant submittedAt) {
+        return new CodeSubmission(
+                UUID.randomUUID(),
+                createUser(userId),
+                problemId,
+                "java",
+                code,
+                passed,
+                passed ? 1 : 0,
+                1,
+                null,
+                null,
+                null,
+                submittedAt,
+                submittedAt,
+                submittedAt
+        );
     }
 
     private PistonResponse successfulResponse(String stdout, String stderr, String output, Integer exitCode) {

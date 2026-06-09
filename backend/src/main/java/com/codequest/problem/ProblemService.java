@@ -5,11 +5,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.codequest.common.exception.ApiException;
 import com.codequest.common.exception.ErrorCode;
+import com.codequest.problem.dto.CodeSubmissionHistoryItemResponse;
+import com.codequest.problem.dto.CodeSubmissionHistoryResponse;
 import com.codequest.problem.dto.PistonRequest;
 import com.codequest.problem.dto.PistonResponse;
 import com.codequest.problem.dto.RunCodeRequest;
@@ -31,6 +36,9 @@ public class ProblemService {
     );
     private static final int DEFAULT_CODING_PROBLEM_XP = 100;
     private static final int MVP_TOTAL_TEST_CASES = 1;
+    private static final int DEFAULT_HISTORY_PAGE = 0;
+    private static final int DEFAULT_HISTORY_SIZE = 20;
+    private static final int MAX_HISTORY_SIZE = 50;
 
     private final PistonClient pistonClient;
     private final CodeSubmissionRepository codeSubmissionRepository;
@@ -71,6 +79,30 @@ public class ProblemService {
                 executionResult.runtimeMs(),
                 executionResult.passed(),
                 message
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public CodeSubmissionHistoryResponse getSubmissionHistory(UUID userId, UUID problemId, int page, int size) {
+        validatePagination(page, size);
+
+        Page<CodeSubmission> submissionsPage = codeSubmissionRepository.findByUser_IdAndProblemId(
+                userId,
+                problemId,
+                PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "submittedAt"))
+        );
+
+        List<CodeSubmissionHistoryItemResponse> items = submissionsPage.getContent().stream()
+                .map(this::toCodeSubmissionHistoryItemResponse)
+                .toList();
+
+        return new CodeSubmissionHistoryResponse(
+                problemId,
+                page,
+                size,
+                submissionsPage.getTotalElements(),
+                calculateTotalPages(submissionsPage.getTotalElements(), size),
+                items
         );
     }
 
@@ -192,6 +224,18 @@ public class ProblemService {
         }
     }
 
+    private void validatePagination(int page, int size) {
+        if (page < DEFAULT_HISTORY_PAGE) {
+            throw new ApiException(ErrorCode.BAD_REQUEST, "Page must be greater than or equal to 0.");
+        }
+        if (size < 1) {
+            throw new ApiException(ErrorCode.BAD_REQUEST, "Size must be at least 1.");
+        }
+        if (size > MAX_HISTORY_SIZE) {
+            throw new ApiException(ErrorCode.BAD_REQUEST, "Size must be less than or equal to 50.");
+        }
+    }
+
     private String chooseOutput(PistonResponse response, String stdout) {
         if (hasText(response.run().output())) {
             return response.run().output();
@@ -238,6 +282,29 @@ public class ProblemService {
             return "Solution accepted. XP awarded.";
         }
         return "Solution accepted. XP was already awarded for this problem.";
+    }
+
+    private CodeSubmissionHistoryItemResponse toCodeSubmissionHistoryItemResponse(CodeSubmission codeSubmission) {
+        return new CodeSubmissionHistoryItemResponse(
+                codeSubmission.getId(),
+                codeSubmission.getProblemId(),
+                codeSubmission.getLanguage(),
+                codeSubmission.getCode(),
+                codeSubmission.isPassed(),
+                codeSubmission.getPassedTestCases(),
+                codeSubmission.getTotalTestCases(),
+                codeSubmission.getRuntimeMs(),
+                codeSubmission.getMemoryKb(),
+                codeSubmission.getAiReview(),
+                codeSubmission.getSubmittedAt()
+        );
+    }
+
+    private int calculateTotalPages(long totalItems, int size) {
+        if (totalItems == 0) {
+            return 0;
+        }
+        return (int) Math.ceil((double) totalItems / size);
     }
 
     private record ExecutionResult(
