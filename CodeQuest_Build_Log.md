@@ -5,14 +5,14 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Backend / Quiz
-Current feature: Backend Weak Concept Detection Foundation completed, backend-tested, API-verified, committed, pushed, and awaiting Build Log docs commit
-Latest commit: `ff0a4d4 feat: add weak concepts to quiz submit`
-Previous commit: `bfa72d1 docs: record login streak daily xp guard`
-Previous feature commit: `7641b3f feat: add login streak daily xp guard`
+Current module: Backend / Problem
+Current feature: Backend Piston Run Code Foundation completed, backend-tested, API-verified with safe external Piston-unavailable handling, committed, pushed, and awaiting Build Log docs commit
+Latest commit: `d806c43 feat: add piston run code foundation`
+Previous docs commit: `2b93466 docs: record weak concepts quiz submit`
+Previous feature commit: `ff0a4d4 feat: add weak concepts to quiz submit`
 Current branch: main
-Test status: Backend `cd backend && .\mvnw.cmd test` PASS with 202 tests, 0 failures, 0 errors, 0 skipped. Manual API verification PASS before commit: backend was started locally with PostgreSQL/JWT env vars; a fresh user was registered and logged in; an existing quiz row was selected from local PostgreSQL with `id=44821f81-730c-4b18-9b2b-fb6e70354366`, `correct_answer=B`, and `concept_tag=Trie Definition`; submitting wrong answer `A` returned `isCorrect=false`, `concept=Trie Definition`, and `weakConcepts={Trie Definition}`; submitting correct answer `B` returned `isCorrect=true`, `concept=Trie Definition`, and empty `weakConcepts`; response safety checks returned false for `correctAnswer`, `userId`, password fields, token fields, refresh token fields, tokenHash, and secret; no-token submit returned 401. Scope checks PASS: frontend, DB migrations, backend/pom.xml, docs, Build Log, AI/Gemini, auth, progress, user, problem, leaderboard, and common security files were unchanged during feature implementation; backend changes were limited to quiz submit service/DTO/tests.
-Git status: clean after `ff0a4d4 feat: add weak concepts to quiz submit` was pushed to `main`; Build Log docs update in progress
+Test status: Backend `cd backend && .\mvnw.cmd test` PASS with 215 tests, 0 failures, 0 errors, 0 skipped. Manual API verification PASS before commit: backend was started locally with PostgreSQL/JWT env vars and Piston base URL config; a fresh user was registered and logged in; authenticated `POST /api/problems/{problemId}/run` with Java code was exercised; external Piston was unavailable during manual runtime and the backend returned the expected safe 503 `CODE_RUNNER_UNAVAILABLE` style response instead of raw stack traces or raw Piston internals; invalid language returned 400; no-token request returned 401; profile XP did not increase from run-only code execution beyond the existing daily login XP behavior; safety checks showed no password fields, token fields, tokenHash, refresh token fields, secrets, correctAnswer, hidden tests, or userId leaked in run-code responses/errors. Scope checks PASS: frontend, DB migrations, backend/pom.xml, docs, Build Log, AI/Gemini, auth, course, level, progress, user, quiz, flashcard, note, and leaderboard files were unchanged during feature implementation; backend changes were limited to the new problem package, safe Piston config, and common exception enum/handler additions for `CODE_RUNNER_UNAVAILABLE`.
+Git status: clean after `d806c43 feat: add piston run code foundation` was pushed to `main`; Build Log docs update in progress
 
 ## Completed Features
 - [x] Project setup
@@ -75,7 +75,7 @@ Git status: clean after `ff0a4d4 feat: add weak concepts to quiz submit` was pus
 - [x] Weak concept detection / quiz submit weakConcepts foundation
 - [x] XP/rank system / rank recalculation foundation
 - [x] Streak system / daily login XP guard foundation
-- [ ] Piston run code
+- [x] Piston run code
 - [ ] Code submit
 - [ ] Code submissions history
 - [ ] AI code review
@@ -514,13 +514,35 @@ Git status: clean after `ff0a4d4 feat: add weak concepts to quiz submit` was pus
 - Weak concept detection does not persist weak concept rows and does not add a DB migration.
 - Weak concept detection does not change quiz scoring, XP award rules, quiz attempt persistence/history, rank, streak, progress, unlock rules, frontend UI, Piston/code execution, leaderboard, or Phase 2 behavior.
 - Quiz submit response still must never expose `correctAnswer`, `userId`, passwords, tokens, refresh tokens, token hashes, role, secrets, raw entities, raw stack traces, or raw backend JSON dumps.
+- Backend Piston Run Code Foundation is implemented as a backend-only run-only MVP feature.
+- `POST /api/problems/{problemId}/run` is authenticated and protected by the existing JWT security flow.
+- `POST /api/problems/{problemId}/run` accepts `language`, `code`, optional `stdin`, and optional `expectedOutput`.
+- Run-code language allowlist is limited to `java`, `python`, `javascript`, and `cpp`.
+- Run-code requests reject blank code and reject code longer than 20000 characters.
+- Run-code optional stdin and expected output use bounded MVP request validation.
+- Run-code delegates execution only to Piston through a mockable `PistonClient` abstraction.
+- `PistonHttpClient` uses Spring `RestClient` style and calls the configured Piston `/execute` endpoint.
+- `PISTON_BASE_URL` can override the safe Piston base URL config.
+- CodeQuest backend must never execute user code locally; do not use `ProcessBuilder`, `Runtime.exec`, JShell, local Docker execution, local compiler execution, or any local sandbox.
+- Run-only endpoint does not award XP and does not call `XPService`.
+- Run-only endpoint does not persist code, submissions, histories, attempts, or code-submission rows.
+- Run-only endpoint keeps `problemId` in the path and response for API contract compatibility.
+- Because coding problem persistence is not currently implemented, run-only currently does not perform a DB lookup for `problemId` and does not create fake seed problems.
+- Run-code response is safe and may include `problemId`, `language`, `stdout`, `stderr`, `output`, `exitCode`, nullable `runtimeMs`, nullable `passed`, and safe `message`.
+- Run-code pass/fail comparison trims the primary output and expected output only for comparison.
+- If `expectedOutput` is present and trimmed output matches, `passed=true`.
+- If `expectedOutput` is present and trimmed output differs, `passed=false`.
+- If `expectedOutput` is missing, `passed=null`.
+- Piston unavailable/request failure/malformed response maps safely to `CODE_RUNNER_UNAVAILABLE` and HTTP 503.
+- Run-code errors must not expose raw Piston response bodies, raw stack traces, full user code logs, stdin, expectedOutput, passwords, tokens, token hashes, secrets, hidden tests, correctAnswer, userId, raw entities, or raw backend JSON dumps.
+- Backend Piston Run Code Foundation did not touch frontend, DB migrations, backend/pom.xml, docs/Build Log during implementation, AI/Gemini, auth, course, level, progress, user, quiz, flashcard, note, leaderboard, Docker, CI/CD, deployment, code submit/history, AI code review, or Phase 2 features.
 - Backend tests after level unlock logic pass with 168 tests, 0 failures, 0 errors.
 - Backend tests after the progress feature and JSONB mapping fix pass with 159 tests, 0 failures, 0 errors.
 - Backend Quiz Attempt History/Fetch Foundation adds no migration and makes no frontend changes.
 - Backend Quiz Attempt Persistence Foundation does not change frontend files.
 - Backend Quiz Attempt Persistence Foundation does not change AI/Gemini, course generation/fetch, flashcards, or notes behavior.
 - Backend Quiz Attempt Persistence Foundation does not implement XP/progress/rank/streak, weak concept detection, level unlock, course completion, leaderboard, Piston/code execution, deployment, or Phase 2 features.
-- Quiz submit, quiz attempt persistence/history, quiz XP award/refresh, backend level completion progress foundation, backend level unlock enforcement, backend progress fetch, and frontend Course Map progress/lock UI are implemented; rank, streak, weak concept detection, leaderboard, and code execution remain unimplemented.
+- Quiz submit, quiz attempt persistence/history, quiz XP award/refresh, backend level completion progress foundation, backend level unlock enforcement, backend progress fetch, frontend Course Map progress/lock UI, rank, streak, weak concept detection, and Piston run-code foundation are implemented; code submit/history, AI code review, leaderboard, and deployment remain unimplemented.
 - GeminiService + PromptBuilder foundation is implemented in the isolated backend `ai` module.
 - GeminiService + PromptBuilder foundation originally did not call Gemini over network and did not wire into `CourseService` or `CourseController`.
 - GeminiService + PromptBuilder foundation uses env-backed Gemini placeholders:
@@ -684,6 +706,7 @@ Git status: clean after `ff0a4d4 feat: add weak concepts to quiz submit` was pus
 
 ## Bugs / Issues
 - None blocking currently.
+- Backend Piston Run Code Foundation note: No blocking issue after manual API verification. Manual runtime hit external Piston unavailability and backend returned the expected safe 503 `CODE_RUNNER_UNAVAILABLE` style error instead of raw stack traces or raw Piston internals; this is acceptable for the feature because automated tests mock Piston and passed. Manual checks also confirmed invalid language returned 400, no-token run returned 401, run-only did not increase XP beyond existing daily login XP behavior, and response/error safety checks did not expose password fields, token fields, refresh token fields, tokenHash, secrets, `correctAnswer`, hidden tests, or `userId`. Backend tests passed with 215 tests, 0 failures, 0 errors, 0 skipped. Scope stayed backend-only with expected changes limited to `backend/src/main/java/com/codequest/problem/`, `backend/src/test/java/com/codequest/problem/`, `backend/src/main/java/com/codequest/common/exception/ErrorCode.java`, `backend/src/main/java/com/codequest/common/exception/GlobalExceptionHandler.java`, and `backend/src/main/resources/application.yml`; no frontend, DB migration, package, docs, Build Log, AI/Gemini, auth, course, level, progress, user, quiz, flashcard, note, leaderboard, Docker, CI/CD, deployment, code submit/history, AI review, or Phase 2 work.
 - Backend Weak Concept Detection Foundation note: No blocking issue after manual API verification. Manual verification used existing quiz row `44821f81-730c-4b18-9b2b-fb6e70354366` with `correct_answer=B` and `concept_tag=Trie Definition`; wrong answer `A` returned `isCorrect=False`, `concept=Trie Definition`, and `weakConcepts={Trie Definition}`; correct answer `B` returned `isCorrect=True`, `concept=Trie Definition`, and empty `weakConcepts`; safety checks returned false for `correctAnswer`, `userId`, password, passwordHash, password_hash, token, refreshToken, tokenHash, and secret; no-token submit returned 401. Backend tests passed with 202 tests, 0 failures, 0 errors. Scope stayed backend-only with expected changes limited to `backend/src/main/java/com/codequest/quiz/QuizService.java`, `backend/src/main/java/com/codequest/quiz/dto/SubmitQuizAnswerResponse.java`, `backend/src/test/java/com/codequest/quiz/QuizControllerTest.java`, and `backend/src/test/java/com/codequest/quiz/QuizServiceTest.java`; no frontend, DB migration, package, docs, Build Log, AI/Gemini, auth, progress, user, problem, leaderboard, common security, Docker, CI/CD, deployment, Piston/code execution, or Phase 2 work.
 - Backend StreakService + Daily Login XP Guard note: No blocking issue after manual API verification. Manual verification confirmed registration stayed unchanged with `xp=0`, `rank=BEGINNER`, and blank/null `streak`; first successful login awarded daily login XP and returned `xp=30`, `rank=BEGINNER`, `streak=1`; profile fetch after login stayed `xp=30`, `rank=BEGINNER`, `streak=1`; second same-day login did not award XP again and stayed `xp=30`, `rank=BEGINNER`, `streak=1`; repeated profile fetches and refresh-token flow did not award daily login XP; safety checks returned false for password, passwordHash, password_hash, token, refreshToken, tokenHash, secret, and correctAnswer; DB check confirmed `xp=30`, `rank=BEGINNER`, `streak=1`, and `last_login` not null. Backend tests passed with 199 tests, 0 failures, 0 errors. Scope stayed backend-only with expected changes limited to `backend/src/main/java/com/codequest/auth/AuthService.java`, `backend/src/main/java/com/codequest/progress/StreakService.java`, `backend/src/test/java/com/codequest/progress/StreakServiceTest.java`, `backend/src/test/java/com/codequest/auth/AuthServiceTest.java`, `backend/src/test/java/com/codequest/auth/AuthControllerTest.java`, `backend/src/test/java/com/codequest/user/UserControllerTest.java`, `backend/src/test/java/com/codequest/user/UserServiceTest.java`, and `backend/src/test/java/com/codequest/level/LevelControllerTest.java`; no frontend, DB migration, package, docs, Build Log, AI/Gemini, problem, leaderboard, common security, Docker, CI/CD, deployment, weak concept, Piston/code execution, or Phase 2 work.
 - Backend XPService + Rank Recalculation Foundation note: No blocking issue after manual API verification. Manual verification confirmed fresh user profile started with `xp=0` and `rank=BEGINNER`; completing one placeholder course moved profile to `XP=225, Rank=BEGINNER`; completing two placeholder courses moved profile to `XP=450, Rank=BEGINNER`; completing three placeholder courses moved profile to `XP=675, Rank=CODER`; repeat level completion stayed idempotent with `alreadyCompleted=True`, `xpAwarded=0`, and unchanged XP/rank; profile safety checks returned false for password, passwordHash, password_hash, token, refreshToken, tokenHash, secret, and correctAnswer. Backend tests passed with 191 tests, 0 failures, 0 errors. Scope stayed backend-only with expected changes limited to `backend/src/main/java/com/codequest/progress/XPService.java`, `backend/src/main/java/com/codequest/progress/ProgressService.java`, `backend/src/main/java/com/codequest/quiz/QuizService.java`, `backend/src/test/java/com/codequest/progress/XPServiceTest.java`, `backend/src/test/java/com/codequest/progress/ProgressServiceTest.java`, and `backend/src/test/java/com/codequest/quiz/QuizServiceTest.java`; no frontend, DB migration, package, docs, Build Log, AI/Gemini, problem, leaderboard, Docker, CI/CD, deployment, streak, weak concept, Piston/code execution, or Phase 2 work.
@@ -939,6 +962,7 @@ Git status: clean after `ff0a4d4 feat: add weak concepts to quiz submit` was pus
 | 57 | 2026-06-02 | Backend StreakService + Daily Login XP Guard | Backend / Streak + Auth + User XP | backend/src/main/java/com/codequest/progress/StreakService.java; backend/src/main/java/com/codequest/auth/AuthService.java; backend/src/test/java/com/codequest/progress/StreakServiceTest.java; backend/src/test/java/com/codequest/auth/AuthServiceTest.java; backend/src/test/java/com/codequest/auth/AuthControllerTest.java; backend/src/test/java/com/codequest/user/UserControllerTest.java; backend/src/test/java/com/codequest/user/UserServiceTest.java; backend/src/test/java/com/codequest/level/LevelControllerTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 199 tests, 0 failures, 0 errors, 0 skipped. Manual API verification PASS: registration stayed unchanged with `xp=0`, `rank=BEGINNER`, blank/null `streak`; first login awarded daily login XP and returned `xp=30`, `rank=BEGINNER`, `streak=1`; second same-day login, repeated profile fetch, and refresh-token flow did not award XP again; DB showed `last_login` not null; safety checks passed. Scope checks clean: frontend, DB migrations, backend/pom.xml, docs/Build Log, AI/Gemini, problem, leaderboard, and common security diffs empty. | `7641b3f feat: add login streak daily xp guard`. Added backend StreakService and wired successful login to award +30 daily XP once per calendar day using XPService/rank recalculation. No new endpoint, no DB migration, no frontend change, no JWT/refresh/logout behavior change, no rank threshold change, no quiz/level XP change, no weak concept/leaderboard/Piston/deployment, and no Phase 2 feature. |
 
 | 58 | 2026-06-03 | Backend Weak Concept Detection Foundation | Backend / Quiz | backend/src/main/java/com/codequest/quiz/QuizService.java; backend/src/main/java/com/codequest/quiz/dto/SubmitQuizAnswerResponse.java; backend/src/test/java/com/codequest/quiz/QuizControllerTest.java; backend/src/test/java/com/codequest/quiz/QuizServiceTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 202 tests, 0 failures, 0 errors, 0 skipped. Manual API verification PASS: wrong answer `A` for quiz `44821f81-730c-4b18-9b2b-fb6e70354366` returned `isCorrect=False`, `concept=Trie Definition`, and `weakConcepts={Trie Definition}`; correct answer `B` returned `isCorrect=True` and empty `weakConcepts`; safety checks confirmed no `correctAnswer`, `userId`, password/token/secret fields; no-token submit returned 401. Scope checks clean: frontend, DB migrations, backend/pom.xml, docs/Build Log, AI/Gemini, auth, progress, user, problem, leaderboard, and common security diffs empty. | `ff0a4d4 feat: add weak concepts to quiz submit`. Added response-only weak concept detection to quiz submit. Wrong answers return a trimmed backend concept tag in `weakConcepts`; correct answers return an empty list. No Gemini call, no remedial generation, no persistence/migration, no frontend change, no scoring/XP/rank/streak/progress/unlock change, no Piston/leaderboard/deployment, and no Phase 2 feature. |
+| 59 | 2026-06-09 | Backend Piston Run Code Foundation | Backend / Problem + Code Runner | backend/src/main/java/com/codequest/problem/ProblemController.java; backend/src/main/java/com/codequest/problem/ProblemService.java; backend/src/main/java/com/codequest/problem/PistonClient.java; backend/src/main/java/com/codequest/problem/PistonHttpClient.java; backend/src/main/java/com/codequest/problem/PistonException.java; backend/src/main/java/com/codequest/problem/dto/RunCodeRequest.java; backend/src/main/java/com/codequest/problem/dto/RunCodeResponse.java; backend/src/main/java/com/codequest/problem/dto/PistonRequest.java; backend/src/main/java/com/codequest/problem/dto/PistonResponse.java; backend/src/main/java/com/codequest/common/exception/ErrorCode.java; backend/src/main/java/com/codequest/common/exception/GlobalExceptionHandler.java; backend/src/main/resources/application.yml; backend/src/test/java/com/codequest/problem/ProblemServiceTest.java; backend/src/test/java/com/codequest/problem/ProblemControllerTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 215 tests, 0 failures, 0 errors, 0 skipped. Manual API verification PASS for safe runtime behavior: authenticated run-code request reached backend; external Piston was unavailable and returned safe 503 `CODE_RUNNER_UNAVAILABLE` handling; invalid language returned 400; no-token returned 401; run-only did not award XP beyond daily login XP; response safety checks passed. Scope checks clean: frontend, DB migrations, backend/pom.xml, docs/Build Log, AI/Gemini, auth, course, level, progress, user, quiz, flashcard, note, and leaderboard diffs empty. | `d806c43 feat: add piston run code foundation`. Added authenticated run-only `POST /api/problems/{problemId}/run`, safe request/response DTOs, language allowlist, Piston client abstraction, RestClient-based Piston HTTP client, pass/fail expected-output comparison, safe 503 `CODE_RUNNER_UNAVAILABLE` mapping, and focused problem service/controller tests. No local code execution, no XP award, no submission persistence/history, no coding problem DB/entity work, no frontend, no migration, no AI review, no leaderboard, no deployment, and no Phase 2 feature. |
 
 
 ## Test Results Log
@@ -1039,6 +1063,7 @@ Git status: clean after `ff0a4d4 feat: add weak concepts to quiz submit` was pus
 | 2026-06-02 | `cd backend && .\mvnw.cmd test` after Backend XPService + Rank Recalculation Foundation | PASS | Backend tests passed with 191 tests, 0 failures, 0 errors after adding XPService, rank threshold tests, level-completion rank recalculation coverage, idempotency preservation coverage, and quiz-submit rank recalculation coverage. | Yes |
 | 2026-06-02 | `cd backend && .\mvnw.cmd test` after Backend StreakService + Daily Login XP Guard | PASS | Backend tests passed with 199 tests, 0 failures, 0 errors, 0 skipped after adding StreakService, login daily XP guard, same-day/next-day/gap streak coverage, refresh/profile no-award guards, and updated login/profile/level expectations for daily login XP. | Yes |
 | 2026-06-03 | `cd backend && .\mvnw.cmd test` after Backend Weak Concept Detection Foundation | PASS | Backend tests passed with 202 tests, 0 failures, 0 errors, 0 skipped after adding `weakConcepts` to safe quiz submit response, wrong/correct/blank concept service coverage, and controller JSON checks. | Yes |
+| 2026-06-09 | `cd backend && .\mvnw.cmd test` after Backend Piston Run Code Foundation | PASS | Backend tests passed with 215 tests, 0 failures, 0 errors, 0 skipped after adding authenticated run-only Piston code execution endpoint, safe request/response DTOs, Piston client abstraction, safe unavailable mapping, validation coverage, and controller coverage. Tests mock Piston and do not call the real network service. | Yes |
 
 
 ## Manual Verification Log
@@ -1141,6 +1166,7 @@ Git status: clean after `ff0a4d4 feat: add weak concepts to quiz submit` was pus
 | 2026-06-02 | Backend StreakService + Daily Login XP Guard | PowerShell-only backend check: start backend with PostgreSQL/JWT env vars and Gemini env vars removed -> register fresh user -> first successful login -> profile fetch -> second same-day login -> repeated profile fetch -> refresh-token flow -> profile safety JSON checks -> optional DB check for last_login -> scope checks | Register stayed existing behavior with `xp=0`, `rank=BEGINNER`, and blank/null `streak`; first successful login awarded daily login XP and returned `xp=30`, `rank=BEGINNER`, `streak=1`; profile fetch after login stayed `xp=30`, `rank=BEGINNER`, `streak=1`; second same-day login did not award again and stayed `xp=30`, `rank=BEGINNER`, `streak=1`; repeated profile fetches did not award XP; refresh-token flow did not award XP; safety checks returned false for password, passwordHash, password_hash, token, refreshToken, tokenHash, secret, and correctAnswer; DB check showed `xp=30`, `rank=BEGINNER`, `streak=1`, and `last_login` not null; scope checks showed no frontend, DB migration, package, docs/Build Log, AI/Gemini, problem, leaderboard, or common security diff. | Passed |
 
 | 2026-06-03 | Backend Weak Concept Detection Foundation | PowerShell-only backend check: start backend with PostgreSQL/JWT env vars -> register/login fresh user -> query local quizzes with nonblank `concept_tag` -> choose quiz `44821f81-730c-4b18-9b2b-fb6e70354366` with correct answer `B` and concept `Trie Definition` -> submit wrong answer `A` -> submit correct answer `B` -> run response safety JSON checks -> no-token submit -> scope checks | Wrong answer returned `quizQuestionId=44821f81-730c-4b18-9b2b-fb6e70354366`, `selectedAnswer=A`, `isCorrect=False`, `concept=Trie Definition`, and `weakConcepts={Trie Definition}`; correct answer returned `selectedAnswer=B`, `isCorrect=True`, `concept=Trie Definition`, and empty `weakConcepts`; safety checks returned false for `correctAnswer`, `userId`, password, passwordHash, password_hash, token, refreshToken, tokenHash, and secret; no-token request returned 401; scope checks showed only quiz service/DTO/tests changed. | Passed |
+| 2026-06-09 | Backend Piston Run Code Foundation | PowerShell-only backend check: start backend with PostgreSQL/JWT env vars and optional `PISTON_BASE_URL` -> register/login fresh user -> call authenticated POST `/api/problems/{problemId}/run` with Java code and expected output -> handle external Piston availability/unavailability safely -> check invalid language -> check no-token request -> check profile XP -> run response/error safety checks -> scope checks | External Piston was unavailable during manual runtime, so the run-code request returned safe 503 `CODE_RUNNER_UNAVAILABLE` style handling instead of a raw stack trace or raw Piston body; this was accepted because mocked automated tests passed. Invalid language returned 400; no-token request returned 401; run-only did not increase XP beyond existing daily login XP behavior; safety checks confirmed no password fields, token fields, refresh token fields, tokenHash, secrets, `correctAnswer`, hidden tests, or `userId`; scope checks showed only problem package, safe Piston config, and common exception enum/handler changed. | Passed |
 
 ## Backend Progress Fetch Endpoint Foundation Manual Test Commands
 Use these after the backend progress fetch endpoint task `f408fd6 feat: add course progress fetch endpoint`.
@@ -7052,6 +7078,339 @@ Important boundaries:
 - Scoring, XP awards, quiz attempt persistence/history, rank, streak, progress, unlock rules, leaderboard, Piston/code execution, deployment, and Phase 2 behavior are unchanged.
 
 
+## Backend Piston Run Code Foundation Manual Test Commands
+Use these after the backend Piston run-code task `d806c43 feat: add piston run code foundation`.
+
+This is a backend-only feature. Manual verification should be done from PowerShell/API checks. External Piston availability is not guaranteed; a safe 503 `CODE_RUNNER_UNAVAILABLE` response is acceptable if mocked automated tests pass and the error response is safe.
+
+### Automated verification
+
+```powershell
+cd backend
+.\mvnw.cmd test
+cd ..
+```
+
+Expected after this feature:
+```text
+Tests run: 215
+Failures: 0
+Errors: 0
+Skipped: 0
+BUILD SUCCESS
+```
+
+### Scope checks
+
+```powershell
+git status --short
+git diff -- frontend
+git diff -- backend/src/main/resources/db/migration
+git diff -- backend/pom.xml
+git diff -- docs
+git diff -- CodeQuest_Build_Log.md
+git diff -- backend/src/main/java/com/codequest/ai
+git diff -- backend/src/main/java/com/codequest/auth
+git diff -- backend/src/main/java/com/codequest/course
+git diff -- backend/src/main/java/com/codequest/level
+git diff -- backend/src/main/java/com/codequest/progress
+git diff -- backend/src/main/java/com/codequest/user
+git diff -- backend/src/main/java/com/codequest/quiz
+git diff -- backend/src/main/java/com/codequest/flashcard
+git diff -- backend/src/main/java/com/codequest/note
+git diff -- backend/src/main/java/com/codequest/leaderboard
+```
+
+Expected before commit:
+```text
+Only expected backend files are modified:
+ M backend/src/main/java/com/codequest/common/exception/ErrorCode.java
+ M backend/src/main/java/com/codequest/common/exception/GlobalExceptionHandler.java
+ M backend/src/main/resources/application.yml
+ ?? backend/src/main/java/com/codequest/problem/
+ ?? backend/src/test/java/com/codequest/problem/
+
+All listed diff checks for frontend, migrations, pom, docs, Build Log, AI/Gemini, auth, course, level, progress, user, quiz, flashcard, note, and leaderboard are empty.
+```
+
+### Terminal 1 - Start backend
+
+Start backend with local PostgreSQL/JWT env vars. Remove Gemini env vars because this feature does not need Gemini. Set Piston base URL only if the implementation reads it.
+
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject
+
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
+$env:DATABASE_USERNAME="postgres"
+$env:DATABASE_PASSWORD="<your-local-postgres-password>"
+$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
+
+Remove-Item Env:GEMINI_API_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:GEMINI_MODEL -ErrorAction SilentlyContinue
+Remove-Item Env:GEMINI_BASE_URL -ErrorAction SilentlyContinue
+
+$env:PISTON_BASE_URL="https://emkc.org/api/v2/piston"
+
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+Expected backend startup:
+```text
+Tomcat started on port 8080
+Started CodeQuestApplication
+```
+
+### Terminal 2 - Manual PowerShell API verification
+
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject
+$baseUrl = "http://localhost:8080"
+```
+
+Register and login a fresh user:
+```powershell
+$email = "piston_run_manual_" + (Get-Date -Format "yyyyMMddHHmmss") + "@example.com"
+
+$registerBody = @{
+  name = "Piston Run Manual User"
+  email = $email
+  password = "StrongPass123"
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/register" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body $registerBody
+
+$loginBody = @{
+  email = $email
+  password = "StrongPass123"
+} | ConvertTo-Json
+
+$loginResponse = Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/login" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body $loginBody
+
+$token = $loginResponse.accessToken
+$headers = @{ Authorization = "Bearer $token" }
+
+$problemId = [guid]::NewGuid().ToString()
+```
+
+Run simple Java code:
+```powershell
+$runBody = @{
+  language = "java"
+  code = @"
+public class Main {
+  public static void main(String[] args) {
+    System.out.println("Hello CodeQuest");
+  }
+}
+"@
+  stdin = ""
+  expectedOutput = "Hello CodeQuest"
+} | ConvertTo-Json
+
+try {
+  $runResponse = Invoke-RestMethod `
+    -Uri "$baseUrl/api/problems/$problemId/run" `
+    -Method Post `
+    -Headers $headers `
+    -ContentType "application/json" `
+    -Body $runBody
+
+  "STATUS: 200"
+  $runResponse
+} catch {
+  "STATUS: " + $_.Exception.Response.StatusCode.value__
+  $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+  "BODY:"
+  $reader.ReadToEnd()
+}
+```
+
+Expected if external Piston is reachable:
+```text
+STATUS: 200
+language = java
+output/stdout contains Hello CodeQuest
+passed = True
+```
+
+Acceptable if external Piston is unavailable:
+```text
+STATUS: 503
+code = CODE_RUNNER_UNAVAILABLE
+safe message only
+no raw Piston body
+no raw stack trace
+```
+
+Check profile XP did not change except existing login daily XP:
+```powershell
+$profileAfterRun = Invoke-RestMethod `
+  -Uri "$baseUrl/api/user/profile" `
+  -Method Get `
+  -Headers $headers
+
+$profileAfterRun | Select-Object xp, rank, streak
+```
+
+Expected:
+```text
+XP should remain the same as after login.
+Because StreakService exists, fresh first login usually gives xp=30, rank=BEGINNER, streak=1.
+Run-only endpoint must not increase XP beyond that.
+```
+
+Expected-output mismatch check if Piston is reachable:
+```powershell
+$mismatchBody = @{
+  language = "java"
+  code = @"
+public class Main {
+  public static void main(String[] args) {
+    System.out.println("Hello CodeQuest");
+  }
+}
+"@
+  stdin = ""
+  expectedOutput = "Different Output"
+} | ConvertTo-Json
+
+$mismatchResponse = Invoke-RestMethod `
+  -Uri "$baseUrl/api/problems/$problemId/run" `
+  -Method Post `
+  -Headers $headers `
+  -ContentType "application/json" `
+  -Body $mismatchBody
+
+$mismatchResponse | Select-Object passed, output, stdout, stderr
+```
+
+Expected if Piston is reachable:
+```text
+passed = False
+output/stdout contains Hello CodeQuest
+```
+
+Invalid language check:
+```powershell
+$badLanguageBody = @{
+  language = "ruby"
+  code = "puts 'hi'"
+  stdin = ""
+  expectedOutput = "hi"
+} | ConvertTo-Json
+
+try {
+  Invoke-RestMethod `
+    -Uri "$baseUrl/api/problems/$problemId/run" `
+    -Method Post `
+    -Headers $headers `
+    -ContentType "application/json" `
+    -Body $badLanguageBody
+} catch {
+  $_.Exception.Response.StatusCode.value__
+}
+```
+
+Expected:
+```text
+400
+```
+
+No-token check:
+```powershell
+try {
+  Invoke-RestMethod `
+    -Uri "$baseUrl/api/problems/$problemId/run" `
+    -Method Post `
+    -ContentType "application/json" `
+    -Body $runBody
+} catch {
+  $_.Exception.Response.StatusCode.value__
+}
+```
+
+Expected:
+```text
+401
+```
+
+Safety check if `$runResponse` exists:
+```powershell
+$runJson = $runResponse | ConvertTo-Json -Depth 10
+$runJson.Contains("password")
+$runJson.Contains("passwordHash")
+$runJson.Contains("password_hash")
+$runJson.Contains("token")
+$runJson.Contains("refreshToken")
+$runJson.Contains("tokenHash")
+$runJson.Contains("secret")
+$runJson.Contains("correctAnswer")
+$runJson.Contains("hidden")
+$runJson.Contains("userId")
+```
+
+Expected:
+```text
+All checks return False.
+```
+
+Safety check if the run returned a 503:
+```powershell
+try {
+  Invoke-RestMethod `
+    -Uri "$baseUrl/api/problems/$problemId/run" `
+    -Method Post `
+    -Headers $headers `
+    -ContentType "application/json" `
+    -Body $runBody
+} catch {
+  $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+  $errorBody = $reader.ReadToEnd()
+  $errorBody.Contains("password")
+  $errorBody.Contains("passwordHash")
+  $errorBody.Contains("password_hash")
+  $errorBody.Contains("token")
+  $errorBody.Contains("refreshToken")
+  $errorBody.Contains("tokenHash")
+  $errorBody.Contains("secret")
+  $errorBody.Contains("correctAnswer")
+  $errorBody.Contains("hidden")
+  $errorBody.Contains("userId")
+  $errorBody.Contains("java.lang")
+  $errorBody.Contains("org.springframework")
+  $errorBody.Contains("stackTrace")
+}
+```
+
+Expected:
+```text
+All checks return False.
+```
+
+Important boundaries:
+- Endpoint is POST `/api/problems/{problemId}/run`.
+- Endpoint requires JWT Bearer token.
+- Endpoint is run-only.
+- Current implementation does not persist submissions.
+- Current implementation does not award XP.
+- Current implementation does not call `XPService`.
+- Current implementation does not implement code submit/history.
+- Current implementation does not implement frontend code editor or Monaco.
+- Current implementation does not implement AI code review.
+- Current implementation does not add coding problem persistence/fetch.
+- Current implementation keeps problemId for API contract compatibility and echoes it in the safe response.
+- Backend must never execute user code locally.
+- Piston unavailable should return safe 503 `CODE_RUNNER_UNAVAILABLE` style response.
+
 ## Next Chat Prompt
 Use this prompt when starting a fresh ChatGPT Project chat for CodeQuest:
 
@@ -7095,55 +7454,55 @@ npm run dev
 Current repo status from last chat:
 - Branch: main
 - Latest feature commit:
-  ff0a4d4 feat: add weak concepts to quiz submit
+  d806c43 feat: add piston run code foundation
 - Previous commits:
+  2b93466 docs: record weak concepts quiz submit
+  ff0a4d4 feat: add weak concepts to quiz submit
   bfa72d1 docs: record login streak daily xp guard
   7641b3f feat: add login streak daily xp guard
-  ca7d285 docs: record xp rank recalculation foundation
-  6aba27a feat: add xp rank recalculation foundation
 - Latest completed feature:
-  Backend Weak Concept Detection Foundation
+  Backend Piston Run Code Foundation
 - Backend tests passed:
   cd backend
   .\mvnw.cmd test
-  Result: 202 tests, 0 failures, 0 errors, 0 skipped
+  Result: 215 tests, 0 failures, 0 errors, 0 skipped
 - Manual API verification passed:
-  backend started with PostgreSQL/JWT env vars;
+  backend started with PostgreSQL/JWT env vars and Piston base URL config;
   fresh user registered and logged in;
-  existing quiz row selected from local DB: id=44821f81-730c-4b18-9b2b-fb6e70354366, correct_answer=B, concept_tag=Trie Definition;
-  wrong answer A returned isCorrect=false, concept=Trie Definition, weakConcepts={Trie Definition};
-  correct answer B returned isCorrect=true and weakConcepts empty;
-  safety checks did not expose correctAnswer, userId, password fields, token fields, refresh token fields, tokenHash, or secrets;
-  no-token submit returned 401.
+  authenticated POST /api/problems/{problemId}/run with Java code was exercised;
+  external Piston was unavailable during manual runtime and backend returned safe 503 CODE_RUNNER_UNAVAILABLE style handling instead of raw stack trace/raw Piston internals;
+  invalid language returned 400;
+  no-token run returned 401;
+  run-only endpoint did not increase XP beyond existing daily login XP behavior;
+  safety checks did not expose password fields, token fields, refresh token fields, tokenHash, secrets, correctAnswer, hidden tests, or userId.
 - Scope checks passed:
-  frontend, DB migrations, backend/pom.xml, docs/Build Log, AI/Gemini, auth, progress, user, problem, leaderboard, and common security files were unchanged during feature implementation.
+  frontend, DB migrations, backend/pom.xml, docs/Build Log, AI/Gemini, auth, course, level, progress, user, quiz, flashcard, note, and leaderboard files were unchanged during feature implementation.
 
 Current important completed features:
 - Auth register/login/refresh/logout/JWT/profile
 - Frontend auth/protected routes/dashboard shell
 - Course generation foundation
-- Gemini integration with parser/fallback/retry
+- Gemini integration with PromptBuilder, ResponseParser, fallback, safe diagnostics, HTTP diagnostics, retry-once for transient 5xx
+- SourceType badge fix
 - Course fetch endpoint
-- Frontend course map
-- Lesson view
-- Quiz/flashcards persistence/fetch/display
-- Notes backend save/fetch + frontend editor/preload
+- Frontend course map and lesson view
+- Quiz and flashcards persistence/fetch/display
+- Notes save/fetch + frontend editor/preload
 - Quiz submit/scoring
-- Quiz attempt persistence/history
-- XP award for correct quiz submit
-- Frontend XP refresh after correct quiz submit
-- Backend level completion progress foundation
-- Backend level unlock rules
+- Quiz attempt persistence/history + frontend attempt history display
+- Quiz correct-answer XP award + frontend XP refresh
+- Backend level completion/progress foundation
+- Backend unlock rules
 - Backend progress fetch endpoint
-- Frontend Course Progress / Lock UI Foundation
-- Frontend complete-level button / progress refresh
+- Frontend progress/lock UI
+- Frontend complete-level button and progress/profile refresh
 - Backend XPService + rank recalculation foundation
 - Backend StreakService + daily login XP guard
-- Backend Weak Concept Detection Foundation through quiz submit `weakConcepts`
+- Backend Weak Concept Detection Foundation through quiz submit weakConcepts
+- Backend Piston Run Code Foundation through POST /api/problems/{problemId}/run
 
 Current important unfinished features:
 - Coding problems persistence/fetch if not fully implemented
-- Piston run code
 - Code submit/history
 - AI code review
 - Leaderboard
@@ -7178,18 +7537,21 @@ We are building CodeQuest, a Java 21 + Spring Boot + React + PostgreSQL AI-assis
 
 Latest repo state:
 - Branch: main
-- Latest feature commit: ff0a4d4 feat: add weak concepts to quiz submit
-- Previous docs commit: bfa72d1 docs: record login streak daily xp guard
-- Previous feature commit: 7641b3f feat: add login streak daily xp guard
-- Latest completed feature: Backend Weak Concept Detection Foundation
-- Backend tests passed: cd backend && .\mvnw.cmd test, 202 tests, 0 failures, 0 errors, 0 skipped
-- Manual API verification passed for weak concepts:
-  - existing quiz row used: id=44821f81-730c-4b18-9b2b-fb6e70354366, correct_answer=B, concept_tag=Trie Definition
-  - wrong answer A returned isCorrect=false, concept=Trie Definition, weakConcepts={Trie Definition}
-  - correct answer B returned isCorrect=true, concept=Trie Definition, weakConcepts empty
-  - response safety checks did not expose correctAnswer, userId, password/token/secret fields
-  - no-token submit returned 401
-- Weak concept feature changed only QuizService, SubmitQuizAnswerResponse, QuizControllerTest, and QuizServiceTest. No frontend, DB migration, package, docs/Build Log, AI/Gemini, auth, progress, user, problem, leaderboard, or common security changes during implementation.
+- Latest feature commit: d806c43 feat: add piston run code foundation
+- Previous docs commit: 2b93466 docs: record weak concepts quiz submit
+- Previous feature commit: ff0a4d4 feat: add weak concepts to quiz submit
+- Latest completed feature: Backend Piston Run Code Foundation
+- Backend tests passed: cd backend && .\mvnw.cmd test, 215 tests, 0 failures, 0 errors, 0 skipped
+- Manual API verification passed for Piston run code:
+  - backend started with PostgreSQL/JWT env vars and optional PISTON_BASE_URL
+  - fresh user registered and logged in
+  - authenticated POST /api/problems/{problemId}/run with Java code was exercised
+  - external Piston was unavailable during manual runtime, so backend returned safe 503 CODE_RUNNER_UNAVAILABLE style response
+  - invalid language returned 400
+  - no-token run returned 401
+  - run-only endpoint did not increase XP beyond existing daily login XP behavior
+  - response/error safety checks did not expose password fields, token fields, refresh token fields, tokenHash, secrets, correctAnswer, hidden tests, userId, raw stack traces, or raw Piston internals
+- Piston run feature changed only the new problem package, problem tests, safe Piston config, and common exception enum/handler. No frontend, DB migration, pom, docs/Build Log, AI/Gemini, auth, course, level, progress, user, quiz, flashcard, note, or leaderboard changes during implementation.
 
 Completed key features:
 - Auth register/login/refresh/logout/JWT/profile
@@ -7212,6 +7574,7 @@ Completed key features:
 - Backend XPService + rank recalculation foundation
 - Backend StreakService + Daily Login XP Guard
 - Backend Weak Concept Detection Foundation through quiz submit weakConcepts
+- Backend Piston Run Code Foundation through POST /api/problems/{problemId}/run
 
 Important rules/decisions:
 - Use Maven Wrapper only:
@@ -7226,7 +7589,11 @@ Important rules/decisions:
 - Never use plain mvn.
 - PostgreSQL local runtime uses DATABASE_URL, DATABASE_USERNAME, DATABASE_PASSWORD, JWT_SECRET env vars.
 - Remove Gemini env vars for predictable placeholder manual tests when the feature does not need Gemini.
-- Do not expose secrets, tokens, passwords, roles, token hashes, correctAnswer, raw stack traces, or raw JSON dumps.
+- Piston run code uses Piston only; backend must never execute user code locally.
+- Do not use ProcessBuilder, Runtime.exec, JShell, local Docker execution, local compiler execution, or any local sandbox.
+- Run-only endpoint does not award XP and does not persist submissions.
+- Piston external downtime is acceptable if backend returns safe 503 CODE_RUNNER_UNAVAILABLE and mocked tests pass.
+- Do not expose secrets, tokens, passwords, roles, token hashes, correctAnswer, hidden tests, raw Piston internals, raw stack traces, or raw JSON dumps.
 - Do not accept userId from request body/query/path for user-owned behavior.
 - React state navigation only; no React Router unless explicitly scoped.
 - Do not update Build Log inside Codex prompts.
@@ -7234,7 +7601,6 @@ Important rules/decisions:
 
 Remaining major MVP items:
 - Coding problems persistence/fetch if not fully implemented
-- Piston run code
 - Code submit/history
 - AI code review
 - Leaderboard
@@ -7243,35 +7609,56 @@ Remaining major MVP items:
 - Deployment
 - README/screenshots/demo polish
 
-Recommended next safest MVP task: Backend Coding Problems Persistence/Fetch Foundation if the latest repo/resources confirm coding problems are still not persisted/fetched. Keep it narrow and backend-only: persist AI coding problems from already validated AI output, return safe coding problem DTOs in GET /api/courses/{courseId}, do not implement Piston/run/submit/history/AI review yet, and do not expose hidden test cases if contracts say they must remain backend-only.
+Recommended next safest MVP task: Backend Coding Problems Persistence/Fetch Foundation if the latest repo/resources confirm coding problems are still not persisted/fetched. Keep it narrow and backend-only: persist AI coding problems from already validated AI output, return safe coding problem DTOs in GET /api/courses/{courseId}, do not implement code submit/history/AI review yet, and do not expose hidden test cases if contracts say they must remain backend-only. Because Piston run already exists, keep the coding-problem persistence task separate from run/submit/history.
 ```
 
 ## Latest Safe Continuation Notes
-- Latest feature commit pushed to main: `ff0a4d4 feat: add weak concepts to quiz submit`.
-- Previous docs commit on main: `bfa72d1 docs: record login streak daily xp guard`.
-- Previous feature commit on main: `7641b3f feat: add login streak daily xp guard`.
-- Backend tests after Backend Weak Concept Detection Foundation passed with `cd backend && .\mvnw.cmd test`: 202 tests, 0 failures, 0 errors, 0 skipped.
-- Manual API verification after Backend Weak Concept Detection Foundation passed.
-- Weak concept detection is implemented narrowly in backend quiz submit response only.
-- `POST /api/quizzes/{quizQuestionId}/submit` now returns `weakConcepts` as a safe list of strings.
-- Existing quiz submit response fields remain backward-compatible: `quizQuestionId`, `selectedAnswer`, `isCorrect`, `explanation`, and `concept`.
+- Latest feature commit pushed to main: `d806c43 feat: add piston run code foundation`.
+- Previous docs commit on main: `2b93466 docs: record weak concepts quiz submit`.
+- Previous feature commit on main: `ff0a4d4 feat: add weak concepts to quiz submit`.
+- Backend tests after Backend Piston Run Code Foundation passed with `cd backend && .\mvnw.cmd test`: 215 tests, 0 failures, 0 errors, 0 skipped.
+- Manual API verification after Backend Piston Run Code Foundation passed for safe runtime behavior.
+- `POST /api/problems/{problemId}/run` is implemented as an authenticated backend-only run-code endpoint.
+- The endpoint is run-only and does not persist submissions.
+- The endpoint does not award XP and does not call `XPService`.
+- The endpoint uses Piston only through a mockable `PistonClient` abstraction.
+- Backend must never execute user code locally.
+- Do not use `ProcessBuilder`, `Runtime.exec`, JShell, local Docker execution, local compiler execution, or any local sandbox.
+- `PistonHttpClient` uses Spring `RestClient` style and the configured Piston `/execute` endpoint.
+- `PISTON_BASE_URL` can override the safe Piston base URL config.
+- Language allowlist is `java`, `python`, `javascript`, and `cpp`.
+- Blank code is rejected.
+- Code longer than 20000 characters is rejected.
+- Optional stdin and expectedOutput are bounded.
+- If `expectedOutput` is present and trimmed output matches trimmed expectedOutput, `passed=true`.
+- If `expectedOutput` is present and trimmed output differs, `passed=false`.
+- If `expectedOutput` is missing, `passed=null`.
+- Current run-only implementation keeps `problemId` for API contract compatibility and echoes it in safe response.
+- Because coding problem persistence is not currently implemented, run-only currently does not validate `problemId` with a DB lookup.
+- The feature does not create fake seed problems.
+- The feature does not add coding problem tables/entities/repositories.
+- Piston unavailable/request failure/malformed response maps safely to `CODE_RUNNER_UNAVAILABLE` and HTTP 503.
+- Manual runtime hit external Piston unavailability and backend returned safe 503 handling; this is acceptable because mocked automated tests passed.
+- Manual invalid language returned 400.
+- Manual no-token run returned 401.
+- Manual profile check confirmed run-only did not increase XP beyond existing daily login XP behavior.
+- Run-code response/errors must not expose password fields, token fields, refresh token fields, tokenHash, secrets, correctAnswer, hidden tests, userId, raw Piston body, raw stack trace, raw entities, full user code logs, stdin, or expectedOutput.
+- Backend Piston Run Code Foundation changed only the problem package, problem tests, safe Piston config in `application.yml`, and common exception enum/handler for `CODE_RUNNER_UNAVAILABLE`.
+- No frontend files changed for Piston run code.
+- No DB migration was added for Piston run code.
+- `backend/pom.xml` was not changed for Piston run code.
+- No Gemini/AI files changed for Piston run code.
+- No auth/course/level/progress/user/quiz/flashcard/note/leaderboard files changed for Piston run code.
+- Code submit is still not implemented.
+- Code submissions history is still not implemented.
+- AI code review is still not implemented.
+- Coding problems persistence/fetch may still need a narrow MVP foundation if not fully implemented.
+- Leaderboard is still not implemented.
+- Docker, CI/CD, deployment, README, screenshots, demo video, and resume bullets remain unimplemented.
+- Backend Weak Concept Detection Foundation remains implemented narrowly in backend quiz submit response only.
+- `POST /api/quizzes/{quizQuestionId}/submit` returns `weakConcepts` as a safe list of strings.
 - Wrong answer behavior: if backend quiz `conceptTag`/concept is nonblank, `weakConcepts` contains the trimmed concept.
-- Wrong answer behavior: blank/null concept returns empty `weakConcepts`.
 - Correct answer behavior: `weakConcepts` is always empty.
-- Manual verification used quiz `44821f81-730c-4b18-9b2b-fb6e70354366` with correct answer `B` and concept `Trie Definition`.
-- Manual wrong answer `A` returned `isCorrect=False`, `concept=Trie Definition`, and `weakConcepts={Trie Definition}`.
-- Manual correct answer `B` returned `isCorrect=True`, `concept=Trie Definition`, and empty `weakConcepts`.
-- Response safety checks confirmed no `correctAnswer`, `userId`, password fields, token fields, refresh token fields, tokenHash, or secret fields in wrong/correct submit responses.
-- No-token submit returned 401.
-- Backend Weak Concept Detection Foundation changed only quiz service/DTO/tests.
-- No frontend files changed for weak concept detection.
-- No DB migration was added for weak concept detection.
-- No Gemini call was added for weak concept detection.
-- No remedial level generation was added.
-- No weak concept persistence table was added.
-- Quiz scoring behavior did not change.
-- Quiz attempt persistence/history behavior did not change.
-- Quiz XP award behavior did not change.
 - XPService remains the centralized XP/rank utility.
 - StreakService remains implemented and unchanged.
 - Daily login XP remains `+30 XP` once per user per server calendar day on explicit successful login only.
@@ -7291,11 +7678,5 @@ Recommended next safest MVP task: Backend Coding Problems Persistence/Fetch Foun
 - Frontend complete-level flow refreshes progress and profile XP after successful completion.
 - Backend still enforces unlock rules server-side.
 - Backend progress fetch still computes user-scoped completed/unlocked state and courseCompleted.
-- Coding problems persistence/fetch may still need a narrow MVP foundation if not fully implemented.
-- Piston run code is still not implemented.
-- Code submit is still not implemented.
-- Code submissions history is still not implemented.
-- AI code review is still not implemented.
-- Leaderboard is still not implemented.
-- Docker, CI/CD, deployment, README, screenshots, demo video, and resume bullets remain unimplemented.
-- Next safest MVP task is likely Backend Coding Problems Persistence/Fetch Foundation if the current repo/resources confirm coding problems are still not persisted/fetched; keep it separate from Piston/run/submit/history/AI review.
+- Next safest MVP task is likely Backend Coding Problems Persistence/Fetch Foundation if the current repo/resources confirm coding problems are still not persisted/fetched; keep it separate from run/submit/history/AI review.
+
