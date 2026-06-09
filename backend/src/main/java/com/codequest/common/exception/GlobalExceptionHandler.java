@@ -56,6 +56,7 @@ public class GlobalExceptionHandler {
             case NOT_FOUND -> HttpStatus.NOT_FOUND;
             case CONFLICT, EMAIL_ALREADY_EXISTS -> HttpStatus.CONFLICT;
             case RATE_LIMITED -> HttpStatus.TOO_MANY_REQUESTS;
+            case CODE_RUNNER_UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
             case EXTERNAL_SERVICE_ERROR -> HttpStatus.BAD_GATEWAY;
             case INTERNAL_ERROR -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
