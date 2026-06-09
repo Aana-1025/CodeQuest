@@ -98,6 +98,48 @@ class GeminiServiceTest {
     }
 
     @Test
+    void shouldGenerateCodeReviewJsonThroughGeminiClientWhenConfigured() {
+        GeminiProperties properties = new GeminiProperties();
+        properties.setApiKey("test-api-key");
+        properties.setModel("test-model");
+        properties.setBaseUrl("https://example.test/gemini");
+
+        PromptBuilder promptBuilder = new PromptBuilder();
+        GeminiService geminiService = new GeminiService(properties, promptBuilder, geminiClient);
+
+        when(geminiClient.generateContent(
+                "https://example.test/gemini",
+                "test-model",
+                "test-api-key",
+                promptBuilder.buildCodeReviewPrompt("java", "public class Main {}", "Binary Search", "Find target index.")
+        )).thenReturn("{\"timeComplexity\":\"O(log n)\",\"spaceComplexity\":\"O(1)\",\"correctnessIssues\":[],\"improvements\":[],\"betterApproach\":\"Keep binary search.\",\"encouragement\":\"Good work.\"}");
+
+        String response = geminiService.generateCodeReviewJson("java", "public class Main {}", "Binary Search", "Find target index.");
+
+        assertTrue(response.contains("\"timeComplexity\":\"O(log n)\""));
+        verify(geminiClient).generateContent(
+                "https://example.test/gemini",
+                "test-model",
+                "test-api-key",
+                promptBuilder.buildCodeReviewPrompt("java", "public class Main {}", "Binary Search", "Find target index.")
+        );
+    }
+
+    @Test
+    void shouldRejectCodeReviewWhenGeminiIsNotConfigured() {
+        GeminiProperties properties = new GeminiProperties();
+        PromptBuilder promptBuilder = new PromptBuilder();
+        GeminiService geminiService = new GeminiService(properties, promptBuilder, geminiClient);
+
+        GeminiException exception = assertThrows(
+                GeminiException.class,
+                () -> geminiService.generateCodeReviewJson("java", "public class Main {}", null, null)
+        );
+
+        assertEquals(GeminiException.Category.CONFIG_MISSING, exception.getCategory());
+    }
+
+    @Test
     void shouldSanitizeFencedGeminiJsonOutput() {
         String sanitized = GeminiHttpClient.sanitizeGeneratedText("""
                 ```json

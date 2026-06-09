@@ -6,6 +6,7 @@ import java.util.Set;
 
 import org.springframework.stereotype.Component;
 
+import com.codequest.ai.dto.ReviewCodeResponse;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -36,6 +37,20 @@ public class ResponseParser {
         }
     }
 
+    public ReviewCodeResponse parseCodeReviewResponse(String rawJson) {
+        if (rawJson == null || rawJson.isBlank()) {
+            throw new AiResponseValidationException("AI response must not be blank.");
+        }
+
+        try {
+            ReviewCodeResponse response = objectMapper.readValue(rawJson, ReviewCodeResponse.class);
+            validateCodeReviewResponse(response);
+            return response;
+        } catch (JsonProcessingException ex) {
+            throw new AiResponseValidationException("Malformed AI JSON response.", ex);
+        }
+    }
+
     private void validateCourseResponse(AiCourseResponse response) {
         if (response == null) {
             throw new AiResponseValidationException("AI response must be a JSON object.");
@@ -57,6 +72,19 @@ public class ResponseParser {
         for (AiLevelResponse level : levels) {
             validateLevel(level, orderNumbers);
         }
+    }
+
+    private void validateCodeReviewResponse(ReviewCodeResponse response) {
+        if (response == null) {
+            throw new AiResponseValidationException("AI response must be a JSON object.");
+        }
+
+        validateTrimmedLength(response.timeComplexity(), "timeComplexity", 1, 200);
+        validateTrimmedLength(response.spaceComplexity(), "spaceComplexity", 1, 200);
+        validateTrimmedLength(response.betterApproach(), "betterApproach", 1, 2000);
+        validateTrimmedLength(response.encouragement(), "encouragement", 1, 500);
+        validateStringList(response.correctnessIssues(), "correctnessIssues", 10, 500);
+        validateStringList(response.improvements(), "improvements", 10, 500);
     }
 
     private void validateLevel(AiLevelResponse level, Set<Integer> orderNumbers) {
@@ -162,6 +190,19 @@ public class ResponseParser {
             throw new AiResponseValidationException(
                     fieldName + " must be between " + minValue + " and " + maxValue + "."
             );
+        }
+    }
+
+    private void validateStringList(List<String> values, String fieldName, int maxItems, int maxItemLength) {
+        if (values == null) {
+            throw new AiResponseValidationException(fieldName + " is required.");
+        }
+        if (values.size() > maxItems) {
+            throw new AiResponseValidationException(fieldName + " must contain at most " + maxItems + " items.");
+        }
+
+        for (String value : values) {
+            validateTrimmedLength(value, fieldName + " item", 1, maxItemLength);
         }
     }
 }

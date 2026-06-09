@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.codequest.ai.dto.ReviewCodeResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 class ResponseParserTest {
@@ -151,6 +152,180 @@ class ResponseParserTest {
         assertTrue(exception.getMessage().contains("title"));
     }
 
+    @Test
+    void shouldParseValidCodeReviewResponse() {
+        ReviewCodeResponse response = responseParser.parseCodeReviewResponse(validCodeReviewJson());
+
+        assertNotNull(response);
+        assertEquals("O(log n)", response.timeComplexity());
+        assertEquals("O(1)", response.spaceComplexity());
+        assertTrue(response.correctnessIssues().isEmpty());
+        assertEquals(2, response.improvements().size());
+        assertEquals("Binary search is already the right approach for sorted input.", response.betterApproach());
+        assertEquals("Good job choosing an efficient strategy.", response.encouragement());
+    }
+
+    @Test
+    void shouldRejectEmptyCodeReviewResponse() {
+        AiResponseValidationException exception = assertThrows(
+                AiResponseValidationException.class,
+                () -> responseParser.parseCodeReviewResponse(" ")
+        );
+
+        assertEquals("AI response must not be blank.", exception.getMessage());
+    }
+
+    @Test
+    void shouldRejectMissingTimeComplexity() {
+        AiResponseValidationException exception = assertThrows(
+                AiResponseValidationException.class,
+                () -> responseParser.parseCodeReviewResponse(validCodeReviewJson().replace("\"timeComplexity\": \"O(log n)\",\n", ""))
+        );
+
+        assertEquals("timeComplexity is required.", exception.getMessage());
+    }
+
+    @Test
+    void shouldRejectMissingSpaceComplexity() {
+        AiResponseValidationException exception = assertThrows(
+                AiResponseValidationException.class,
+                () -> responseParser.parseCodeReviewResponse(validCodeReviewJson().replace("\"spaceComplexity\": \"O(1)\",\n", ""))
+        );
+
+        assertEquals("spaceComplexity is required.", exception.getMessage());
+    }
+
+    @Test
+    void shouldRejectMissingCorrectnessIssues() {
+        AiResponseValidationException exception = assertThrows(
+                AiResponseValidationException.class,
+                () -> responseParser.parseCodeReviewResponse(validCodeReviewJson().replace("\"correctnessIssues\": [],\n", ""))
+        );
+
+        assertEquals("correctnessIssues is required.", exception.getMessage());
+    }
+
+    @Test
+    void shouldRejectMissingImprovements() {
+        AiResponseValidationException exception = assertThrows(
+                AiResponseValidationException.class,
+                () -> responseParser.parseCodeReviewResponse(validCodeReviewJson().replace(improvementsBlock(), ""))
+        );
+
+        assertEquals("improvements is required.", exception.getMessage());
+    }
+
+    @Test
+    void shouldRejectMissingBetterApproach() {
+        AiResponseValidationException exception = assertThrows(
+                AiResponseValidationException.class,
+                () -> responseParser.parseCodeReviewResponse(validCodeReviewJson().replace("\"betterApproach\": \"Binary search is already the right approach for sorted input.\",\n", ""))
+        );
+
+        assertEquals("betterApproach is required.", exception.getMessage());
+    }
+
+    @Test
+    void shouldRejectMissingEncouragement() {
+        AiResponseValidationException exception = assertThrows(
+                AiResponseValidationException.class,
+                () -> responseParser.parseCodeReviewResponse(validCodeReviewJson().replace(
+                        ",\n  \"encouragement\": \"Good job choosing an efficient strategy.\"",
+                        ""
+                ))
+        );
+
+        assertEquals("encouragement is required.", exception.getMessage());
+    }
+
+    @Test
+    void shouldRejectBlankRequiredStringInCodeReview() {
+        AiResponseValidationException exception = assertThrows(
+                AiResponseValidationException.class,
+                () -> responseParser.parseCodeReviewResponse(validCodeReviewJson().replace("\"timeComplexity\": \"O(log n)\"", "\"timeComplexity\": \"  \""))
+        );
+
+        assertEquals("timeComplexity must be between 1 and 200 characters.", exception.getMessage());
+    }
+
+    @Test
+    void shouldRejectNullCorrectnessIssuesList() {
+        AiResponseValidationException exception = assertThrows(
+                AiResponseValidationException.class,
+                () -> responseParser.parseCodeReviewResponse(validCodeReviewJson().replace("\"correctnessIssues\": []", "\"correctnessIssues\": null"))
+        );
+
+        assertEquals("correctnessIssues is required.", exception.getMessage());
+    }
+
+    @Test
+    void shouldRejectTooManyCorrectnessIssues() {
+        String tooManyIssues = "\"correctnessIssues\": [\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\",\"9\",\"10\",\"11\"]";
+        AiResponseValidationException exception = assertThrows(
+                AiResponseValidationException.class,
+                () -> responseParser.parseCodeReviewResponse(validCodeReviewJson().replace("\"correctnessIssues\": []", tooManyIssues))
+        );
+
+        assertEquals("correctnessIssues must contain at most 10 items.", exception.getMessage());
+    }
+
+    @Test
+    void shouldRejectTooManyImprovements() {
+        String tooManyImprovements = """
+                  "improvements": [
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5",
+                    "6",
+                    "7",
+                    "8",
+                    "9",
+                    "10",
+                    "11"
+                  ],
+                """.trim();
+        AiResponseValidationException exception = assertThrows(
+                AiResponseValidationException.class,
+                () -> responseParser.parseCodeReviewResponse(validCodeReviewJson().replace(improvementsBlock().trim(), tooManyImprovements))
+        );
+
+        assertEquals("improvements must contain at most 10 items.", exception.getMessage());
+    }
+
+    @Test
+    void shouldRejectBlankListItem() {
+        AiResponseValidationException exception = assertThrows(
+                AiResponseValidationException.class,
+                () -> responseParser.parseCodeReviewResponse(validCodeReviewJson().replace("\"Handle overflow in mid calculation.\"", "\"  \""))
+        );
+
+        assertEquals("improvements item must be between 1 and 500 characters.", exception.getMessage());
+    }
+
+    @Test
+    void shouldKeepCodeReviewValidationMessageSafeWithoutEchoingFullPayload() {
+        String unsafePayload = """
+                {
+                  "timeComplexity": " ",
+                  "spaceComplexity": "O(1)",
+                  "correctnessIssues": [],
+                  "improvements": [],
+                  "betterApproach": "x",
+                  "encouragement": "y"
+                }
+                """;
+
+        AiResponseValidationException exception = assertThrows(
+                AiResponseValidationException.class,
+                () -> responseParser.parseCodeReviewResponse(unsafePayload)
+        );
+
+        assertFalse(exception.getMessage().contains("\"timeComplexity\": \" \""));
+        assertTrue(exception.getMessage().contains("timeComplexity"));
+    }
+
     private String validCourseJson() {
         return """
                 {
@@ -235,6 +410,31 @@ class ResponseParserTest {
                       ]
                     }
                   ]
+                """;
+    }
+
+    private String validCodeReviewJson() {
+        return """
+                {
+                  "timeComplexity": "O(log n)",
+                  "spaceComplexity": "O(1)",
+                  "correctnessIssues": [],
+                  "improvements": [
+                    "Handle overflow in mid calculation.",
+                    "Consider explicitly handling empty arrays."
+                  ],
+                  "betterApproach": "Binary search is already the right approach for sorted input.",
+                  "encouragement": "Good job choosing an efficient strategy."
+                }
+                """;
+    }
+
+    private String improvementsBlock() {
+        return """
+                  "improvements": [
+                    "Handle overflow in mid calculation.",
+                    "Consider explicitly handling empty arrays."
+                  ],
                 """;
     }
 }

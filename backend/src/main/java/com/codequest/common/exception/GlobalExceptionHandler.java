@@ -57,7 +57,8 @@ public class GlobalExceptionHandler {
             case CONFLICT, EMAIL_ALREADY_EXISTS -> HttpStatus.CONFLICT;
             case RATE_LIMITED -> HttpStatus.TOO_MANY_REQUESTS;
             case CODE_RUNNER_UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
-            case EXTERNAL_SERVICE_ERROR -> HttpStatus.BAD_GATEWAY;
+            case AI_SERVICE_UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
+            case AI_RESPONSE_INVALID, EXTERNAL_SERVICE_ERROR -> HttpStatus.BAD_GATEWAY;
             case INTERNAL_ERROR -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
     }
