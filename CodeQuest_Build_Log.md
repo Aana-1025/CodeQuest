@@ -5,14 +5,14 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Backend / Problem
-Current feature: Backend Code Submissions History / Fetch Foundation completed, backend-tested, API-verified, committed, pushed, and awaiting Build Log docs commit
-Latest commit: `e823982 feat: add code submission history endpoint`
-Previous docs commit: `b47e69c docs: record code submit foundation`
-Previous feature commit: `7a24c00 feat: add code submit foundation`
+Current module: Backend / AI
+Current feature: Backend AI Code Review Foundation completed, backend-tested, API-verified for safe unavailable/error behavior, committed, pushed, and awaiting Build Log docs commit
+Latest commit: `b682c40 feat: add ai code review endpoint`
+Previous docs commit: `a63552a docs: record code submission history endpoint`
+Previous feature commit: `e823982 feat: add code submission history endpoint`
 Current branch: main
-Test status: Backend `cd backend && .\mvnw.cmd test` PASS after Backend Code Submissions History / Fetch Foundation with 241 tests passing. Manual API verification PASS before Build Log update: backend was started locally with PostgreSQL/JWT env vars; two fresh users were registered and logged in; local manual `code_submissions` rows were inserted only for API verification; authenticated `GET /api/problems/{problemId}/submissions?page=0&size=20` returned only the current user's submissions for the requested problem; other users' submissions for the same problem were hidden; same user's submissions for other problems were hidden; results were newest-first; empty history returned 200 with `totalItems=0`, `totalPages=0`, and empty `items`; pagination with `page=0,size=1` and `page=1,size=1` returned the expected pages; invalid pagination returned safe 400 ErrorDTO responses; no-token request returned 401; safety checks confirmed the history response did not contain `userId`, password fields, token fields, refresh tokens, tokenHash, role, secrets, correctAnswer, hidden tests, expectedOutput, stdin, stack traces, or Spring internals. Scope checks PASS: frontend, backend/pom.xml, DB migrations, docs, Build Log, AI/Gemini, auth, course, level, progress, user, quiz, flashcard, note, leaderboard, Docker, CI/CD, deployment, AI review, and Phase 2 files were not part of the feature implementation. Backend changes were limited to the problem module, problem DTOs, and problem tests.
-Git status: clean after `e823982 feat: add code submission history endpoint` was pushed to `main`; Build Log docs update in progress
+Test status: Backend `cd backend && .\mvnw.cmd test` PASS after Backend AI Code Review Foundation with 272 tests passing. Manual API verification PASS for safe runtime behavior: backend was started locally with PostgreSQL/JWT/Gemini env vars; a fresh user was registered and logged in; authenticated `POST /api/ai/review-code` reached the backend and returned safe `503 AI_SERVICE_UNAVAILABLE` because the live Gemini service/config was unavailable during manual verification; invalid language `ruby` returned safe 400 `BAD_REQUEST` with message `Language must be one of: java, python, javascript, cpp.`; blank code returned safe 400 `VALIDATION_ERROR`; no-token request returned 401. The 503 ErrorDTO did not expose raw Gemini response, raw prompt, stack trace, secrets, tokens, passwords, userId, or backend internals. Scope checks PASS: frontend, backend/pom.xml, DB migrations, docs, Build Log, problem module, auth, course, level, progress, user, quiz, flashcard, note, leaderboard, Docker, CI/CD, deployment, and Phase 2 files were not part of the feature implementation. Backend changes were limited to AI module source/tests plus minimal common exception error-code/mapping updates.
+Git status: clean after `b682c40 feat: add ai code review endpoint` was pushed to `main`; Build Log docs update in progress
 
 ## Completed Features
 - [x] Project setup
@@ -78,7 +78,7 @@ Git status: clean after `e823982 feat: add code submission history endpoint` was
 - [x] Piston run code
 - [x] Code submit
 - [x] Code submissions history
-- [ ] AI code review
+- [x] AI code review
 - [ ] Leaderboard
 - [ ] Docker
 - [ ] CI/CD
@@ -589,6 +589,30 @@ Git status: clean after `e823982 feat: add code submission history endpoint` was
 - Submit endpoint `POST /api/problems/{problemId}/submit` remains unchanged by history.
 - Backend Code Submissions History / Fetch Foundation changed only problem module source, problem DTOs, and problem tests.
 - Backend Code Submissions History / Fetch Foundation did not touch frontend, backend/pom.xml, DB migrations, docs/Build Log during implementation, AI/Gemini, auth, course, level, progress, user, quiz, flashcard, note, leaderboard, Docker, CI/CD, deployment, AI code review, or Phase 2 files.
+- Backend AI Code Review Foundation is implemented as a backend-only raw-code review MVP feature.
+- `POST /api/ai/review-code` is authenticated and protected by the existing JWT security flow.
+- AI code review accepts raw request code only for MVP: `language`, `code`, optional `problemTitle`, and optional `problemDescription`.
+- AI code review does not accept `userId`, `submissionId`, problem ownership fields, token fields, role fields, or any client-owned ownership data.
+- AI code review derives authentication from `@AuthenticationPrincipal CurrentUserPrincipal`; the current raw-code MVP does not need to use or expose the user's id.
+- AI code review language allowlist is limited to `java`, `python`, `javascript`, and `cpp`.
+- AI code review rejects blank code and rejects code longer than 20000 characters.
+- AI code review bounds optional `problemTitle` and optional `problemDescription` for safe prompt context.
+- AI code review builds prompts only through `PromptBuilder.buildCodeReviewPrompt(...)`.
+- AI code review calls Gemini only through the existing `GeminiService` / `GeminiClient` abstraction.
+- AI code review parses/validates structured Gemini JSON only through `ResponseParser.parseCodeReviewResponse(...)`.
+- AI code review response is a safe DTO with `timeComplexity`, `spaceComplexity`, `correctnessIssues`, `improvements`, `betterApproach`, and `encouragement`.
+- AI code review intentionally returns only structured feedback and does not persist anything for MVP.
+- AI code review does not update `code_submissions.ai_review` yet even though the V9 column exists.
+- AI code review does not load or mutate `CodeSubmission` rows.
+- AI code review does not call Piston and does not execute user code locally.
+- AI code review does not award XP, does not call `XPService`, and does not change rank, streak, progress, unlock state, quiz attempts, notes, courses, levels, or leaderboard state.
+- AI code review prompt treats user code, problem title, and problem description as untrusted text and tells Gemini to ignore instructions embedded inside them.
+- AI code review prompt requires JSON only, forbids markdown fences/prose/extra keys, and tells Gemini not to echo the full submitted code back.
+- AI code review must not send secrets, JWTs, refresh tokens, passwords, token hashes, API keys, DB passwords, user roles, hidden tests, correct answers, raw stack traces, or private backend data to Gemini.
+- AI code review errors are safe: Gemini unavailable/missing config maps to `AI_SERVICE_UNAVAILABLE` with HTTP 503; malformed AI response maps to `AI_RESPONSE_INVALID` with HTTP 502; Gemini 429 maps through existing rate-limit handling when detected.
+- AI code review responses/errors must not expose raw Gemini bodies, raw prompts, stack traces, raw backend JSON dumps, tokens, secrets, passwords, `userId`, `correctAnswer`, hidden tests, stdin, expectedOutput, or Piston internals.
+- Backend AI Code Review Foundation changed only AI module source/tests plus minimal common exception files.
+- Backend AI Code Review Foundation did not touch frontend, backend/pom.xml, DB migrations, problem module, docs/Build Log during implementation, auth, course, level, progress, user, quiz, flashcard, note, leaderboard, Docker, CI/CD, deployment, or Phase 2 files.
 - Backend tests after level unlock logic pass with 168 tests, 0 failures, 0 errors.
 - Backend tests after the progress feature and JSONB mapping fix pass with 159 tests, 0 failures, 0 errors.
 - Backend Quiz Attempt History/Fetch Foundation adds no migration and makes no frontend changes.
@@ -759,6 +783,7 @@ Git status: clean after `e823982 feat: add code submission history endpoint` was
 
 ## Bugs / Issues
 - None blocking currently.
+- Backend AI Code Review Foundation note: No blocking code issue after manual API verification. Live manual success review could not be confirmed because the authenticated `POST /api/ai/review-code` request returned safe 503 `AI_SERVICE_UNAVAILABLE` during local runtime, which is acceptable when Gemini config/service is unavailable. The 503 body was a safe ErrorDTO with message `AI review service is currently unavailable. Please try again later.`, path `/api/ai/review-code`, and a requestId; it did not expose raw Gemini response, raw prompt, stack trace, secrets, tokens, passwords, userId, or backend internals. Invalid language `ruby` returned safe 400 `BAD_REQUEST` with message `Language must be one of: java, python, javascript, cpp.` Blank code returned safe 400 `VALIDATION_ERROR`. No-token request returned 401. Backend tests passed with 272 tests. Scope stayed backend-only with changes limited to `backend/src/main/java/com/codequest/ai/GeminiService.java`, `backend/src/main/java/com/codequest/ai/PromptBuilder.java`, `backend/src/main/java/com/codequest/ai/ResponseParser.java`, `backend/src/main/java/com/codequest/ai/AiCodeReviewService.java`, `backend/src/main/java/com/codequest/ai/AiController.java`, `backend/src/main/java/com/codequest/ai/dto/ReviewCodeRequest.java`, `backend/src/main/java/com/codequest/ai/dto/ReviewCodeResponse.java`, `backend/src/main/java/com/codequest/common/exception/ErrorCode.java`, `backend/src/main/java/com/codequest/common/exception/GlobalExceptionHandler.java`, and AI tests; no frontend, backend/pom.xml, DB migration, problem module, docs/Build Log, auth, course, level, progress, user, quiz, flashcard, note, leaderboard, Docker, CI/CD, deployment, or Phase 2 work.
 - Backend Code Submissions History / Fetch Foundation note: No blocking issue after manual API verification. Manual verification used two fresh authenticated users and local manual `code_submissions` rows inserted only for verification. User 1 history for `GET /api/problems/{problemId}/submissions?page=0&size=20` returned exactly the two user 1 rows for that problem, sorted newest-first; user 2's row for the same problem was not returned; user 1's row for a different problem was not returned. User 2 history returned only user 2's own row. Empty history returned 200 with `totalItems=0`, `totalPages=0`, and empty `items`. Pagination with `page=0,size=1` and `page=1,size=1` returned the expected newest and older rows with `totalItems=2` and `totalPages=2`. Invalid pagination returned safe 400 ErrorDTO responses for negative page, size 0, and size 51. No-token request returned 401. Safety checks returned false for `userId`, password fields, token fields, refresh tokens, tokenHash, role, secrets, correctAnswer, hidden tests, expectedOutput, stdin, stackTrace, and Spring internals. Backend tests passed with 241 tests. Scope stayed backend-only with changes limited to `backend/src/main/java/com/codequest/problem/CodeSubmissionRepository.java`, `backend/src/main/java/com/codequest/problem/ProblemController.java`, `backend/src/main/java/com/codequest/problem/ProblemService.java`, `backend/src/main/java/com/codequest/problem/dto/CodeSubmissionHistoryItemResponse.java`, `backend/src/main/java/com/codequest/problem/dto/CodeSubmissionHistoryResponse.java`, `backend/src/test/java/com/codequest/problem/ProblemControllerTest.java`, and `backend/src/test/java/com/codequest/problem/ProblemServiceTest.java`; no frontend, backend/pom.xml, DB migration, docs, Build Log, AI/Gemini, auth, course, level, progress, user, quiz, flashcard, note, leaderboard, Docker, CI/CD, deployment, AI review, or Phase 2 work.
 - Backend Code Submit Foundation note: No blocking issue after manual API verification. Manual runtime hit external Piston unavailability and the backend returned safe 503 ErrorDTO with `CODE_RUNNER_UNAVAILABLE`, message `Code runner is currently unavailable. Please try again later.`, path `/api/problems/{problemId}/submit`, and a requestId; no raw stack trace or raw Piston body was exposed. DB verification using `C:\Program Files\PostgreSQL\17\bin\psql.exe` confirmed `SELECT COUNT(*) FROM code_submissions WHERE problem_id = '<manual-problem-id>';` returned `0`, so Piston-unavailable submit did not persist a row. Profile after the 503 stayed at `xp=30`, so no coding XP was awarded. Invalid language `ruby` returned safe 400 with message `Language must be one of: java, python, javascript, cpp.`; no-token submit returned 401. V9 migration was manually inspected and safely creates only `code_submissions` plus indexes. Backend tests passed after implementation. Scope stayed backend-only with changes limited to `backend/src/main/java/com/codequest/problem/ProblemController.java`, `backend/src/main/java/com/codequest/problem/ProblemService.java`, `backend/src/main/java/com/codequest/problem/CodeSubmission.java`, `backend/src/main/java/com/codequest/problem/CodeSubmissionRepository.java`, `backend/src/main/java/com/codequest/problem/dto/SubmitCodeRequest.java`, `backend/src/main/java/com/codequest/problem/dto/SubmitCodeResponse.java`, `backend/src/main/resources/db/migration/V9__create_code_submissions_table.sql`, `backend/src/test/java/com/codequest/problem/ProblemControllerTest.java`, and `backend/src/test/java/com/codequest/problem/ProblemServiceTest.java`; no frontend, backend/pom.xml, AI/Gemini, auth, course, level, progress business-rule changes except using existing XPService, user, quiz, flashcard, note, leaderboard, Docker, CI/CD, deployment, history endpoint, AI review, or Phase 2 work.
 - Backend Piston Run Code Foundation note: No blocking issue after manual API verification. Manual runtime hit external Piston unavailability and backend returned the expected safe 503 `CODE_RUNNER_UNAVAILABLE` style error instead of raw stack traces or raw Piston internals; this is acceptable for the feature because automated tests mock Piston and passed. Manual checks also confirmed invalid language returned 400, no-token run returned 401, run-only did not increase XP beyond existing daily login XP behavior, and response/error safety checks did not expose password fields, token fields, refresh token fields, tokenHash, secrets, `correctAnswer`, hidden tests, or `userId`. Backend tests passed with 215 tests, 0 failures, 0 errors, 0 skipped. Scope stayed backend-only with expected changes limited to `backend/src/main/java/com/codequest/problem/`, `backend/src/test/java/com/codequest/problem/`, `backend/src/main/java/com/codequest/common/exception/ErrorCode.java`, `backend/src/main/java/com/codequest/common/exception/GlobalExceptionHandler.java`, and `backend/src/main/resources/application.yml`; no frontend, DB migration, package, docs, Build Log, AI/Gemini, auth, course, level, progress, user, quiz, flashcard, note, leaderboard, Docker, CI/CD, deployment, code submit/history, AI review, or Phase 2 work.
@@ -1022,6 +1047,8 @@ Git status: clean after `e823982 feat: add code submission history endpoint` was
 | 60 | 2026-06-09 | Backend Code Submit Foundation | Backend / Problem + Code Submissions | backend/src/main/java/com/codequest/problem/ProblemController.java; backend/src/main/java/com/codequest/problem/ProblemService.java; backend/src/main/java/com/codequest/problem/CodeSubmission.java; backend/src/main/java/com/codequest/problem/CodeSubmissionRepository.java; backend/src/main/java/com/codequest/problem/dto/SubmitCodeRequest.java; backend/src/main/java/com/codequest/problem/dto/SubmitCodeResponse.java; backend/src/main/resources/db/migration/V9__create_code_submissions_table.sql; backend/src/test/java/com/codequest/problem/ProblemControllerTest.java; backend/src/test/java/com/codequest/problem/ProblemServiceTest.java | Backend `cd backend && .\mvnw.cmd test` PASS. Manual API verification PASS for safe external Piston-unavailable behavior: authenticated submit returned safe 503 `CODE_RUNNER_UNAVAILABLE`; DB count stayed 0 for the unavailable run; profile XP stayed 30; invalid language returned 400; no-token submit returned 401; V9 migration content was manually inspected. Scope checks clean: changes were limited to problem module/tests and V9 migration. | `7a24c00 feat: add code submit foundation`. Added authenticated `POST /api/problems/{problemId}/submit`, safe submit request/response DTOs, V9 `code_submissions` persistence, first-accepted coding XP award using existing XPService, repeated accepted submit no-extra-XP rule, failed submit persistence when runner result exists, and focused service/controller tests. Run-only `/run` stayed unchanged with no persistence/XP. External Piston unavailable during live manual test, so happy path persistence/XP was covered by mocked automated tests; safe unavailable behavior was verified live. No frontend, pom, AI/Gemini, auth, course, level, quiz, flashcard, note, leaderboard, Docker, CI/CD, deployment, code history endpoint, AI review, or Phase 2 work. |
 | 61 | 2026-06-09 | Backend Code Submissions History / Fetch Foundation | Backend / Problem + Code Submission History | backend/src/main/java/com/codequest/problem/CodeSubmissionRepository.java; backend/src/main/java/com/codequest/problem/ProblemController.java; backend/src/main/java/com/codequest/problem/ProblemService.java; backend/src/main/java/com/codequest/problem/dto/CodeSubmissionHistoryItemResponse.java; backend/src/main/java/com/codequest/problem/dto/CodeSubmissionHistoryResponse.java; backend/src/test/java/com/codequest/problem/ProblemControllerTest.java; backend/src/test/java/com/codequest/problem/ProblemServiceTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 241 tests. Manual API verification PASS: user 1 saw only own two submissions for the requested problem newest-first; user 2 saw only own row; same-user other-problem row was hidden; empty history returned 200 with empty items; pagination worked; invalid page/size returned safe 400; no-token returned 401; response safety checks passed. Scope checks clean: only problem module source/DTO/test files changed; no frontend, pom, migration, docs, Build Log, AI/Gemini, auth, course, level, progress, user, quiz, flashcard, note, leaderboard, Docker, CI/CD, deployment, AI review, or Phase 2 work. | `e823982 feat: add code submission history endpoint`. Added authenticated `GET /api/problems/{problemId}/submissions?page=0&size=20`, safe paginated history response DTOs, user/problem-scoped repository query, newest-first ordering, pagination validation (`page >= 0`, `1 <= size <= 50`), and focused service/controller tests. Does not call Piston/Gemini, does not award XP, does not add migrations, and does not change `/run` or `/submit`. |
 
+| 62 | 2026-06-09 | Backend AI Code Review Foundation | Backend / AI | backend/src/main/java/com/codequest/ai/GeminiService.java; backend/src/main/java/com/codequest/ai/PromptBuilder.java; backend/src/main/java/com/codequest/ai/ResponseParser.java; backend/src/main/java/com/codequest/ai/AiCodeReviewService.java; backend/src/main/java/com/codequest/ai/AiController.java; backend/src/main/java/com/codequest/ai/dto/ReviewCodeRequest.java; backend/src/main/java/com/codequest/ai/dto/ReviewCodeResponse.java; backend/src/main/java/com/codequest/common/exception/ErrorCode.java; backend/src/main/java/com/codequest/common/exception/GlobalExceptionHandler.java; backend/src/test/java/com/codequest/ai/GeminiServiceTest.java; backend/src/test/java/com/codequest/ai/PromptBuilderTest.java; backend/src/test/java/com/codequest/ai/ResponseParserTest.java; backend/src/test/java/com/codequest/ai/AiCodeReviewServiceTest.java; backend/src/test/java/com/codequest/ai/AiControllerTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 272 tests. Manual API verification PASS for safe unavailable/error behavior: authenticated review request returned safe 503 `AI_SERVICE_UNAVAILABLE` when Gemini was unavailable; invalid language returned safe 400; blank code returned safe 400; no-token returned 401. Scope checks clean: only AI module source/tests plus minimal common exception mapping changed; no frontend, pom, migration, problem module, docs/Build Log, auth, course, level, progress, user, quiz, flashcard, note, leaderboard, Docker, CI/CD, deployment, or Phase 2 work. | `b682c40 feat: add ai code review endpoint`. Added authenticated `POST /api/ai/review-code`, raw-code request DTO, safe structured review response DTO, AI controller/service, code-review PromptBuilder method, GeminiService code-review method, ResponseParser code-review validation, minimal AI-safe ErrorDTO mappings, and focused AI controller/service/prompt/parser/Gemini tests. Does not persist reviews, does not use submissionId, does not update `code_submissions.ai_review`, does not call Piston, does not execute code, does not award XP, and does not change `/run`, `/submit`, or `/submissions`. |
+
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -1230,6 +1257,7 @@ Git status: clean after `e823982 feat: add code submission history endpoint` was
 | 2026-06-09 | Backend Code Submit Foundation | PowerShell-only backend check: start backend with PostgreSQL/JWT env vars and optional `PISTON_BASE_URL` -> register/login fresh user -> call authenticated POST `/api/problems/{problemId}/submit` with Java code and expected output -> external Piston unavailable -> capture 503 body through `Invoke-WebRequest` -> verify DB count through full `psql.exe` path -> verify profile XP -> invalid language -> no-token submit -> inspect V9 migration content | External Piston was unavailable during manual runtime, so submit returned safe 503 ErrorDTO with `CODE_RUNNER_UNAVAILABLE` and safe message; DB count for the manual problemId stayed `0`; profile XP stayed at daily-login XP `30`; invalid language returned safe 400 with allowlist message; no-token submit returned 401; V9 migration safely creates `code_submissions` and indexes only; no raw Piston body, stack trace, tokens, passwords, userId, hidden tests, or correctAnswer were exposed. Happy-path accepted/repeat/failed persistence and XP behavior were covered by mocked backend tests. | Passed |
 | 2026-06-09 | Backend Code Submissions History / Fetch Foundation | PowerShell-only backend check: start backend with PostgreSQL/JWT env vars -> register/login user 1 and user 2 -> insert four local manual `code_submissions` rows only for verification: two rows for user 1/problem, one row for user 2/same problem, and one row for user 1/other problem -> call authenticated GET `/api/problems/{problemId}/submissions?page=0&size=20` as both users -> check empty history -> check pagination -> check invalid page/size -> check no-token request -> run response safety string checks | User 1 response returned `totalItems=2`, `totalPages=1`, and exactly user 1's two rows for the requested problem sorted newest-first (`println(2)` before `println(1)`). User 2 response returned `totalItems=1` and only user 2's row. User 1's other-problem row was hidden. Empty history returned 200 with `totalItems=0`, `totalPages=0`, and empty `items`. Pagination with `size=1` returned page 0 newest row and page 1 older row with `totalPages=2`. Negative page, size 0, and size 51 returned safe 400 ErrorDTO responses. No-token request returned 401. Safety checks returned false for `userId`, password fields, token fields, refresh tokens, tokenHash, role, secrets, correctAnswer, hidden tests, expectedOutput, stdin, stackTrace, and Spring internals. | Passed |
 
+| 2026-06-09 | Backend AI Code Review Foundation | PowerShell-only backend check: start backend with PostgreSQL/JWT/Gemini env vars -> register/login fresh user -> call authenticated `POST /api/ai/review-code` with Java binary-search code -> capture safe 503 body when Gemini unavailable -> invalid language `ruby` -> blank code -> no-token request -> backend tests -> scope checks | Authenticated review request reached backend and returned safe 503 `AI_SERVICE_UNAVAILABLE` with message `AI review service is currently unavailable. Please try again later.`, path `/api/ai/review-code`, and requestId; no raw Gemini response, raw prompt, stack trace, secrets, token, password, userId, or backend internals were exposed. Invalid language returned safe 400 `BAD_REQUEST`; blank code returned safe 400 `VALIDATION_ERROR`; no-token returned 401; backend tests passed with 272 tests; scope stayed limited to AI module source/tests plus minimal common exception mapping. | Passed |
 
 ## Backend Progress Fetch Endpoint Foundation Manual Test Commands
 Use these after the backend progress fetch endpoint task `f408fd6 feat: add course progress fetch endpoint`.
@@ -7737,8 +7765,8 @@ Important boundaries:
 - Code execution goes through Piston only.
 - Backend must never execute user code locally.
 - Run-only endpoint `/api/problems/{problemId}/run` remains unchanged, does not persist, and does not award XP.
-- Code submissions history endpoint is not implemented yet.
-- AI code review is not implemented yet.
+- Code submissions history endpoint is now implemented separately as authenticated `GET /api/problems/{problemId}/submissions`.
+- AI code review is now implemented separately as authenticated raw-code `POST /api/ai/review-code`.
 - Frontend code editor/submit UI is not implemented yet.
 
 
@@ -7829,6 +7857,253 @@ Manual verification for this feature should confirm:
 - no-token request returns 401
 - response safety checks do not expose sensitive/internal fields
 
+
+## Backend AI Code Review Foundation Manual Test Commands
+Use these after the backend AI code review task `b682c40 feat: add ai code review endpoint`.
+
+This is a backend-only feature. Use PowerShell. Use Maven Wrapper only. Do not use plain `mvn`.
+
+### Automated verification
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject\backend
+.\mvnw.cmd test
+cd ..
+```
+
+Expected:
+- `BUILD SUCCESS`
+- Backend tests pass with 272 tests.
+
+### Scope checks
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject
+
+git status --short
+git diff --stat
+git diff -- frontend
+git diff -- frontend/package.json
+git diff -- frontend/package-lock.json
+git diff -- backend/pom.xml
+git diff -- backend/src/main/resources/db/migration
+git diff -- backend/src/main/java/com/codequest/problem
+git diff -- backend/src/main/java/com/codequest/auth
+git diff -- backend/src/main/java/com/codequest/course
+git diff -- backend/src/main/java/com/codequest/level
+git diff -- backend/src/main/java/com/codequest/progress
+git diff -- backend/src/main/java/com/codequest/user
+git diff -- backend/src/main/java/com/codequest/quiz
+git diff -- backend/src/main/java/com/codequest/flashcard
+git diff -- backend/src/main/java/com/codequest/note
+git diff -- backend/src/main/java/com/codequest/leaderboard
+git diff -- docs
+git diff -- CodeQuest_Build_Log.md
+```
+
+Expected before commit:
+- `git diff --stat` shows only AI module files/tests plus minimal common exception files.
+- All forbidden-area diff commands return empty output.
+- In particular, `backend/src/main/java/com/codequest/problem` must be empty because AI review MVP is raw-code return-only and does not touch submissions.
+
+Expected after commit:
+- `git status --short` is clean.
+
+### Backend env/run
+Terminal 1:
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject
+
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
+$env:DATABASE_USERNAME="postgres"
+$env:DATABASE_PASSWORD="<your-local-postgres-password>"
+$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
+$env:GEMINI_API_KEY="<your-local-gemini-key>"
+$env:GEMINI_MODEL="gemini-1.5-flash"
+$env:GEMINI_BASE_URL="https://generativelanguage.googleapis.com"
+
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+
+Expected:
+- Backend starts on port 8080.
+- If Gemini config/service/quota is unavailable, the review endpoint should return safe 503 instead of crashing.
+
+### Manual PowerShell API verification
+Terminal 2:
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject
+$baseUrl = "http://localhost:8080"
+
+$email = "ai_review_$([guid]::NewGuid().ToString('N').Substring(0,8))@example.com"
+$password = "StrongPass123"
+
+$registerBody = @{
+  name = "AI Review Tester"
+  email = $email
+  password = $password
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/register" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body $registerBody
+
+$loginBody = @{
+  email = $email
+  password = $password
+} | ConvertTo-Json
+
+$login = Invoke-RestMethod `
+  -Uri "$baseUrl/api/auth/login" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body $loginBody
+
+$headers = @{ Authorization = "Bearer $($login.accessToken)" }
+
+$reviewBody = @{
+  language = "java"
+  problemTitle = "Binary Search"
+  problemDescription = "Given a sorted array and target, return the index of target or -1."
+  code = "public class Main { public static int search(int[] nums, int target) { int left = 0, right = nums.length - 1; while (left <= right) { int mid = (left + right) / 2; if (nums[mid] == target) return mid; if (nums[mid] < target) left = mid + 1; else right = mid - 1; } return -1; } }"
+} | ConvertTo-Json
+
+try {
+  $review = Invoke-RestMethod `
+    -Uri "$baseUrl/api/ai/review-code" `
+    -Method Post `
+    -Headers $headers `
+    -ContentType "application/json" `
+    -Body $reviewBody
+
+  $review
+} catch {
+  $_.Exception.Response.StatusCode.value__
+  $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+  $reader.ReadToEnd()
+}
+```
+
+Expected when Gemini is available:
+- 200 response.
+- Response contains only safe structured fields:
+  - `timeComplexity`
+  - `spaceComplexity`
+  - `correctnessIssues`
+  - `improvements`
+  - `betterApproach`
+  - `encouragement`
+
+Expected when Gemini is unavailable/missing/quota-limited:
+- Safe ErrorDTO instead of crash.
+- Verified during this feature: 503 `AI_SERVICE_UNAVAILABLE` with message `AI review service is currently unavailable. Please try again later.`
+- No raw Gemini body.
+- No raw prompt.
+- No stack trace.
+
+Invalid language:
+```powershell
+$badLanguageBody = @{
+  language = "ruby"
+  code = "puts 'hello'"
+} | ConvertTo-Json
+
+try {
+  Invoke-WebRequest `
+    -Uri "$baseUrl/api/ai/review-code" `
+    -Method Post `
+    -Headers $headers `
+    -ContentType "application/json" `
+    -Body $badLanguageBody `
+    -UseBasicParsing
+} catch {
+  $_.Exception.Response.StatusCode.value__
+  $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+  $reader.ReadToEnd()
+}
+```
+
+Expected:
+- 400 safe ErrorDTO.
+- Message: `Language must be one of: java, python, javascript, cpp.`
+
+Blank code:
+```powershell
+$blankCodeBody = @{
+  language = "java"
+  code = " "
+} | ConvertTo-Json
+
+try {
+  Invoke-WebRequest `
+    -Uri "$baseUrl/api/ai/review-code" `
+    -Method Post `
+    -Headers $headers `
+    -ContentType "application/json" `
+    -Body $blankCodeBody `
+    -UseBasicParsing
+} catch {
+  $_.Exception.Response.StatusCode.value__
+  $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+  $reader.ReadToEnd()
+}
+```
+
+Expected:
+- 400 safe ErrorDTO.
+
+No-token:
+```powershell
+try {
+  Invoke-WebRequest `
+    -Uri "$baseUrl/api/ai/review-code" `
+    -Method Post `
+    -ContentType "application/json" `
+    -Body $reviewBody `
+    -UseBasicParsing
+} catch {
+  $_.Exception.Response.StatusCode.value__
+}
+```
+
+Expected:
+- 401.
+
+Safety check after a successful `$review` response:
+```powershell
+$reviewJson = $review | ConvertTo-Json -Depth 10
+
+$reviewJson.Contains("userId")
+$reviewJson.Contains("password")
+$reviewJson.Contains("passwordHash")
+$reviewJson.Contains("password_hash")
+$reviewJson.Contains("token")
+$reviewJson.Contains("accessToken")
+$reviewJson.Contains("refreshToken")
+$reviewJson.Contains("tokenHash")
+$reviewJson.Contains("role")
+$reviewJson.Contains("secret")
+$reviewJson.Contains("correctAnswer")
+$reviewJson.Contains("hidden")
+$reviewJson.Contains("stdin")
+$reviewJson.Contains("expectedOutput")
+$reviewJson.Contains("rawPrompt")
+$reviewJson.Contains("rawGemini")
+$reviewJson.Contains("stackTrace")
+$reviewJson.Contains("java.lang")
+$reviewJson.Contains("org.springframework")
+```
+
+Expected:
+- all `False`.
+
+Manual verification result recorded for this feature:
+- Live Gemini review success was not confirmed because Gemini returned safe unavailable behavior.
+- Safe 503 unavailable behavior was confirmed.
+- Invalid language 400, blank code 400, no-token 401, and backend tests passed.
+
+
 ## Next Chat Prompt
 Use this prompt when starting a fresh ChatGPT Project chat for CodeQuest:
 
@@ -7871,11 +8146,11 @@ npm run dev
 
 Current repo status from last chat:
 - Branch: main
-- Latest feature commit: e823982 feat: add code submission history endpoint
-- Previous docs commit: b47e69c docs: record code submit foundation
-- Previous feature commit: 7a24c00 feat: add code submit foundation
-- Latest completed feature: Backend Code Submissions History / Fetch Foundation
-- Build Log docs update after code submissions history may still need a docs commit if CodeQuest_Build_Log.md is modified.
+- Latest feature commit: b682c40 feat: add ai code review endpoint
+- Previous docs commit: a63552a docs: record code submission history endpoint
+- Previous feature commit: e823982 feat: add code submission history endpoint
+- Latest completed feature: Backend AI Code Review Foundation
+- Build Log docs update after AI code review may still need a docs commit if CodeQuest_Build_Log.md is modified.
 
 Current important completed features:
 - Auth register/login/refresh/logout/JWT/profile
@@ -7892,32 +8167,42 @@ Current important completed features:
 - Piston run code
 - Code submit
 - Code submissions history
+- AI code review
 
 Latest completed feature details:
-Backend Code Submissions History / Fetch Foundation:
-- GET /api/problems/{problemId}/submissions?page=0&size=20 is implemented and authenticated.
-- Current user is derived only from JWT/SecurityContext/CurrentUserPrincipal.
-- Endpoint never accepts userId from client.
-- It filters by authenticated user id and path problemId.
-- It returns only the authenticated user's own submissions for the requested problem.
-- It sorts newest-first.
-- Defaults: page=0 and size=20.
-- Maximum size=50.
-- Invalid page or size returns safe 400 ErrorDTO.
-- Empty history returns 200 with empty items.
-- Response DTO includes problemId, page, size, totalItems, totalPages, and items.
-- Item DTO includes submissionId, problemId, language, code, passed, passedTestCases, totalTestCases, runtimeMs, memoryKb, aiReview, submittedAt.
-- It is okay that the authenticated user sees their own code.
-- It does not call Piston, Gemini, or XPService.
-- It does not add migrations.
-- It does not change /run or /submit.
+Backend AI Code Review Foundation:
+- POST /api/ai/review-code is implemented and authenticated.
+- It is a raw-code return-only MVP.
+- Request fields: language, code, optional problemTitle, optional problemDescription.
+- Allowed languages: java, python, javascript, cpp.
+- Code is required, nonblank, and max 20000 characters.
+- Optional problemTitle/problemDescription are bounded and used only as prompt context.
+- It uses CurrentUserPrincipal for authenticated flow and never accepts userId from client.
+- It does not use submissionId.
+- It does not persist reviews.
+- It does not update code_submissions.ai_review yet.
+- It does not call Piston.
+- It does not execute code locally.
+- It does not award XP or change rank/streak/progress.
+- PromptBuilder builds the code-review prompt.
+- GeminiService calls Gemini through the existing Gemini abstraction.
+- ResponseParser validates structured AI JSON.
+- Response fields: timeComplexity, spaceComplexity, correctnessIssues, improvements, betterApproach, encouragement.
+- Safe AI errors were added: AI_SERVICE_UNAVAILABLE -> 503 and AI_RESPONSE_INVALID -> 502.
+- Gemini 429 maps through existing safe rate-limit behavior when detected.
+- Responses/errors must not expose raw Gemini body, raw prompt, stack traces, tokens, secrets, passwords, userId, hidden tests, correctAnswer, stdin, expectedOutput, or backend internals.
 
-Verification after Backend Code Submissions History / Fetch Foundation:
-- Backend tests passed with 241 tests using Maven Wrapper.
-- Manual API verification passed for user ownership filtering, other-user isolation, other-problem isolation, newest-first ordering, empty history, pagination, invalid pagination safe 400, no-token 401, and sensitive-field safety checks.
+Verification after Backend AI Code Review Foundation:
+- Backend tests passed with 272 tests using Maven Wrapper.
+- Manual API verification passed for safe unavailable/error behavior:
+  - Authenticated review returned safe 503 AI_SERVICE_UNAVAILABLE when Gemini was unavailable.
+  - Invalid language returned safe 400.
+  - Blank code returned safe 400.
+  - No-token returned 401.
+  - 503 body did not expose raw Gemini response, raw prompt, stack trace, secrets, tokens, passwords, userId, or backend internals.
+- Live successful 200 AI review was not confirmed because Gemini was unavailable during manual verification; automated tests cover success with mocked Gemini.
 
 Remaining MVP items:
-- AI code review
 - Leaderboard
 - Docker
 - CI/CD
@@ -7927,13 +8212,21 @@ Remaining MVP items:
 - Demo video
 - Resume bullets updated
 
+Next likely MVP task:
+- Backend Leaderboard Foundation, if the API contracts/feature prompts define it clearly.
+- Before implementation, inspect Build Log and docs. Prefer a plan-first Codex prompt if contracts are ambiguous.
+
 Before giving any new Codex prompt:
 1. Ask me to run:
    cd C:\Users\hp\Desktop\CodeQuestFinalProject
    git status --short
    git log --oneline -5
-2. Do not start if working tree is dirty.
-3. Give a detailed Codex prompt with current state, allowed files, forbidden files, exact tests, diff safety checks, and manual verification steps.
+2. If CodeQuest_Build_Log.md is modified, commit docs first:
+   git add CodeQuest_Build_Log.md
+   git commit -m "docs: record ai code review endpoint"
+   git push
+3. Only then give the next detailed Codex prompt.
+4. Every Codex prompt must include manual verification steps after implementation.
 ```
 
 ## New Chat Continuation Summary Template
@@ -7946,38 +8239,46 @@ We are building CodeQuest, a Java 21 + Spring Boot + React + PostgreSQL AI-assis
 
 Latest repo state:
 - Branch: main
-- Latest feature commit: e823982 feat: add code submission history endpoint
-- Previous docs commit: b47e69c docs: record code submit foundation
-- Previous feature commit: 7a24c00 feat: add code submit foundation
-- Latest completed feature: Backend Code Submissions History / Fetch Foundation
-- Build Log docs update after code submissions history may still need a docs commit if CodeQuest_Build_Log.md is modified.
+- Latest feature commit: b682c40 feat: add ai code review endpoint
+- Previous docs commit: a63552a docs: record code submission history endpoint
+- Previous feature commit: e823982 feat: add code submission history endpoint
+- Latest completed feature: Backend AI Code Review Foundation
+- Build Log docs update after AI code review may still need a docs commit if CodeQuest_Build_Log.md is modified.
 
 Latest completed feature:
-Backend Code Submissions History / Fetch Foundation:
-- GET /api/problems/{problemId}/submissions?page=0&size=20 is implemented and authenticated.
-- It returns only the authenticated user's own submission history for the requested problem.
-- It uses CurrentUserPrincipal/JWT for ownership and never accepts userId from client.
-- It filters by authenticated user id and path problemId.
-- It sorts newest-first.
-- Defaults: page=0, size=20.
-- Max size: 50.
-- Invalid page/size returns safe 400 ErrorDTO.
-- Empty history returns 200 with empty items.
-- Safe response DTO wrapper: problemId, page, size, totalItems, totalPages, items.
-- Safe item DTO: submissionId, problemId, language, code, passed, passedTestCases, totalTestCases, runtimeMs, memoryKb, aiReview, submittedAt.
-- It is okay that users see their own submitted code.
-- It does not expose userId, expectedOutput, stdin, raw Piston internals, hidden tests, password/token fields, correctAnswer, stack traces, or raw entities.
-- It does not call Piston/Gemini and does not award XP.
-- It did not add a DB migration.
-- It did not change /run or /submit.
+Backend AI Code Review Foundation:
+- POST /api/ai/review-code is implemented and authenticated.
+- It reviews raw code from request body only.
+- It is return-only for MVP and does not persist reviews.
+- It does not accept submissionId.
+- It does not update code_submissions.ai_review yet.
+- Request DTO: language, code, optional problemTitle, optional problemDescription.
+- Allowed languages: java, python, javascript, cpp.
+- Code max: 20000 characters.
+- Response DTO: timeComplexity, spaceComplexity, correctnessIssues, improvements, betterApproach, encouragement.
+- Uses PromptBuilder for prompt construction.
+- Uses GeminiService/GeminiClient for Gemini calls.
+- Uses ResponseParser for strict structured JSON validation.
+- Added safe AI errors: AI_SERVICE_UNAVAILABLE -> 503 and AI_RESPONSE_INVALID -> 502.
+- It does not call Piston.
+- It does not execute code locally.
+- It does not award XP or change rank/streak/progress.
+- It does not expose raw Gemini response, raw prompt, stack traces, tokens, secrets, passwords, userId, hidden tests, correctAnswer, stdin, expectedOutput, or backend internals.
 
 Verification:
-- Backend tests passed with 241 tests.
-- Manual verification passed: user-scoped filtering, other-user isolation, other-problem isolation, newest-first ordering, empty history, pagination, invalid pagination safe 400, no-token 401, and safety string checks.
+- Backend tests passed with 272 tests.
+- Manual verification passed for safe unavailable/error behavior:
+  - Authenticated review returned safe 503 AI_SERVICE_UNAVAILABLE when Gemini was unavailable.
+  - Invalid language returned safe 400.
+  - Blank code returned safe 400.
+  - No-token returned 401.
+  - Safe 503 body contained no raw Gemini body, raw prompt, stack trace, tokens, secrets, passwords, userId, or backend internals.
+- Live 200 AI-review success was not confirmed because Gemini was unavailable during manual verification; automated tests cover mocked success.
 
-Previous problem-module features:
+Previous problem/code features:
 - Backend Piston Run Code Foundation: POST /api/problems/{problemId}/run is authenticated, uses Piston only, does not persist, does not award XP, and safely returns CODE_RUNNER_UNAVAILABLE on runner failure.
 - Backend Code Submit Foundation: POST /api/problems/{problemId}/submit is authenticated, persists runner-backed attempts into code_submissions, awards 100 XP only for first accepted submission per authenticated user/problem, repeated accepted attempts award 0 XP, and Piston-unavailable submit does not persist or award XP.
+- Backend Code Submissions History / Fetch Foundation: GET /api/problems/{problemId}/submissions?page=0&size=20 is authenticated, user-scoped, problem-scoped, newest-first, paginated, and safe.
 
 Completed key features:
 - Auth register/login/refresh/logout/JWT/profile
@@ -7994,9 +8295,9 @@ Completed key features:
 - Piston run code
 - Code submit
 - Code submissions history
+- AI code review
 
 Remaining MVP items:
-- AI code review
 - Leaderboard
 - Docker
 - CI/CD
@@ -8012,51 +8313,62 @@ Critical rules:
 - Backend run needs local env vars for PostgreSQL/JWT.
 - Never commit secrets/API keys/passwords.
 - Piston only for code execution; never local execution.
+- Gemini only through GeminiService/GeminiClient; prompts through PromptBuilder; structured AI parsing through ResponseParser.
 - One feature at a time.
 - Do not update Build Log unless user asks.
 - Always include manual verification steps in Codex prompts.
 ```
 
 ## Latest Safe Continuation Notes
-- Latest feature commit pushed to main: `e823982 feat: add code submission history endpoint`.
-- Previous docs commit on main: `b47e69c docs: record code submit foundation`.
-- Previous feature commit on main: `7a24c00 feat: add code submit foundation`.
-- Backend tests after Backend Code Submissions History / Fetch Foundation passed with 241 tests using `cd backend && .\mvnw.cmd test`.
-- Backend Code Submissions History / Fetch Foundation is implemented through authenticated `GET /api/problems/{problemId}/submissions?page=0&size=20`.
-- Current user ownership comes only from JWT/SecurityContext/CurrentUserPrincipal.
-- The history endpoint never accepts `userId` from client input.
-- The history endpoint filters by authenticated `user_id` and path `problem_id`.
-- The history endpoint returns only the authenticated user's own submissions for the requested problem.
-- Other users' submissions for the same problem are hidden.
-- Same user's submissions for other problems are hidden.
-- Results are sorted newest-first by `submittedAt` / `submitted_at`.
-- Default pagination is `page=0` and `size=20`.
-- Maximum page size is 50.
-- Invalid pagination returns safe 400 ErrorDTO for negative page, size 0, or size greater than 50.
-- Empty history returns 200 with `totalItems=0`, `totalPages=0`, and empty `items`.
-- Response DTO includes `problemId`, `page`, `size`, `totalItems`, `totalPages`, and `items`.
-- History item DTO includes `submissionId`, `problemId`, `language`, `code`, `passed`, `passedTestCases`, `totalTestCases`, `runtimeMs`, `memoryKb`, `aiReview`, and `submittedAt`.
-- It is allowed for an authenticated user to see their own submitted code in history.
-- The history endpoint must not expose `userId`, password fields, token fields, refresh tokens, tokenHash, role, secrets, correctAnswer, hidden tests, expectedOutput, stdin, raw Piston internals, stack traces, raw entities, or raw backend JSON dumps.
-- The history endpoint does not call Piston.
-- The history endpoint does not call Gemini.
-- The history endpoint does not award XP.
-- The history endpoint does not add or edit DB migrations.
-- `POST /api/problems/{problemId}/run` remains unchanged.
-- `POST /api/problems/{problemId}/submit` remains unchanged.
-- Backend Code Submissions History / Fetch Foundation changed only problem module source, problem DTOs, and problem tests.
-- No frontend files changed for code submissions history.
-- `backend/pom.xml` was not changed for code submissions history.
-- No DB migration files changed for code submissions history.
-- No AI/Gemini/auth/course/level/progress/user/quiz/flashcard/note/leaderboard/Docker/CI/CD/deployment files changed for code submissions history.
-- Manual verification used local DB row inserts only for verification; production code does not create fake seed submissions.
-- Manual verification confirmed user 1 saw exactly two own rows for the selected problem, newest-first.
-- Manual verification confirmed user 2 saw exactly one own row for the selected problem.
-- Manual verification confirmed empty history, pagination, invalid pagination 400, no-token 401, and safety checks all passed.
-- AI code review is not implemented yet.
+- Latest feature commit pushed to main: `b682c40 feat: add ai code review endpoint`.
+- Previous docs commit on main: `a63552a docs: record code submission history endpoint`.
+- Previous feature commit on main: `e823982 feat: add code submission history endpoint`.
+- Backend tests after Backend AI Code Review Foundation passed with 272 tests using `cd backend && .\mvnw.cmd test`.
+- Backend AI Code Review Foundation is implemented through authenticated `POST /api/ai/review-code`.
+- The endpoint is raw-code review only for MVP.
+- The endpoint does not accept `submissionId`.
+- The endpoint does not accept or expose `userId`.
+- The endpoint does not persist AI reviews.
+- The endpoint does not update `code_submissions.ai_review` yet.
+- Request DTO includes `language`, `code`, optional `problemTitle`, and optional `problemDescription`.
+- Allowed languages are `java`, `python`, `javascript`, and `cpp`.
+- Code is required, nonblank, and capped at 20000 characters.
+- Optional problem title and description are bounded prompt-context fields.
+- Response DTO includes `timeComplexity`, `spaceComplexity`, `correctnessIssues`, `improvements`, `betterApproach`, and `encouragement`.
+- Prompt construction is centralized in `PromptBuilder.buildCodeReviewPrompt(...)`.
+- Gemini review generation goes through `GeminiService` and the existing mockable `GeminiClient` abstraction.
+- Structured AI review JSON is parsed and validated by `ResponseParser.parseCodeReviewResponse(...)`.
+- Existing course-generation Gemini behavior remains unchanged.
+- Existing course parser behavior remains unchanged.
+- AI review does not call Piston.
+- AI review does not execute code locally.
+- AI review does not award XP and does not call `XPService`.
+- AI review does not change rank, streak, progress, unlock state, courses, quizzes, flashcards, notes, or leaderboard state.
+- AI review prompts treat user code/problem text as untrusted and instruct Gemini to ignore embedded instructions.
+- AI review prompts request JSON only and forbid markdown fences, prose before/after JSON, extra keys, and full-code echoing.
+- Safe AI error codes were added:
+  - `AI_SERVICE_UNAVAILABLE` -> HTTP 503
+  - `AI_RESPONSE_INVALID` -> HTTP 502
+- Gemini 429 maps through existing safe rate-limit behavior when detected.
+- Manual verification confirmed safe unavailable/error behavior:
+  - Authenticated review returned safe 503 `AI_SERVICE_UNAVAILABLE` when Gemini was unavailable.
+  - Invalid language `ruby` returned safe 400 `BAD_REQUEST`.
+  - Blank code returned safe 400 `VALIDATION_ERROR`.
+  - No-token request returned 401.
+  - The 503 body did not expose raw Gemini response, raw prompt, stack trace, tokens, secrets, passwords, userId, or backend internals.
+- Live successful 200 AI-review response was not manually confirmed because Gemini was unavailable during manual verification; automated tests cover mocked success.
+- Backend AI Code Review Foundation changed only AI module source/tests plus minimal common exception files.
+- No frontend files changed for AI code review.
+- `backend/pom.xml` was not changed for AI code review.
+- No DB migration files changed for AI code review.
+- No problem module files changed for AI code review.
+- No auth/course/level/progress/user/quiz/flashcard/note/leaderboard/Docker/CI/CD/deployment files changed for AI code review.
+- Code submissions history remains implemented and unchanged.
+- Code submit remains implemented and unchanged.
+- Piston run-code remains implemented and unchanged.
 - Leaderboard is not implemented yet.
 - Docker, CI/CD, deployment, README, screenshots, demo video, and resume bullets remain unfinished.
-- Next safest MVP task is likely Backend AI Code Review Foundation or Backend Leaderboard Foundation, but only after git status is clean and the Build Log docs update is committed.
+- Next safest MVP task is likely Backend Leaderboard Foundation, but only after git status is clean and the Build Log docs update is committed.
 - Before starting any new feature, always run:
   - `cd C:\Users\hp\Desktop\CodeQuestFinalProject`
   - `git status --short`
@@ -8064,5 +8376,5 @@ Critical rules:
 - Do not start a new feature unless `git status --short` is clean.
 - If `CodeQuest_Build_Log.md` is modified after this update, commit it first:
   - `git add CodeQuest_Build_Log.md`
-  - `git commit -m "docs: record code submission history endpoint"`
+  - `git commit -m "docs: record ai code review endpoint"`
   - `git push`
