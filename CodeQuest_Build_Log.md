@@ -5,14 +5,14 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Backend / AI
-Current feature: Backend AI Code Review Foundation completed, backend-tested, API-verified for safe unavailable/error behavior, committed, pushed, and awaiting Build Log docs commit
-Latest commit: `b682c40 feat: add ai code review endpoint`
-Previous docs commit: `a63552a docs: record code submission history endpoint`
-Previous feature commit: `e823982 feat: add code submission history endpoint`
+Current module: Backend / Leaderboard
+Current feature: Backend Leaderboard REST Foundation completed, backend-tested, API-verified, committed, pushed, and awaiting Build Log docs commit
+Latest commit: `68144b3 feat: add leaderboard endpoint`
+Previous docs commit: `005a51a docs: record ai code review endpoint`
+Previous feature commit: `b682c40 feat: add ai code review endpoint`
 Current branch: main
-Test status: Backend `cd backend && .\mvnw.cmd test` PASS after Backend AI Code Review Foundation with 272 tests passing. Manual API verification PASS for safe runtime behavior: backend was started locally with PostgreSQL/JWT/Gemini env vars; a fresh user was registered and logged in; authenticated `POST /api/ai/review-code` reached the backend and returned safe `503 AI_SERVICE_UNAVAILABLE` because the live Gemini service/config was unavailable during manual verification; invalid language `ruby` returned safe 400 `BAD_REQUEST` with message `Language must be one of: java, python, javascript, cpp.`; blank code returned safe 400 `VALIDATION_ERROR`; no-token request returned 401. The 503 ErrorDTO did not expose raw Gemini response, raw prompt, stack trace, secrets, tokens, passwords, userId, or backend internals. Scope checks PASS: frontend, backend/pom.xml, DB migrations, docs, Build Log, problem module, auth, course, level, progress, user, quiz, flashcard, note, leaderboard, Docker, CI/CD, deployment, and Phase 2 files were not part of the feature implementation. Backend changes were limited to AI module source/tests plus minimal common exception error-code/mapping updates.
-Git status: clean after `b682c40 feat: add ai code review endpoint` was pushed to `main`; Build Log docs update in progress
+Test status: Backend `cd backend && .\mvnw.cmd test` PASS after Backend Leaderboard REST Foundation with 293 tests passing. Manual API verification PASS: backend was started locally with PostgreSQL/JWT env vars; three fresh users were registered/logged in; local verification-only SQL updated Alpha to 500 XP/CODER/streak 5, Bravo to 300 XP/BEGINNER/streak 2, and Charlie to 100 XP/BEGINNER/streak 1; authenticated `GET /api/leaderboard?page=0&size=50&period=ALL_TIME` returned 200 with sorted XP-desc results, global 1-based `rankPosition`, and `currentUser` for Bravo at rankPosition 3; pagination with `page=0&size=1` and `page=1&size=1` returned global rank positions 1 and 2 while still including `currentUser`; invalid page -1 returned safe 400 `BAD_REQUEST`; size 0 returned safe 400; size 51 returned safe 400; invalid period `WEEKLY` returned safe 400; no-token request returned 401; safety checks confirmed no email, password fields, token fields, refresh tokens, tokenHash, role, secret, lastLogin, stack trace, or Spring/Java internals in the leaderboard response. Scope checks PASS: frontend, frontend package files, backend/pom.xml, AI, problem, auth, course, level, progress, quiz, flashcard, note, docs, Build Log, Docker, CI/CD, deployment, and Phase 2 files were not part of the feature implementation. Backend changes were limited to a new leaderboard module and read-only `UserRepository` leaderboard query methods.
+Git status: clean after `68144b3 feat: add leaderboard endpoint` was pushed to `main`; Build Log docs update in progress
 
 ## Completed Features
 - [x] Project setup
@@ -79,7 +79,7 @@ Git status: clean after `b682c40 feat: add ai code review endpoint` was pushed t
 - [x] Code submit
 - [x] Code submissions history
 - [x] AI code review
-- [ ] Leaderboard
+- [x] Leaderboard
 - [ ] Docker
 - [ ] CI/CD
 - [ ] Deployment
@@ -96,6 +96,11 @@ Git status: clean after `b682c40 feat: add ai code review endpoint` was pushed t
 - Security: Spring Security + JWT + BCrypt.
 - Code execution: Piston API only. Never execute user code inside the backend.
 - AI: Gemini API through GeminiService only.
+- Leaderboard is implemented as authenticated read-only MVP REST endpoint `GET /api/leaderboard?page=0&size=50&period=ALL_TIME`.
+- Leaderboard supports `ALL_TIME` only for MVP; weekly/monthly/period-specific leaderboard is deferred.
+- Leaderboard response is safe and must not expose email, passwords, role, tokens, refresh-token hashes, lastLogin, secrets, raw entities, or stack traces.
+- Leaderboard sorting/ranking uses deterministic ordinal global positions based on XP descending with stable tie-breaking.
+- Leaderboard does not mutate XP, rank, streak, progress, quiz attempts, code submissions, or any user data.
 - Deployment target: Vercel frontend, Render backend, Neon PostgreSQL, GitHub Actions CI.
 - MVP first, no Phase 2 features yet.
 - Source-of-truth priority: CodeQuest_AI_Control_Master_Blueprint_v3, CodeQuest_Core_Rules, CodeQuest_DB_Schema, CodeQuest_API_Contracts, CodeQuest_Feature_Prompts, CodeQuest_Build_Log, then AGENTS.md.
@@ -613,6 +618,29 @@ Git status: clean after `b682c40 feat: add ai code review endpoint` was pushed t
 - AI code review responses/errors must not expose raw Gemini bodies, raw prompts, stack traces, raw backend JSON dumps, tokens, secrets, passwords, `userId`, `correctAnswer`, hidden tests, stdin, expectedOutput, or Piston internals.
 - Backend AI Code Review Foundation changed only AI module source/tests plus minimal common exception files.
 - Backend AI Code Review Foundation did not touch frontend, backend/pom.xml, DB migrations, problem module, docs/Build Log during implementation, auth, course, level, progress, user, quiz, flashcard, note, leaderboard, Docker, CI/CD, deployment, or Phase 2 files.
+- Backend Leaderboard REST Foundation is implemented as a backend-only read-only leaderboard MVP feature.
+- `GET /api/leaderboard` is authenticated and protected by the existing JWT security flow.
+- Leaderboard request accepts optional query params `page`, `size`, and `period` only.
+- Leaderboard defaults are `page=0`, `size=50`, and `period=ALL_TIME`.
+- Leaderboard enforces maximum `size=50`.
+- Leaderboard returns safe 400 ErrorDTO for `page < 0`, `size < 1`, `size > 50`, and any `period` other than `ALL_TIME`.
+- Leaderboard supports `ALL_TIME` only for MVP; no weekly/monthly/seasonal leaderboard table or logic was added.
+- Leaderboard derives the authenticated user only from `@AuthenticationPrincipal CurrentUserPrincipal` / JWT security context.
+- Leaderboard never accepts `userId` from request body, query params, path, headers, or any client-owned field.
+- Leaderboard response is a safe DTO wrapper with `page`, `size`, `period`, `totalItems`, `totalPages`, `items`, and `currentUser`.
+- Leaderboard item response exposes only `rankPosition`, `userId`, `name`, `xp`, `rank`, and `streak`.
+- Current user leaderboard response exposes only `rankPosition`, `userId`, `xp`, and `rank`.
+- Leaderboard sorting uses XP descending with deterministic tie-breaking by name ascending and id ascending.
+- Leaderboard `rankPosition` is a 1-based ordinal global position after sorting, not dense/shared rank.
+- Paginated leaderboard item positions remain global, so page 1 with size 1 starts at rankPosition 2.
+- `currentUser` is included even when the authenticated user is not on the requested page.
+- Current user rank is computed with read-only repository/count logic using the same leaderboard ordering.
+- Leaderboard reads existing `users` table data only.
+- No new Flyway migration was added for leaderboard because the current MVP can use existing user data/indexing.
+- Leaderboard does not expose email, password fields, role, token fields, refresh tokens, tokenHash, secrets, lastLogin, raw entities, stack traces, or backend internals.
+- Leaderboard does not call Gemini, does not call Piston, does not execute code, does not award XP, and does not mutate user/progress/quiz/problem data.
+- Backend Leaderboard REST Foundation changed only a new leaderboard module plus read-only query methods in `UserRepository`.
+- Backend Leaderboard REST Foundation did not touch frontend, backend/pom.xml, DB migrations, AI/Gemini, problem, auth, course, level, progress, quiz, flashcard, note, docs/Build Log during implementation, Docker, CI/CD, deployment, or Phase 2 files.
 - Backend tests after level unlock logic pass with 168 tests, 0 failures, 0 errors.
 - Backend tests after the progress feature and JSONB mapping fix pass with 159 tests, 0 failures, 0 errors.
 - Backend Quiz Attempt History/Fetch Foundation adds no migration and makes no frontend changes.
@@ -783,6 +811,7 @@ Git status: clean after `b682c40 feat: add ai code review endpoint` was pushed t
 
 ## Bugs / Issues
 - None blocking currently.
+- Backend Leaderboard REST Foundation note: No blocking issue after manual API verification. Manual verification used three fresh authenticated users and local verification-only SQL updates to set deterministic XP/rank/streak values. Authenticated `GET /api/leaderboard?page=0&size=50&period=ALL_TIME` returned 200 with users sorted by XP descending, global 1-based rank positions, and `currentUser` for Bravo at rankPosition 3. Pagination with `page=0,size=1` and `page=1,size=1` returned rank positions 1 and 2 while still including `currentUser`. Invalid page -1, size 0, size 51, and period `WEEKLY` returned safe 400 ErrorDTO responses. No-token request returned 401. Safety checks returned false for email, password fields, token fields, refresh tokens, tokenHash, role, secrets, lastLogin, `org.springframework`, and `java.lang`. Backend tests passed with 293 tests. Scope stayed backend-only with expected changes limited to `backend/src/main/java/com/codequest/leaderboard/LeaderboardController.java`, `backend/src/main/java/com/codequest/leaderboard/LeaderboardService.java`, leaderboard DTOs, leaderboard tests, and read-only query methods in `backend/src/main/java/com/codequest/user/UserRepository.java`; no frontend, frontend package files, backend/pom.xml, DB migration, docs/Build Log, AI/Gemini, problem, auth, course, level, progress, quiz, flashcard, note, Docker, CI/CD, deployment, or Phase 2 work.
 - Backend AI Code Review Foundation note: No blocking code issue after manual API verification. Live manual success review could not be confirmed because the authenticated `POST /api/ai/review-code` request returned safe 503 `AI_SERVICE_UNAVAILABLE` during local runtime, which is acceptable when Gemini config/service is unavailable. The 503 body was a safe ErrorDTO with message `AI review service is currently unavailable. Please try again later.`, path `/api/ai/review-code`, and a requestId; it did not expose raw Gemini response, raw prompt, stack trace, secrets, tokens, passwords, userId, or backend internals. Invalid language `ruby` returned safe 400 `BAD_REQUEST` with message `Language must be one of: java, python, javascript, cpp.` Blank code returned safe 400 `VALIDATION_ERROR`. No-token request returned 401. Backend tests passed with 272 tests. Scope stayed backend-only with changes limited to `backend/src/main/java/com/codequest/ai/GeminiService.java`, `backend/src/main/java/com/codequest/ai/PromptBuilder.java`, `backend/src/main/java/com/codequest/ai/ResponseParser.java`, `backend/src/main/java/com/codequest/ai/AiCodeReviewService.java`, `backend/src/main/java/com/codequest/ai/AiController.java`, `backend/src/main/java/com/codequest/ai/dto/ReviewCodeRequest.java`, `backend/src/main/java/com/codequest/ai/dto/ReviewCodeResponse.java`, `backend/src/main/java/com/codequest/common/exception/ErrorCode.java`, `backend/src/main/java/com/codequest/common/exception/GlobalExceptionHandler.java`, and AI tests; no frontend, backend/pom.xml, DB migration, problem module, docs/Build Log, auth, course, level, progress, user, quiz, flashcard, note, leaderboard, Docker, CI/CD, deployment, or Phase 2 work.
 - Backend Code Submissions History / Fetch Foundation note: No blocking issue after manual API verification. Manual verification used two fresh authenticated users and local manual `code_submissions` rows inserted only for verification. User 1 history for `GET /api/problems/{problemId}/submissions?page=0&size=20` returned exactly the two user 1 rows for that problem, sorted newest-first; user 2's row for the same problem was not returned; user 1's row for a different problem was not returned. User 2 history returned only user 2's own row. Empty history returned 200 with `totalItems=0`, `totalPages=0`, and empty `items`. Pagination with `page=0,size=1` and `page=1,size=1` returned the expected newest and older rows with `totalItems=2` and `totalPages=2`. Invalid pagination returned safe 400 ErrorDTO responses for negative page, size 0, and size 51. No-token request returned 401. Safety checks returned false for `userId`, password fields, token fields, refresh tokens, tokenHash, role, secrets, correctAnswer, hidden tests, expectedOutput, stdin, stackTrace, and Spring internals. Backend tests passed with 241 tests. Scope stayed backend-only with changes limited to `backend/src/main/java/com/codequest/problem/CodeSubmissionRepository.java`, `backend/src/main/java/com/codequest/problem/ProblemController.java`, `backend/src/main/java/com/codequest/problem/ProblemService.java`, `backend/src/main/java/com/codequest/problem/dto/CodeSubmissionHistoryItemResponse.java`, `backend/src/main/java/com/codequest/problem/dto/CodeSubmissionHistoryResponse.java`, `backend/src/test/java/com/codequest/problem/ProblemControllerTest.java`, and `backend/src/test/java/com/codequest/problem/ProblemServiceTest.java`; no frontend, backend/pom.xml, DB migration, docs, Build Log, AI/Gemini, auth, course, level, progress, user, quiz, flashcard, note, leaderboard, Docker, CI/CD, deployment, AI review, or Phase 2 work.
 - Backend Code Submit Foundation note: No blocking issue after manual API verification. Manual runtime hit external Piston unavailability and the backend returned safe 503 ErrorDTO with `CODE_RUNNER_UNAVAILABLE`, message `Code runner is currently unavailable. Please try again later.`, path `/api/problems/{problemId}/submit`, and a requestId; no raw stack trace or raw Piston body was exposed. DB verification using `C:\Program Files\PostgreSQL\17\bin\psql.exe` confirmed `SELECT COUNT(*) FROM code_submissions WHERE problem_id = '<manual-problem-id>';` returned `0`, so Piston-unavailable submit did not persist a row. Profile after the 503 stayed at `xp=30`, so no coding XP was awarded. Invalid language `ruby` returned safe 400 with message `Language must be one of: java, python, javascript, cpp.`; no-token submit returned 401. V9 migration was manually inspected and safely creates only `code_submissions` plus indexes. Backend tests passed after implementation. Scope stayed backend-only with changes limited to `backend/src/main/java/com/codequest/problem/ProblemController.java`, `backend/src/main/java/com/codequest/problem/ProblemService.java`, `backend/src/main/java/com/codequest/problem/CodeSubmission.java`, `backend/src/main/java/com/codequest/problem/CodeSubmissionRepository.java`, `backend/src/main/java/com/codequest/problem/dto/SubmitCodeRequest.java`, `backend/src/main/java/com/codequest/problem/dto/SubmitCodeResponse.java`, `backend/src/main/resources/db/migration/V9__create_code_submissions_table.sql`, `backend/src/test/java/com/codequest/problem/ProblemControllerTest.java`, and `backend/src/test/java/com/codequest/problem/ProblemServiceTest.java`; no frontend, backend/pom.xml, AI/Gemini, auth, course, level, progress business-rule changes except using existing XPService, user, quiz, flashcard, note, leaderboard, Docker, CI/CD, deployment, history endpoint, AI review, or Phase 2 work.
@@ -1049,6 +1078,8 @@ Git status: clean after `b682c40 feat: add ai code review endpoint` was pushed t
 
 | 62 | 2026-06-09 | Backend AI Code Review Foundation | Backend / AI | backend/src/main/java/com/codequest/ai/GeminiService.java; backend/src/main/java/com/codequest/ai/PromptBuilder.java; backend/src/main/java/com/codequest/ai/ResponseParser.java; backend/src/main/java/com/codequest/ai/AiCodeReviewService.java; backend/src/main/java/com/codequest/ai/AiController.java; backend/src/main/java/com/codequest/ai/dto/ReviewCodeRequest.java; backend/src/main/java/com/codequest/ai/dto/ReviewCodeResponse.java; backend/src/main/java/com/codequest/common/exception/ErrorCode.java; backend/src/main/java/com/codequest/common/exception/GlobalExceptionHandler.java; backend/src/test/java/com/codequest/ai/GeminiServiceTest.java; backend/src/test/java/com/codequest/ai/PromptBuilderTest.java; backend/src/test/java/com/codequest/ai/ResponseParserTest.java; backend/src/test/java/com/codequest/ai/AiCodeReviewServiceTest.java; backend/src/test/java/com/codequest/ai/AiControllerTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 272 tests. Manual API verification PASS for safe unavailable/error behavior: authenticated review request returned safe 503 `AI_SERVICE_UNAVAILABLE` when Gemini was unavailable; invalid language returned safe 400; blank code returned safe 400; no-token returned 401. Scope checks clean: only AI module source/tests plus minimal common exception mapping changed; no frontend, pom, migration, problem module, docs/Build Log, auth, course, level, progress, user, quiz, flashcard, note, leaderboard, Docker, CI/CD, deployment, or Phase 2 work. | `b682c40 feat: add ai code review endpoint`. Added authenticated `POST /api/ai/review-code`, raw-code request DTO, safe structured review response DTO, AI controller/service, code-review PromptBuilder method, GeminiService code-review method, ResponseParser code-review validation, minimal AI-safe ErrorDTO mappings, and focused AI controller/service/prompt/parser/Gemini tests. Does not persist reviews, does not use submissionId, does not update `code_submissions.ai_review`, does not call Piston, does not execute code, does not award XP, and does not change `/run`, `/submit`, or `/submissions`. |
 
+| 63 | 2026-06-09 | Backend Leaderboard REST Foundation | Backend / Leaderboard | backend/src/main/java/com/codequest/leaderboard/LeaderboardController.java; backend/src/main/java/com/codequest/leaderboard/LeaderboardService.java; backend/src/main/java/com/codequest/leaderboard/dto/LeaderboardResponse.java; backend/src/main/java/com/codequest/leaderboard/dto/LeaderboardItemResponse.java; backend/src/main/java/com/codequest/leaderboard/dto/CurrentUserLeaderboardResponse.java; backend/src/main/java/com/codequest/user/UserRepository.java; backend/src/test/java/com/codequest/leaderboard/LeaderboardControllerTest.java; backend/src/test/java/com/codequest/leaderboard/LeaderboardServiceTest.java | Backend `cd backend && .\mvnw.cmd test` PASS with 293 tests. Manual API verification PASS: authenticated leaderboard returned 200 sorted by XP descending with global 1-based rank positions and `currentUser`; pagination returned global rank positions 1 and 2 for page 0/1 with size 1; invalid page/size/period returned safe 400; no-token returned 401; safety checks passed. Scope checks clean: only leaderboard module files plus read-only `UserRepository` query methods changed; no frontend, pom, migration, docs, Build Log, AI/Gemini, problem, auth, course, level, progress, quiz, flashcard, note, Docker, CI/CD, deployment, or Phase 2 work. | `68144b3 feat: add leaderboard endpoint`. Added authenticated `GET /api/leaderboard?page=0&size=50&period=ALL_TIME`, safe paginated leaderboard DTOs, XP-desc deterministic sorting, global ordinal rank positions, current-user rank summary, query validation, and focused controller/service tests. Supports `ALL_TIME` only for MVP. Does not mutate XP/rank/streak/progress, does not expose sensitive user fields, and does not add migrations/frontend work. |
+
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -1151,6 +1182,7 @@ Git status: clean after `b682c40 feat: add ai code review endpoint` was pushed t
 | 2026-06-09 | `cd backend && .\mvnw.cmd test` after Backend Piston Run Code Foundation | PASS | Backend tests passed with 215 tests, 0 failures, 0 errors, 0 skipped after adding authenticated run-only Piston code execution endpoint, safe request/response DTOs, Piston client abstraction, safe unavailable mapping, validation coverage, and controller coverage. Tests mock Piston and do not call the real network service. | Yes |
 | 2026-06-09 | `cd backend && .\mvnw.cmd test` after Backend Code Submit Foundation | PASS | Backend tests passed after adding authenticated code submit endpoint, V9 code_submissions migration/entity/repository, first-accepted XP logic, validation coverage, Piston-unavailable coverage, and controller safety coverage. Exact test count was not recorded in the terminal output shared for this Build Log update. | Yes |
 | 2026-06-09 | `cd backend && .\mvnw.cmd test` after Backend Code Submissions History / Fetch Foundation | PASS | Backend tests passed with 241 tests after adding authenticated `GET /api/problems/{problemId}/submissions`, safe paginated history DTOs, user/problem-scoped repository query, newest-first ordering, pagination validation, ownership filtering, and controller safety coverage. | Yes |
+| 2026-06-09 | `cd backend && .\mvnw.cmd test` after Backend Leaderboard REST Foundation | PASS | Backend tests passed with 293 tests, 0 failures, 0 errors after adding authenticated `GET /api/leaderboard`, safe leaderboard/currentUser DTOs, XP-desc deterministic sorting, global rank positions, pagination/period validation, read-only user repository queries, and leaderboard controller/service tests. | Yes |
 
 
 ## Manual Verification Log
@@ -8102,6 +8134,7 @@ Manual verification result recorded for this feature:
 - Live Gemini review success was not confirmed because Gemini returned safe unavailable behavior.
 - Safe 503 unavailable behavior was confirmed.
 - Invalid language 400, blank code 400, no-token 401, and backend tests passed.
+| 2026-06-09 | Backend Leaderboard REST Foundation | Start backend with PostgreSQL/JWT env vars -> register/login Alpha, Bravo, Charlie -> local verification-only SQL updates Alpha XP 500/CODER/streak 5, Bravo XP 300/BEGINNER/streak 2, Charlie XP 100/BEGINNER/streak 1 -> authenticated GET `/api/leaderboard?page=0&size=50&period=ALL_TIME` -> pagination `page=0&size=1` and `page=1&size=1` -> invalid page -1 -> invalid size 0 -> invalid size 51 -> invalid period WEEKLY -> no-token request -> response safety check | Main leaderboard returned 200 with XP-desc order, global 1-based rank positions, and Bravo `currentUser` at rankPosition 3; pagination returned rank positions 1 and 2 while preserving currentUser; invalid page/size/period returned safe 400 ErrorDTO messages; no-token returned 401; safety check returned false for email, password fields, token fields, refresh tokens, tokenHash, role, secret, lastLogin, `org.springframework`, and `java.lang`. | Passed |
 
 
 ## Next Chat Prompt
@@ -8146,11 +8179,11 @@ npm run dev
 
 Current repo status from last chat:
 - Branch: main
-- Latest feature commit: b682c40 feat: add ai code review endpoint
-- Previous docs commit: a63552a docs: record code submission history endpoint
-- Previous feature commit: e823982 feat: add code submission history endpoint
-- Latest completed feature: Backend AI Code Review Foundation
-- Build Log docs update after AI code review may still need a docs commit if CodeQuest_Build_Log.md is modified.
+- Latest feature commit: 68144b3 feat: add leaderboard endpoint
+- Previous docs commit: 005a51a docs: record ai code review endpoint
+- Previous feature commit: b682c40 feat: add ai code review endpoint
+- Latest completed feature: Backend Leaderboard REST Foundation
+- Build Log docs update after leaderboard may still need a docs commit if CodeQuest_Build_Log.md is modified.
 
 Current important completed features:
 - Auth register/login/refresh/logout/JWT/profile
@@ -8168,42 +8201,45 @@ Current important completed features:
 - Code submit
 - Code submissions history
 - AI code review
+- Leaderboard
 
 Latest completed feature details:
-Backend AI Code Review Foundation:
-- POST /api/ai/review-code is implemented and authenticated.
-- It is a raw-code return-only MVP.
-- Request fields: language, code, optional problemTitle, optional problemDescription.
-- Allowed languages: java, python, javascript, cpp.
-- Code is required, nonblank, and max 20000 characters.
-- Optional problemTitle/problemDescription are bounded and used only as prompt context.
-- It uses CurrentUserPrincipal for authenticated flow and never accepts userId from client.
-- It does not use submissionId.
-- It does not persist reviews.
-- It does not update code_submissions.ai_review yet.
-- It does not call Piston.
-- It does not execute code locally.
-- It does not award XP or change rank/streak/progress.
-- PromptBuilder builds the code-review prompt.
-- GeminiService calls Gemini through the existing Gemini abstraction.
-- ResponseParser validates structured AI JSON.
-- Response fields: timeComplexity, spaceComplexity, correctnessIssues, improvements, betterApproach, encouragement.
-- Safe AI errors were added: AI_SERVICE_UNAVAILABLE -> 503 and AI_RESPONSE_INVALID -> 502.
-- Gemini 429 maps through existing safe rate-limit behavior when detected.
-- Responses/errors must not expose raw Gemini body, raw prompt, stack traces, tokens, secrets, passwords, userId, hidden tests, correctAnswer, stdin, expectedOutput, or backend internals.
+Backend Leaderboard REST Foundation:
+- GET /api/leaderboard is implemented and authenticated.
+- Query params: page optional default 0, size optional default 50, period optional default ALL_TIME.
+- Only period ALL_TIME is supported for MVP.
+- size max is 50.
+- Invalid page < 0, size < 1, size > 50, and period other than ALL_TIME return safe 400 BAD_REQUEST.
+- No-token request returns 401 through Spring Security.
+- Response wrapper fields: page, size, period, totalItems, totalPages, items, currentUser.
+- Leaderboard items expose only rankPosition, userId, name, xp, rank, and streak.
+- currentUser exposes only rankPosition, userId, xp, and rank.
+- Sorting is XP descending with deterministic tie-breaking by name ascending and id ascending.
+- rankPosition is a global 1-based ordinal position after sorting, not dense/shared rank.
+- currentUser is included even if the current user is not on the requested page.
+- Implementation uses a new leaderboard module and read-only UserRepository query methods.
+- No new Flyway migration was added.
+- It does not mutate XP/rank/streak/progress/user data.
+- It does not call Gemini, Piston, or XPService.
+- It does not expose email, password fields, token fields, refresh tokens, tokenHash, role, secrets, lastLogin, raw entities, stack traces, or backend internals.
 
-Verification after Backend AI Code Review Foundation:
-- Backend tests passed with 272 tests using Maven Wrapper.
-- Manual API verification passed for safe unavailable/error behavior:
-  - Authenticated review returned safe 503 AI_SERVICE_UNAVAILABLE when Gemini was unavailable.
-  - Invalid language returned safe 400.
-  - Blank code returned safe 400.
-  - No-token returned 401.
-  - 503 body did not expose raw Gemini response, raw prompt, stack trace, secrets, tokens, passwords, userId, or backend internals.
-- Live successful 200 AI review was not confirmed because Gemini was unavailable during manual verification; automated tests cover success with mocked Gemini.
+Verification after Backend Leaderboard REST Foundation:
+- Backend tests passed with 293 tests using Maven Wrapper.
+- Manual API verification passed:
+  - Authenticated GET /api/leaderboard?page=0&size=50&period=ALL_TIME returned 200.
+  - Users were sorted by XP descending.
+  - rankPosition started from 1 and stayed global across pagination.
+  - currentUser for Bravo returned rankPosition 3.
+  - page=0&size=1 returned rankPosition 1.
+  - page=1&size=1 returned rankPosition 2.
+  - invalid page -1 returned 400.
+  - invalid size 0 returned 400.
+  - invalid size 51 returned 400.
+  - invalid period WEEKLY returned 400.
+  - no-token request returned 401.
+  - safety check confirmed no email/password/token/role/secret/lastLogin/internal stack fields.
 
 Remaining MVP items:
-- Leaderboard
 - Docker
 - CI/CD
 - Deployment
@@ -8213,7 +8249,7 @@ Remaining MVP items:
 - Resume bullets updated
 
 Next likely MVP task:
-- Backend Leaderboard Foundation, if the API contracts/feature prompts define it clearly.
+- Docker Foundation or deployment preparation, depending on CodeQuest docs/API/feature prompts.
 - Before implementation, inspect Build Log and docs. Prefer a plan-first Codex prompt if contracts are ambiguous.
 
 Before giving any new Codex prompt:
@@ -8223,11 +8259,12 @@ Before giving any new Codex prompt:
    git log --oneline -5
 2. If CodeQuest_Build_Log.md is modified, commit docs first:
    git add CodeQuest_Build_Log.md
-   git commit -m "docs: record ai code review endpoint"
+   git commit -m "docs: record leaderboard endpoint"
    git push
 3. Only then give the next detailed Codex prompt.
 4. Every Codex prompt must include manual verification steps after implementation.
 ```
+
 
 ## New Chat Continuation Summary Template
 Copy this into a new chat if this chat becomes slow:
@@ -8239,46 +8276,54 @@ We are building CodeQuest, a Java 21 + Spring Boot + React + PostgreSQL AI-assis
 
 Latest repo state:
 - Branch: main
-- Latest feature commit: b682c40 feat: add ai code review endpoint
-- Previous docs commit: a63552a docs: record code submission history endpoint
-- Previous feature commit: e823982 feat: add code submission history endpoint
-- Latest completed feature: Backend AI Code Review Foundation
-- Build Log docs update after AI code review may still need a docs commit if CodeQuest_Build_Log.md is modified.
+- Latest feature commit: 68144b3 feat: add leaderboard endpoint
+- Previous docs commit: 005a51a docs: record ai code review endpoint
+- Previous feature commit: b682c40 feat: add ai code review endpoint
+- Latest completed feature: Backend Leaderboard REST Foundation
+- Build Log docs update after leaderboard may still need a docs commit if CodeQuest_Build_Log.md is modified.
 
 Latest completed feature:
-Backend AI Code Review Foundation:
-- POST /api/ai/review-code is implemented and authenticated.
-- It reviews raw code from request body only.
-- It is return-only for MVP and does not persist reviews.
-- It does not accept submissionId.
-- It does not update code_submissions.ai_review yet.
-- Request DTO: language, code, optional problemTitle, optional problemDescription.
-- Allowed languages: java, python, javascript, cpp.
-- Code max: 20000 characters.
-- Response DTO: timeComplexity, spaceComplexity, correctnessIssues, improvements, betterApproach, encouragement.
-- Uses PromptBuilder for prompt construction.
-- Uses GeminiService/GeminiClient for Gemini calls.
-- Uses ResponseParser for strict structured JSON validation.
-- Added safe AI errors: AI_SERVICE_UNAVAILABLE -> 503 and AI_RESPONSE_INVALID -> 502.
-- It does not call Piston.
-- It does not execute code locally.
-- It does not award XP or change rank/streak/progress.
-- It does not expose raw Gemini response, raw prompt, stack traces, tokens, secrets, passwords, userId, hidden tests, correctAnswer, stdin, expectedOutput, or backend internals.
+Backend Leaderboard REST Foundation:
+- GET /api/leaderboard is implemented and authenticated.
+- Query params: page optional default 0, size optional default 50, period optional default ALL_TIME.
+- ALL_TIME is the only supported period for MVP.
+- size max is 50.
+- Invalid page < 0, size < 1, size > 50, and period other than ALL_TIME return safe 400 BAD_REQUEST.
+- No-token request returns 401.
+- Response wrapper: page, size, period, totalItems, totalPages, items, currentUser.
+- items expose only rankPosition, userId, name, xp, rank, streak.
+- currentUser exposes only rankPosition, userId, xp, rank.
+- Sorting is XP descending with deterministic tie-breaker by name ascending and id ascending.
+- rankPosition is a global 1-based ordinal position.
+- currentUser is included even if the authenticated user is not on the requested page.
+- Implementation changed only leaderboard module files and read-only UserRepository query methods.
+- No migration was added.
+- No frontend work was done.
+- It does not mutate XP, rank, streak, progress, quiz attempts, code submissions, or any user data.
+- It does not call Gemini, Piston, or XPService.
+- It does not expose email, password fields, role, tokens, refreshToken, tokenHash, secrets, lastLogin, raw entities, stack traces, or backend internals.
 
 Verification:
-- Backend tests passed with 272 tests.
-- Manual verification passed for safe unavailable/error behavior:
-  - Authenticated review returned safe 503 AI_SERVICE_UNAVAILABLE when Gemini was unavailable.
-  - Invalid language returned safe 400.
-  - Blank code returned safe 400.
-  - No-token returned 401.
-  - Safe 503 body contained no raw Gemini body, raw prompt, stack trace, tokens, secrets, passwords, userId, or backend internals.
-- Live 200 AI-review success was not confirmed because Gemini was unavailable during manual verification; automated tests cover mocked success.
+- Backend tests passed with 293 tests.
+- Manual verification passed:
+  - Authenticated GET /api/leaderboard?page=0&size=50&period=ALL_TIME returned 200.
+  - Users were sorted by XP descending.
+  - rankPosition was global and started from 1.
+  - currentUser for Bravo showed rankPosition 3.
+  - page=0&size=1 returned rankPosition 1.
+  - page=1&size=1 returned rankPosition 2.
+  - invalid page -1 returned 400.
+  - invalid size 0 returned 400.
+  - invalid size 51 returned 400.
+  - invalid period WEEKLY returned 400.
+  - no-token returned 401.
+  - safety check returned false for email, password fields, token fields, refresh tokens, tokenHash, role, secret, lastLogin, org.springframework, and java.lang.
 
 Previous problem/code features:
 - Backend Piston Run Code Foundation: POST /api/problems/{problemId}/run is authenticated, uses Piston only, does not persist, does not award XP, and safely returns CODE_RUNNER_UNAVAILABLE on runner failure.
 - Backend Code Submit Foundation: POST /api/problems/{problemId}/submit is authenticated, persists runner-backed attempts into code_submissions, awards 100 XP only for first accepted submission per authenticated user/problem, repeated accepted attempts award 0 XP, and Piston-unavailable submit does not persist or award XP.
 - Backend Code Submissions History / Fetch Foundation: GET /api/problems/{problemId}/submissions?page=0&size=20 is authenticated, user-scoped, problem-scoped, newest-first, paginated, and safe.
+- Backend AI Code Review Foundation: POST /api/ai/review-code is authenticated raw-code review only, return-only, Gemini through GeminiService, parser through ResponseParser, no persistence/submissionId/Piston/XP.
 
 Completed key features:
 - Auth register/login/refresh/logout/JWT/profile
@@ -8296,9 +8341,9 @@ Completed key features:
 - Code submit
 - Code submissions history
 - AI code review
+- Leaderboard
 
 Remaining MVP items:
-- Leaderboard
 - Docker
 - CI/CD
 - Deployment
@@ -8319,56 +8364,56 @@ Critical rules:
 - Always include manual verification steps in Codex prompts.
 ```
 
+
 ## Latest Safe Continuation Notes
-- Latest feature commit pushed to main: `b682c40 feat: add ai code review endpoint`.
-- Previous docs commit on main: `a63552a docs: record code submission history endpoint`.
-- Previous feature commit on main: `e823982 feat: add code submission history endpoint`.
-- Backend tests after Backend AI Code Review Foundation passed with 272 tests using `cd backend && .\mvnw.cmd test`.
-- Backend AI Code Review Foundation is implemented through authenticated `POST /api/ai/review-code`.
-- The endpoint is raw-code review only for MVP.
-- The endpoint does not accept `submissionId`.
-- The endpoint does not accept or expose `userId`.
-- The endpoint does not persist AI reviews.
-- The endpoint does not update `code_submissions.ai_review` yet.
-- Request DTO includes `language`, `code`, optional `problemTitle`, and optional `problemDescription`.
-- Allowed languages are `java`, `python`, `javascript`, and `cpp`.
-- Code is required, nonblank, and capped at 20000 characters.
-- Optional problem title and description are bounded prompt-context fields.
-- Response DTO includes `timeComplexity`, `spaceComplexity`, `correctnessIssues`, `improvements`, `betterApproach`, and `encouragement`.
-- Prompt construction is centralized in `PromptBuilder.buildCodeReviewPrompt(...)`.
-- Gemini review generation goes through `GeminiService` and the existing mockable `GeminiClient` abstraction.
-- Structured AI review JSON is parsed and validated by `ResponseParser.parseCodeReviewResponse(...)`.
-- Existing course-generation Gemini behavior remains unchanged.
-- Existing course parser behavior remains unchanged.
-- AI review does not call Piston.
-- AI review does not execute code locally.
-- AI review does not award XP and does not call `XPService`.
-- AI review does not change rank, streak, progress, unlock state, courses, quizzes, flashcards, notes, or leaderboard state.
-- AI review prompts treat user code/problem text as untrusted and instruct Gemini to ignore embedded instructions.
-- AI review prompts request JSON only and forbid markdown fences, prose before/after JSON, extra keys, and full-code echoing.
-- Safe AI error codes were added:
-  - `AI_SERVICE_UNAVAILABLE` -> HTTP 503
-  - `AI_RESPONSE_INVALID` -> HTTP 502
-- Gemini 429 maps through existing safe rate-limit behavior when detected.
-- Manual verification confirmed safe unavailable/error behavior:
-  - Authenticated review returned safe 503 `AI_SERVICE_UNAVAILABLE` when Gemini was unavailable.
-  - Invalid language `ruby` returned safe 400 `BAD_REQUEST`.
-  - Blank code returned safe 400 `VALIDATION_ERROR`.
-  - No-token request returned 401.
-  - The 503 body did not expose raw Gemini response, raw prompt, stack trace, tokens, secrets, passwords, userId, or backend internals.
-- Live successful 200 AI-review response was not manually confirmed because Gemini was unavailable during manual verification; automated tests cover mocked success.
-- Backend AI Code Review Foundation changed only AI module source/tests plus minimal common exception files.
-- No frontend files changed for AI code review.
-- `backend/pom.xml` was not changed for AI code review.
-- No DB migration files changed for AI code review.
-- No problem module files changed for AI code review.
-- No auth/course/level/progress/user/quiz/flashcard/note/leaderboard/Docker/CI/CD/deployment files changed for AI code review.
+- Latest feature commit pushed to main: `68144b3 feat: add leaderboard endpoint`.
+- Previous docs commit on main: `005a51a docs: record ai code review endpoint`.
+- Previous feature commit on main: `b682c40 feat: add ai code review endpoint`.
+- Backend tests after Backend Leaderboard REST Foundation passed with 293 tests using `cd backend && .\mvnw.cmd test`.
+- Backend Leaderboard REST Foundation is implemented through authenticated `GET /api/leaderboard`.
+- Query params are `page`, `size`, and `period`.
+- Defaults are `page=0`, `size=50`, and `period=ALL_TIME`.
+- Maximum size is 50.
+- MVP supports only `ALL_TIME`.
+- Invalid `page < 0` returns safe 400 `BAD_REQUEST`.
+- Invalid `size < 1` returns safe 400 `BAD_REQUEST`.
+- Invalid `size > 50` returns safe 400 `BAD_REQUEST`.
+- Invalid period such as `WEEKLY` returns safe 400 `BAD_REQUEST` with message `Period must be ALL_TIME.`.
+- No-token request returns 401 through Spring Security.
+- Leaderboard response wrapper includes `page`, `size`, `period`, `totalItems`, `totalPages`, `items`, and `currentUser`.
+- Leaderboard item DTO includes only `rankPosition`, `userId`, `name`, `xp`, `rank`, and `streak`.
+- Current user DTO includes only `rankPosition`, `userId`, `xp`, and `rank`.
+- Sorting is XP descending with deterministic tie-breaking by name ascending and id ascending.
+- `rankPosition` is a 1-based global ordinal position after sorting.
+- `currentUser` is included even if the authenticated user is not on the requested page.
+- Implementation uses a new `com.codequest.leaderboard` module.
+- `UserRepository` has read-only leaderboard query methods.
+- No new Flyway migration was added for leaderboard.
+- No frontend files changed for leaderboard.
+- `backend/pom.xml` was not changed for leaderboard.
+- No AI/Gemini files changed for leaderboard.
+- No problem/auth/course/level/progress/quiz/flashcard/note/docs/Docker/CI/CD/deployment files changed for leaderboard.
+- Leaderboard does not call Gemini.
+- Leaderboard does not call Piston.
+- Leaderboard does not execute code.
+- Leaderboard does not award XP and does not call `XPService`.
+- Leaderboard does not mutate XP, rank, streak, progress, quiz attempts, code submissions, or any user data.
+- Leaderboard response/errors must not expose email, password fields, role, token fields, refresh tokens, tokenHash, secrets, lastLogin, raw entities, stack traces, `org.springframework`, or `java.lang` internals.
+- Manual verification confirmed successful runtime behavior:
+  - Authenticated leaderboard request returned 200.
+  - XP-desc sorting worked.
+  - Global rank positions worked.
+  - Bravo currentUser returned rankPosition 3.
+  - Pagination with size 1 returned global rank positions 1 and 2.
+  - Invalid page/size/period returned safe 400.
+  - No-token returned 401.
+  - Safety check returned all False for sensitive/internal fields.
+- AI code review remains implemented and unchanged.
 - Code submissions history remains implemented and unchanged.
 - Code submit remains implemented and unchanged.
 - Piston run-code remains implemented and unchanged.
-- Leaderboard is not implemented yet.
 - Docker, CI/CD, deployment, README, screenshots, demo video, and resume bullets remain unfinished.
-- Next safest MVP task is likely Backend Leaderboard Foundation, but only after git status is clean and the Build Log docs update is committed.
+- Next safest MVP task is likely Docker Foundation or deployment preparation, but only after git status is clean and the Build Log docs update is committed.
 - Before starting any new feature, always run:
   - `cd C:\Users\hp\Desktop\CodeQuestFinalProject`
   - `git status --short`
@@ -8376,5 +8421,5 @@ Critical rules:
 - Do not start a new feature unless `git status --short` is clean.
 - If `CodeQuest_Build_Log.md` is modified after this update, commit it first:
   - `git add CodeQuest_Build_Log.md`
-  - `git commit -m "docs: record ai code review endpoint"`
+  - `git commit -m "docs: record leaderboard endpoint"`
   - `git push`
