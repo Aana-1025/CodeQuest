@@ -247,6 +247,67 @@ async function getLeaderboard() {
   return data;
 }
 
+async function runCode(problemId, payload) {
+  const accessToken = getAccessToken();
+
+  if (!accessToken) {
+    const error = new Error("Your session may have expired. Please log in again.");
+    error.status = 401;
+    throw error;
+  }
+
+  const trimmedProblemId = typeof problemId === "string" ? problemId.trim() : "";
+
+  if (!trimmedProblemId) {
+    const error = new Error("Please check your code runner input and try again.");
+    error.status = 400;
+    throw error;
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/problems/${encodeURIComponent(trimmedProblemId)}/run`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      language: payload.language,
+      code: payload.code,
+      stdin: payload.stdin,
+      expectedOutput: payload.expectedOutput,
+    }),
+  });
+
+  const data = await parseJsonResponse(response);
+
+  if (response.status === 401) {
+    const error = new Error("Your session may have expired. Please log in again.");
+    error.status = 401;
+    throw error;
+  }
+
+  if (response.status === 400) {
+    const error = new Error("Please check your code runner input and try again.");
+    error.status = 400;
+    throw error;
+  }
+
+  if (response.status === 503) {
+    const error = new Error("Code runner is currently unavailable. Please try again later.");
+    error.status = 503;
+    throw error;
+  }
+
+  if (!response.ok) {
+    const error = new Error("Could not run code right now. Please try again.");
+    error.status = response.status;
+    error.data = data ?? null;
+    throw error;
+  }
+
+  return data;
+}
+
 export {
   generateCourse,
   getCourseById,
@@ -257,4 +318,5 @@ export {
   submitQuizAnswer,
   getQuizAttemptHistory,
   getLeaderboard,
+  runCode,
 };

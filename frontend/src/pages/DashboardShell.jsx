@@ -8,6 +8,7 @@ import {
   getLeaderboard,
   getNoteForLevel,
   getQuizAttemptHistory,
+  runCode,
   saveNoteForLevel,
   submitQuizAnswer,
 } from "../services/courseApi";
@@ -17,6 +18,30 @@ const INITIAL_FORM = {
   topic: "",
   difficulty: "BEGINNER",
   goal: "",
+};
+
+const CODE_RUNNER_STARTER_CODE = {
+  java: `public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello CodeQuest");
+    }
+}`,
+  python: `print("Hello CodeQuest")`,
+  javascript: `console.log("Hello CodeQuest");`,
+  cpp: `#include <iostream>
+
+int main() {
+    std::cout << "Hello CodeQuest" << std::endl;
+    return 0;
+}`,
+};
+
+const INITIAL_CODE_RUNNER_FORM = {
+  problemId: "",
+  language: "java",
+  code: CODE_RUNNER_STARTER_CODE.java,
+  stdin: "",
+  expectedOutput: "",
 };
 
 function getCourseBadgeLabel(generatedCourse) {
@@ -284,6 +309,46 @@ function getLeaderboardBadgeClass(rankPosition) {
   return "bg-sky-50 text-sky-700";
 }
 
+function getCodeRunnerErrorMessage(error) {
+  if (error?.status === 401) {
+    return "Your session may have expired. Please log in again.";
+  }
+
+  if (error?.status === 400) {
+    return "Please check your code runner input and try again.";
+  }
+
+  if (error?.status === 503) {
+    return "Code runner is currently unavailable. Please try again later.";
+  }
+
+  return "Could not run code right now. Please try again.";
+}
+
+function getCodeRunnerComparisonMessage(result) {
+  if (result?.passed === true) {
+    return "Passed expected output";
+  }
+
+  if (result?.passed === false) {
+    return "Output did not match expected output";
+  }
+
+  return "No expected output comparison";
+}
+
+function getCodeRunnerStatusClass(result) {
+  if (result?.passed === true) {
+    return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  }
+
+  if (result?.passed === false) {
+    return "border-amber-200 bg-amber-50 text-amber-800";
+  }
+
+  return "border-slate-200 bg-slate-50 text-slate-700";
+}
+
 function mergeCourseMapLevels(courseMap, courseProgress) {
   const progressLevels = Array.isArray(courseProgress?.levels) ? courseProgress.levels : [];
   const progressByLevelId = new Map(
@@ -351,6 +416,11 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [leaderboardError, setLeaderboardError] = useState("");
   const [leaderboardLoaded, setLeaderboardLoaded] = useState(false);
+  const [codeRunnerForm, setCodeRunnerForm] = useState(INITIAL_CODE_RUNNER_FORM);
+  const [codeRunnerLoading, setCodeRunnerLoading] = useState(false);
+  const [codeRunnerError, setCodeRunnerError] = useState("");
+  const [codeRunnerResult, setCodeRunnerResult] = useState(null);
+  const [codeRunnerCodeTouched, setCodeRunnerCodeTouched] = useState(false);
 
   const clearLevelCompletionFeedback = (levelId) => {
     if (!levelId) {
@@ -883,6 +953,56 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
       setLeaderboardLoaded(true);
     } finally {
       setLeaderboardLoading(false);
+    }
+  };
+
+  const handleCodeRunnerFieldChange = (field, value) => {
+    setCodeRunnerForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  };
+
+  const handleCodeLanguageChange = (language) => {
+    setCodeRunnerForm((current) => ({
+      ...current,
+      language,
+      code: codeRunnerCodeTouched ? current.code : CODE_RUNNER_STARTER_CODE[language],
+    }));
+  };
+
+  const handleCodeRunnerSubmit = async (event) => {
+    event.preventDefault();
+
+    const trimmedProblemId = codeRunnerForm.problemId.trim();
+    const trimmedCode = codeRunnerForm.code.trim();
+
+    if (!trimmedProblemId || !trimmedCode) {
+      setCodeRunnerError("Please check your code runner input and try again.");
+      return;
+    }
+
+    if (trimmedCode.length > 20000) {
+      setCodeRunnerError("Please check your code runner input and try again.");
+      return;
+    }
+
+    setCodeRunnerLoading(true);
+    setCodeRunnerError("");
+    setCodeRunnerResult(null);
+
+    try {
+      const response = await runCode(trimmedProblemId, {
+        language: codeRunnerForm.language,
+        code: codeRunnerForm.code,
+        stdin: codeRunnerForm.stdin,
+        expectedOutput: codeRunnerForm.expectedOutput,
+      });
+      setCodeRunnerResult(response);
+    } catch (error) {
+      setCodeRunnerError(getCodeRunnerErrorMessage(error));
+    } finally {
+      setCodeRunnerLoading(false);
     }
   };
 
@@ -1717,6 +1837,191 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
             )}
           </div>
 
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="mb-4">
+              <h2 className="text-xl font-semibold text-slate-900">Code Runner</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Run small code snippets using the backend Piston runner.
+              </p>
+            </div>
+
+            <form className="space-y-4" onSubmit={handleCodeRunnerSubmit}>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label htmlFor="code-runner-problem-id" className="mb-2 block text-sm font-medium text-slate-700">
+                    Problem ID
+                  </label>
+                  <input
+                    id="code-runner-problem-id"
+                    type="text"
+                    value={codeRunnerForm.problemId}
+                    onChange={(event) => handleCodeRunnerFieldChange("problemId", event.target.value)}
+                    placeholder="manual-problem-1"
+                    className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="code-runner-language" className="mb-2 block text-sm font-medium text-slate-700">
+                    Language
+                  </label>
+                  <select
+                    id="code-runner-language"
+                    value={codeRunnerForm.language}
+                    onChange={(event) => handleCodeLanguageChange(event.target.value)}
+                    className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  >
+                    <option value="java">Java</option>
+                    <option value="python">Python</option>
+                    <option value="javascript">JavaScript</option>
+                    <option value="cpp">C++</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="code-runner-code" className="mb-2 block text-sm font-medium text-slate-700">
+                  Code
+                </label>
+                <textarea
+                  id="code-runner-code"
+                  value={codeRunnerForm.code}
+                  onChange={(event) => {
+                    setCodeRunnerCodeTouched(true);
+                    handleCodeRunnerFieldChange("code", event.target.value);
+                  }}
+                  rows={12}
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                />
+                <p className="mt-2 text-xs text-slate-500">
+                  {codeRunnerForm.code.length}/20000 characters
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <div>
+                  <label htmlFor="code-runner-stdin" className="mb-2 block text-sm font-medium text-slate-700">
+                    Standard Input (Optional)
+                  </label>
+                  <textarea
+                    id="code-runner-stdin"
+                    value={codeRunnerForm.stdin}
+                    onChange={(event) => handleCodeRunnerFieldChange("stdin", event.target.value)}
+                    rows={5}
+                    className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="code-runner-expected-output" className="mb-2 block text-sm font-medium text-slate-700">
+                    Expected Output (Optional)
+                  </label>
+                  <textarea
+                    id="code-runner-expected-output"
+                    value={codeRunnerForm.expectedOutput}
+                    onChange={(event) => handleCodeRunnerFieldChange("expectedOutput", event.target.value)}
+                    rows={5}
+                    className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                  />
+                </div>
+              </div>
+
+              {codeRunnerError && (
+                <div
+                  className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+                  role="alert"
+                >
+                  {codeRunnerError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={
+                  codeRunnerLoading ||
+                  !codeRunnerForm.problemId.trim() ||
+                  !codeRunnerForm.code.trim()
+                }
+                className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+              >
+                {codeRunnerLoading ? "Running Code..." : "Run Code"}
+              </button>
+            </form>
+
+            {codeRunnerResult && (
+              <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900">Run Result</h3>
+                    {codeRunnerResult.message && (
+                      <p className="mt-1 text-sm text-slate-600">{codeRunnerResult.message}</p>
+                    )}
+                  </div>
+                  <span className={`inline-flex w-fit rounded-full border px-3 py-1 text-xs font-semibold ${getCodeRunnerStatusClass(codeRunnerResult)}`}>
+                    {getCodeRunnerComparisonMessage(codeRunnerResult)}
+                  </span>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <div className="rounded-xl bg-white p-4">
+                    <p className="text-sm text-slate-500">Language</p>
+                    <p className="mt-1 text-base font-semibold text-slate-900">
+                      {codeRunnerResult.language ?? codeRunnerForm.language}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-white p-4">
+                    <p className="text-sm text-slate-500">Exit Code</p>
+                    <p className="mt-1 text-base font-semibold text-slate-900">
+                      {codeRunnerResult.exitCode ?? "Unavailable"}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-white p-4">
+                    <p className="text-sm text-slate-500">Runtime</p>
+                    <p className="mt-1 text-base font-semibold text-slate-900">
+                      {codeRunnerResult.runtimeMs ?? codeRunnerResult.runtimeMs === 0
+                        ? `${codeRunnerResult.runtimeMs} ms`
+                        : "Unavailable"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-xl bg-white p-4">
+                  <p className="text-sm text-slate-500">Passed Status</p>
+                  <p className="mt-1 text-base font-semibold text-slate-900">
+                    {codeRunnerResult.passed === true
+                      ? "Passed expected output"
+                      : codeRunnerResult.passed === false
+                        ? "Output did not match expected output"
+                        : "No expected output comparison"}
+                  </p>
+                </div>
+
+                <div className="mt-4 space-y-4">
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <p className="text-sm font-semibold text-slate-700">Stdout</p>
+                    <pre className="mt-2 whitespace-pre-wrap break-words text-sm text-slate-700">
+                      {codeRunnerResult.stdout ? codeRunnerResult.stdout : "No stdout."}
+                    </pre>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <p className="text-sm font-semibold text-slate-700">Stderr</p>
+                    <pre className="mt-2 whitespace-pre-wrap break-words text-sm text-slate-700">
+                      {codeRunnerResult.stderr ? codeRunnerResult.stderr : "No stderr."}
+                    </pre>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <p className="text-sm font-semibold text-slate-700">Output</p>
+                    <pre className="mt-2 whitespace-pre-wrap break-words text-sm text-slate-700">
+                      {codeRunnerResult.output ? codeRunnerResult.output : "No output."}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Quiz attempt history */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -1843,7 +2148,7 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
           {/* Status note */}
           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
             <p className="text-sm text-amber-800">
-              <strong>Dashboard shell:</strong> Course generation, lessons, quiz history, and leaderboard loading are wired to the current MVP foundation. Advanced filters, realtime updates, and broader dashboard polish are still pending later tasks.
+              <strong>Dashboard shell:</strong> Course generation, lessons, quiz history, leaderboard loading, and the run-only code runner are wired to the current MVP foundation. Submit flow, AI review, and broader dashboard polish are still pending later tasks.
             </p>
           </div>
         </div>
