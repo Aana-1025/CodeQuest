@@ -5,14 +5,14 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Frontend / Leaderboard
-Current feature: Frontend Leaderboard UI Foundation completed, frontend-build-verified, browser-manually-verified, committed, pushed, and awaiting Build Log docs commit
-Latest commit: `1bb5159 feat: add frontend leaderboard ui`
-Previous docs commit: `0e7c90c docs: record backend docker setup`
-Previous feature commit: `bc321df chore: add backend dockerfile`
+Current module: Frontend / Code Runner
+Current feature: Frontend Code Runner UI Foundation completed, frontend-build-verified, browser-manually-verified for safe Piston-unavailable path, committed, pushed, and awaiting Build Log docs commit
+Latest commit: `f7b4598 feat: add frontend code runner ui`
+Previous docs commit: `34f31d6 docs: record frontend leaderboard ui`
+Previous feature commit: `1bb5159 feat: add frontend leaderboard ui`
 Current branch: main
-Test status: Frontend `cd frontend && npm run build` PASS after Frontend Leaderboard UI Foundation according to Codex output and user-side verification flow. Manual browser verification PASS from the dashboard paste: Leaderboard section is visible, `Refresh Leaderboard` button works after load, current-user standing card appears, leaderboard table displays sorted users with safe fields only, and existing Dashboard sections still render including Profile Summary, Generate Course, generated course result, Open Course Map entry point, and Quiz Attempt History. Scope checks PASS: only `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js` changed; backend, backend Docker files, backend/pom.xml, migrations, application.yml, docs, Build Log, README, .github, docker-compose, frontend package files, CI/CD, deployment, and Phase 2 files were not part of the feature implementation. Manual UI note: the pasted local dashboard showed Profile Summary XP and Leaderboard current-user XP values not matching in that moment; this is treated as a local state/test-data observation, not a blocking leaderboard UI failure, because the leaderboard itself rendered from the backend and the safe UI contract passed.
-Git status: clean after `1bb5159 feat: add frontend leaderboard ui` was pushed to `main`; Build Log docs update in progress
+Test status: Frontend `cd frontend && npm run build` PASS after Frontend Code Runner UI Foundation according to Codex output and user-side verification flow. Manual browser verification PASS for the safe unavailable path: Code Runner section is visible in DashboardShell, fields are visible for problemId/language/code/stdin/expectedOutput, Java starter-code/manual code entry works in the textarea, a UUID-style problem id reaches the backend, and external Piston unavailable behavior shows the safe user-facing message `Code runner is currently unavailable. Please try again later.` without raw stack traces, raw Piston internals, raw backend JSON dumps, tokens, passwords, roles, token hashes, userId, hidden tests, correctAnswer, or secrets. Scope checks PASS: only `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js` changed; backend, backend Docker files, backend/pom.xml, migrations, application.yml, docs, Build Log, README, .github, docker-compose, frontend package files, CI/CD, deployment, and Phase 2 files were not part of the feature implementation.
+Git status: clean after `f7b4598 feat: add frontend code runner ui` was pushed to `main`; Build Log docs update in progress
 
 ## Completed Features
 - [x] Project setup
@@ -81,7 +81,13 @@ Git status: clean after `1bb5159 feat: add frontend leaderboard ui` was pushed t
 - [x] AI code review
 - [x] Leaderboard
 - [x] Frontend Leaderboard UI
+- [x] Frontend Code Runner UI
 - [x] Docker
+- [ ] Frontend Code Submit UI
+- [ ] Frontend Code Submission History UI
+- [ ] Frontend AI Code Review UI
+- [ ] Monaco Editor Integration
+- [ ] Dashboard UI polish / section organization
 - [ ] CI/CD
 - [ ] Deployment
 - [ ] README
@@ -119,6 +125,18 @@ Git status: clean after `1bb5159 feat: add frontend leaderboard ui` was pushed t
 - Frontend leaderboard table displays only safe user-facing fields: rank position, name, XP, rank, and streak.
 - Frontend leaderboard intentionally does not display email, password fields, roles, access tokens, refresh tokens, token hashes, raw backend JSON, stack traces, or secrets.
 - Frontend leaderboard intentionally does not add weekly/monthly filters, pagination controls, search, avatars, realtime updates, backend changes, DB migrations, package changes, deployment changes, or Phase 2 features.
+- Frontend Code Runner UI Foundation is implemented in the existing DashboardShell as a frontend-only MVP section.
+- Frontend code runner uses authenticated `POST /api/problems/{problemId}/run` through the existing Bearer token pattern.
+- Frontend code runner is run-only and intentionally does not submit code, persist submissions, fetch submission history, call AI review, award XP, change progress, or mutate any backend state.
+- Frontend code runner includes fields for problem id, language, code, optional stdin, and optional expected output.
+- Frontend code runner currently uses a simple textarea, not Monaco editor.
+- Frontend code runner supports starter code for Java, Python, JavaScript, and C++ without overwriting user-edited code unexpectedly.
+- Frontend code runner validates blank problem id, blank code, and code length over 20000 characters before sending the request.
+- Frontend code runner renders stdout, stderr, output, exitCode, runtimeMs, passed status, and safe message as plain text only.
+- Frontend code runner shows safe error messages for 401, 400, 503, and generic failures.
+- Frontend code runner intentionally does not display access tokens, refresh tokens, passwords, roles, token hashes, userId, raw backend JSON, raw Piston internals, hidden tests, correct answers, stack traces, or secrets.
+- Frontend code runner intentionally does not store code, stdin, expected output, or run results in localStorage or sessionStorage.
+- Frontend code runner intentionally does not add Monaco editor, auto-run, code submit, submission history UI, AI review UI, coding problem browsing, backend changes, DB migrations, package changes, deployment changes, or Phase 2 features.
 - Deployment target: Vercel frontend, Render backend, Neon PostgreSQL, GitHub Actions CI.
 - MVP first, no Phase 2 features yet.
 - Source-of-truth priority: CodeQuest_AI_Control_Master_Blueprint_v3, CodeQuest_Core_Rules, CodeQuest_DB_Schema, CodeQuest_API_Contracts, CodeQuest_Feature_Prompts, CodeQuest_Build_Log, then AGENTS.md.
@@ -829,6 +847,7 @@ Git status: clean after `1bb5159 feat: add frontend leaderboard ui` was pushed t
 
 ## Bugs / Issues
 - None blocking currently.
+- Frontend Code Runner UI Foundation note: No blocking issue after browser verification of the safe unavailable path. Manual dashboard verification showed the Code Runner section visible with problem id, language, code, stdin, expected output, and Run Code controls. Initial use of a non-UUID-like `manual-problem-1` produced a generic safe error; retesting with UUID-style `11111111-1111-1111-1111-111111111111` reached the backend and showed the expected safe Piston-unavailable message `Code runner is currently unavailable. Please try again later.` This is acceptable because external Piston availability had already been known to fail intermittently during backend verification. The UI did not expose raw stack traces, raw Piston internals, raw backend JSON dumps, tokens, passwords, roles, token hashes, userId, hidden tests, correctAnswer, or secrets. Scope stayed frontend-only with expected changes limited to `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`; no backend, DB migration, Docker, docs/Build Log during implementation, README, .github, docker-compose, frontend package, CI/CD, deployment, or Phase 2 files changed.
 - Frontend Leaderboard UI Foundation note: No blocking issue after browser verification. Manual dashboard verification showed the Leaderboard section visible, current-user standing visible, `Refresh Leaderboard` button working after load, leaderboard rows displaying position/name/XP/rank/streak, and no visible token/password/role/raw JSON/stack trace data. Existing dashboard sections still rendered, including Profile Summary, Generate Course, generated course result, and Quiz Attempt History. Scope stayed frontend-only with expected changes limited to `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`; no backend, DB migration, Docker, docs/Build Log during implementation, README, .github, docker-compose, frontend package, CI/CD, deployment, or Phase 2 files changed. Local observation: the pasted dashboard showed Profile Summary XP and Leaderboard current-user XP not matching at that moment; treat this as a non-blocking local state/test-data observation unless it is reproducible after a fresh profile refresh/login.
 - Backend Docker Setup Foundation note: No blocking issue after manual Docker verification. Initial Docker build failed because the Linux builder stage read Windows CRLF line endings in `mvnw` and failed with `env: $'bash\r': No such file or directory`. This was fixed by normalizing `mvnw` inside `backend/Dockerfile` using `RUN sed -i 's/\r$//' mvnw && chmod +x mvnw` before running `./mvnw clean package -DskipTests`. After Docker Desktop engine was running, `docker build -t codequest-backend:local ./backend` completed successfully and `docker images codequest-backend` showed `codequest-backend:local` present. Backend tests passed with Maven Wrapper according to Codex output. Scope stayed Docker-only with expected changes limited to `backend/Dockerfile` and `backend/.dockerignore`; no frontend, frontend package files, backend/pom.xml, backend source, backend tests, migrations, application.yml, docs/Build Log during implementation, README, .github, docker-compose, CI/CD, deployment, or Phase 2 files changed.
 - Backend Leaderboard REST Foundation note: No blocking issue after manual API verification. Manual verification used three fresh authenticated users and local verification-only SQL updates to set deterministic XP/rank/streak values. Authenticated `GET /api/leaderboard?page=0&size=50&period=ALL_TIME` returned 200 with users sorted by XP descending, global 1-based rank positions, and `currentUser` for Bravo at rankPosition 3. Pagination with `page=0,size=1` and `page=1,size=1` returned rank positions 1 and 2 while still including `currentUser`. Invalid page -1, size 0, size 51, and period `WEEKLY` returned safe 400 ErrorDTO responses. No-token request returned 401. Safety checks returned false for email, password fields, token fields, refresh tokens, tokenHash, role, secrets, lastLogin, `org.springframework`, and `java.lang`. Backend tests passed with 293 tests. Scope stayed backend-only with expected changes limited to `backend/src/main/java/com/codequest/leaderboard/LeaderboardController.java`, `backend/src/main/java/com/codequest/leaderboard/LeaderboardService.java`, leaderboard DTOs, leaderboard tests, and read-only query methods in `backend/src/main/java/com/codequest/user/UserRepository.java`; no frontend, frontend package files, backend/pom.xml, DB migration, docs/Build Log, AI/Gemini, problem, auth, course, level, progress, quiz, flashcard, note, Docker, CI/CD, deployment, or Phase 2 work.
@@ -1104,6 +1123,8 @@ Git status: clean after `1bb5159 feat: add frontend leaderboard ui` was pushed t
 
 | 65 | 2026-06-10 | Frontend Leaderboard UI Foundation | Frontend / Leaderboard | frontend/src/pages/DashboardShell.jsx; frontend/src/services/courseApi.js | Frontend `cd frontend && npm run build` PASS according to Codex output. Manual browser verification PASS from user dashboard paste: Leaderboard section rendered, current-user standing rendered, leaderboard table showed safe fields, Refresh Leaderboard was visible, and existing dashboard/course/quiz history sections still rendered. Scope checks clean: only DashboardShell and courseApi changed; no backend, docs, Build Log during implementation, Docker, package, CI/CD, deployment, or Phase 2 files changed. | `1bb5159 feat: add frontend leaderboard ui`. Added authenticated `getLeaderboard()` helper and a manual-load DashboardShell leaderboard section using GET `/api/leaderboard?page=0&size=50&period=ALL_TIME`. Includes loading/error/empty states, current-user standing, safe table fields, and no auto-fetch/pagination/weekly filters/search/realtime/backend changes. |
 
+| 66 | 2026-06-10 | Frontend Code Runner UI Foundation | Frontend / Code Runner | frontend/src/pages/DashboardShell.jsx; frontend/src/services/courseApi.js | Frontend `cd frontend && npm run build` PASS according to Codex output. Manual browser verification PASS for safe Piston-unavailable path: Code Runner section rendered, UUID-style problem id reached backend, Java code textarea accepted code, and UI showed safe `Code runner is currently unavailable. Please try again later.` message. Scope checks clean: only DashboardShell and courseApi changed; no backend, docs, Build Log during implementation, Docker, package, CI/CD, deployment, or Phase 2 files changed. | `f7b4598 feat: add frontend code runner ui`. Added authenticated `runCode(problemId, payload)` helper and a DashboardShell Code Runner section using POST `/api/problems/{problemId}/run`. Includes language selector, starter code, code/stdin/expected output textareas, validation, loading/error/result states, safe plain-text output rendering, and no Monaco/submit/history/AI-review/backend/package changes. |
+
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -1210,11 +1231,13 @@ Git status: clean after `1bb5159 feat: add frontend leaderboard ui` was pushed t
 | 2026-06-09 | `cd backend && .\mvnw.cmd test` after Backend Docker Setup Foundation | PASS | Backend tests passed according to Codex output after adding backend Dockerfile and backend `.dockerignore`; no Java source, tests, pom, migrations, or application.yml were changed. | Yes |
 | 2026-06-09 | `docker build -t codequest-backend:local ./backend` after Backend Docker Setup Foundation | PASS | Initial Docker build failed with `env: $'bash\r': No such file or directory` because Windows CRLF line endings in `mvnw` broke the Linux builder shebang. Fixed by normalizing `mvnw` in Dockerfile using `sed -i 's/\r$//' mvnw && chmod +x mvnw`. Re-run Docker build completed successfully and image `codequest-backend:local` was created. | Yes |
 | 2026-06-10 | `cd frontend && npm run build` after Frontend Leaderboard UI Foundation | PASS | Frontend build passed after adding authenticated leaderboard API helper and DashboardShell leaderboard UI. No package changes were made. | Yes |
+| 2026-06-10 | `cd frontend && npm run build` after Frontend Code Runner UI Foundation | PASS | Frontend build passed after adding authenticated code runner API helper and DashboardShell Code Runner UI. No package changes were made. | Yes |
 
 
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
 |---|---|---|---|---|
+| 2026-06-10 | Frontend Code Runner UI Foundation | Browser dashboard Code Runner verification | Code Runner section renders, UUID-style problem id reaches backend, Java code can be entered, safe Piston-unavailable message displays, and no raw stack traces/raw Piston internals/tokens/passwords/userId/secrets are visible. | Passed |
 | 2026-05-03 | Backend health endpoint | GET `/api/health` | 200 OK with backend health response | Passed during feature task |
 | 2026-05-03 | Auth register | POST `/api/auth/register` with valid name, email, password | 201 Created with safe user response | Automated tests passed; browser smoke test passed after local runtime + CORS fix |
 | 2026-05-03 | Auth register duplicate email | POST `/api/auth/register` again with same email | 409 Conflict with standard ErrorDTO and EMAIL_ALREADY_EXISTS | Recommended for future manual API pass |
@@ -8167,106 +8190,67 @@ Manual verification result recorded for this feature:
 
 
 ## Next Chat Prompt
-Use this prompt when starting a fresh ChatGPT Project chat for CodeQuest:
+Use this prompt in the next chat if this one becomes slow:
 
 ```text
-You are continuing my CodeQuest project from the previous ChatGPT Project chat.
+You are continuing the CodeQuest project. This is a Java 21 + Spring Boot + React + PostgreSQL AI-assisted Java learning MVP. Do not restart from scratch. Read the latest CodeQuest_Build_Log.md first, then inspect AGENTS.md and the docs files.
 
-First, deeply analyze all uploaded project resources and the latest CodeQuest_Build_Log.md before giving any Codex prompt.
-
-Important:
-- This is a continuation chat, not a fresh project.
-- I have already worked on CodeQuest across many previous ChatGPT chats, so do not restart from scratch.
-- If this chat becomes slow or you feel your responses are taking too long, tell me to start another new chat and give me a detailed continuation summary.
-- Use the latest CodeQuest_Build_Log.md as the current source of truth.
-- Also follow AGENTS.md, CodeQuest_Core_Rules, CodeQuest_DB_Schema, CodeQuest_API_Contracts, CodeQuest_Feature_Prompts, and the master blueprint.
-- Do not miss anything from the Build Log.
-- Do not invent features.
-- Do not redesign anything.
-- MVP first only.
-- One feature per task.
-
-Very important command rule:
-This project uses Maven Wrapper, not plain Maven.
-Never tell me to run plain mvn.
-For backend tests, always use:
-cd backend
-.\mvnw.cmd test
-
-For clean backend tests:
-cd backend
-.\mvnw.cmd clean test
-
-For backend run:
-cd backend
-.\mvnw.cmd spring-boot:run
-
-For frontend:
-cd frontend
-npm run build
-npm run dev
-
-Current repo status from last chat:
+Current repo state:
 - Branch: main
-- Latest feature commit: 1bb5159 feat: add frontend leaderboard ui
-- Previous docs commit: 0e7c90c docs: record backend docker setup
-- Previous feature commit: bc321df chore: add backend dockerfile
-- Latest completed feature: Frontend Leaderboard UI Foundation
-- Build Log docs update after Frontend Leaderboard UI may still need a docs commit if CodeQuest_Build_Log.md is modified.
+- Latest feature commit: f7b4598 feat: add frontend code runner ui
+- Previous docs commit: 34f31d6 docs: record frontend leaderboard ui
+- Previous feature commit: 1bb5159 feat: add frontend leaderboard ui
+- Latest completed feature: Frontend Code Runner UI Foundation
+- Build Log docs update after Frontend Code Runner UI may still need a docs commit if CodeQuest_Build_Log.md is modified.
 
-Latest completed feature details:
-Frontend Leaderboard UI Foundation:
-- Added `getLeaderboard()` in `frontend/src/services/courseApi.js`.
-- Added a new DashboardShell Leaderboard section in `frontend/src/pages/DashboardShell.jsx`.
-- Calls authenticated GET `/api/leaderboard?page=0&size=50&period=ALL_TIME` with the existing Bearer token pattern.
-- Loads only after explicit user action through `Load Leaderboard` / `Refresh Leaderboard`.
-- Does not auto-fetch on dashboard load.
-- Shows loading state, safe error state, and safe empty state.
-- Shows current-user standing with position, XP, and rank.
-- Shows leaderboard rows with rank position, name, XP, rank, and streak.
-- Does not display email, password fields, roles, access tokens, refresh tokens, token hashes, raw backend JSON, stack traces, or secrets.
-- Does not add pagination controls, weekly/monthly filters, search, avatars, realtime updates, backend changes, package changes, Docker changes, CI/CD, deployment, or Phase 2 work.
+Latest completed feature:
+Frontend Code Runner UI Foundation:
+- Added authenticated `runCode(problemId, payload)` frontend helper in `frontend/src/services/courseApi.js`.
+- Added DashboardShell Code Runner section in `frontend/src/pages/DashboardShell.jsx`.
+- Uses POST `/api/problems/{problemId}/run`.
+- Uses existing Bearer token pattern.
+- Run-only feature: does not submit code, persist submissions, fetch submission history, call AI review, award XP, or mutate backend state.
+- UI fields: problem id, language, code, optional stdin, optional expected output.
+- Supported languages in UI: Java, Python, JavaScript, C++.
+- Uses simple textarea, not Monaco editor yet.
+- Includes starter code for Java/Python/JavaScript/C++ and avoids overwriting user-edited code unexpectedly.
+- Validates blank problem id, blank code, and code length over 20000 characters.
+- Shows loading, safe error, and safe result states.
+- Renders stdout/stderr/output as plain text inside safe blocks.
+- Does not display accessToken, refreshToken, password, role, tokenHash, userId, raw backend JSON, raw Piston internals, hidden tests, correctAnswer, stack traces, or secrets.
+- Does not store code/stdin/expected output/results in localStorage or sessionStorage.
 - Frontend build passed.
-- Manual dashboard verification passed from user browser paste.
-- Scope changed only `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`.
-- Commit pushed: `1bb5159 feat: add frontend leaderboard ui`.
+- Browser verification passed for safe Piston-unavailable path using UUID-style problem id `11111111-1111-1111-1111-111111111111`; UI showed `Code runner is currently unavailable. Please try again later.` safely.
+- Commit pushed: `f7b4598 feat: add frontend code runner ui`.
 
-Important local observation:
-- The user pasted a dashboard where Profile Summary XP and Leaderboard current-user XP differed at that moment.
-- Treat this as a non-blocking local state/test-data observation unless reproducible after fresh profile refresh/login.
-- Do not redesign or change backend for this unless the user explicitly asks to investigate.
+Previous latest frontend feature:
+Frontend Leaderboard UI Foundation:
+- Commit `1bb5159 feat: add frontend leaderboard ui`.
+- Added `getLeaderboard()` helper and DashboardShell Leaderboard section.
+- Uses GET `/api/leaderboard?page=0&size=50&period=ALL_TIME`.
+- Manual Load/Refresh only; no auto-fetch.
 
-Current important completed features:
-- Auth register/login/refresh/logout/JWT/profile
-- Frontend auth/protected routes/dashboard shell
-- Course generation foundation with Gemini/fallback/sourceType
-- Course fetch endpoint and frontend course map/lesson
-- Quiz/flashcard persistence/fetch/display
-- Notes save/fetch/editor/preload
-- Quiz submit/scoring and attempt history
-- Progress/level complete/unlock/progress fetch + frontend complete UI
-- XPService rank recalculation
-- StreakService daily login XP guard
-- Weak concept detection
-- Piston run code backend
-- Code submit backend
-- Code submissions history backend
-- AI code review backend
-- Leaderboard backend
-- Backend Docker setup
-- Frontend Leaderboard UI
+Important remaining frontend integrations:
+- Backend code submit exists but frontend submit UI is not done.
+- Backend code submissions history exists but frontend history UI is not done.
+- Backend AI code review exists but frontend AI review UI is not done.
+- Monaco editor is not yet added and should be a separate task because it may require package changes.
+- Dashboard is getting long; UI organization/polish should be done later after the remaining core panels are visible.
 
 Recommended next feature:
-Frontend Code Runner UI Foundation.
+Frontend Code Submit UI Foundation.
 
 Reason:
-- Backend Piston run-code endpoint already exists.
-- Frontend still needs visible code practice UI.
-- Start with a simple textarea/code input and language dropdown first.
-- Do not add Monaco in the same task unless explicitly requested; Monaco should be a separate package-change task.
+- Backend submit endpoint already exists: POST `/api/problems/{problemId}/submit`.
+- Frontend now has run-only Code Runner UI.
+- Submit is the natural next visible coding-practice feature.
 - Keep it frontend-only if possible.
-- Use existing endpoint `POST /api/problems/{problemId}/run`.
-- No backend changes unless an API contract bug is discovered.
+- Reuse the existing Code Runner section/state where sensible, but do not over-refactor DashboardShell.
+- Show passed/failed, XP awarded, firstAccepted, stdout/stderr/output, exitCode, runtimeMs, and safe message.
+- After successful accepted submit with XP, refresh profile using the existing profile refresh pattern if available.
+- Do not add Monaco editor in the same task.
+- Do not add submission history or AI review in the same task.
+- Do not change backend unless an API contract bug is discovered.
 - Run `cd frontend && npm run build`.
 - Manually verify in browser.
 - Do not commit until after verification.
@@ -8283,80 +8267,98 @@ We are building CodeQuest, a Java 21 + Spring Boot + React + PostgreSQL AI-assis
 
 Latest repo state:
 - Branch: main
-- Latest feature commit: 1bb5159 feat: add frontend leaderboard ui
-- Previous docs commit: 0e7c90c docs: record backend docker setup
-- Previous feature commit: bc321df chore: add backend dockerfile
-- Latest completed feature: Frontend Leaderboard UI Foundation
-- Build Log docs update after Frontend Leaderboard UI may still need a docs commit if CodeQuest_Build_Log.md is modified.
+- Latest feature commit: f7b4598 feat: add frontend code runner ui
+- Previous docs commit: 34f31d6 docs: record frontend leaderboard ui
+- Previous feature commit: 1bb5159 feat: add frontend leaderboard ui
+- Latest completed feature: Frontend Code Runner UI Foundation
+- Build Log docs update after Frontend Code Runner UI may still need a docs commit if CodeQuest_Build_Log.md is modified.
 
 Latest completed feature:
-Frontend Leaderboard UI Foundation:
-- Added authenticated `getLeaderboard()` frontend helper.
-- Added DashboardShell Leaderboard UI.
-- Uses GET `/api/leaderboard?page=0&size=50&period=ALL_TIME`.
+Frontend Code Runner UI Foundation:
+- Added authenticated `runCode(problemId, payload)` helper.
+- Added DashboardShell Code Runner UI.
+- Uses POST `/api/problems/{problemId}/run`.
 - Uses existing Bearer token pattern.
-- Loads only after explicit click through Load/Refresh Leaderboard.
-- Shows loading, empty, and safe error states.
-- Shows current-user standing separately.
-- Shows safe leaderboard fields only: rank position, name, XP, rank, streak.
-- Does not show email, password, role, token fields, refresh tokens, tokenHash, raw JSON, stack traces, or secrets.
-- Does not add auto-fetch, pagination controls, weekly/monthly filters, search, avatars, realtime updates, backend changes, package changes, CI/CD, deployment, or Phase 2 features.
+- Allows manual problem id, language, code, stdin, and expected output input.
+- Supports Java/Python/JavaScript/C++ in the UI.
+- Uses simple textarea and starter code; Monaco is not added yet.
+- Shows loading/error/result states.
+- Shows stdout, stderr, output, exitCode, runtimeMs, passed status, and safe message.
+- Safe Piston-unavailable path was browser verified and showed `Code runner is currently unavailable. Please try again later.`.
+- Does not show tokens/passwords/roles/token hashes/userId/raw backend JSON/raw Piston internals/hidden tests/correctAnswer/stack traces/secrets.
+- Does not store code/stdin/expected output/results in localStorage/sessionStorage.
+- Does not implement submit, history, AI review, Monaco, coding problem browsing, backend changes, DB migrations, package changes, CI/CD, deployment, or Phase 2.
 - Frontend build passed.
-- Manual browser dashboard verification passed.
-- Commit pushed: `1bb5159 feat: add frontend leaderboard ui`.
+- Commit pushed: `f7b4598 feat: add frontend code runner ui`.
 
-Previous latest DevOps feature:
-Backend Docker Setup Foundation:
-- Commit `bc321df chore: add backend dockerfile`.
-- Added `backend/Dockerfile` and `backend/.dockerignore`.
-- Dockerfile uses Java 21 multi-stage build with Maven Wrapper.
-- Dockerfile normalizes CRLF in `mvnw` using `sed -i 's/\r$//' mvnw && chmod +x mvnw`.
-- Docker image build verified with `docker build -t codequest-backend:local ./backend`.
+Previous latest feature:
+Frontend Leaderboard UI Foundation:
+- Commit `1bb5159 feat: add frontend leaderboard ui`.
+- Dashboard leaderboard uses authenticated GET `/api/leaderboard?page=0&size=50&period=ALL_TIME`.
+- Manual Load/Refresh only.
 
-Important remaining frontend/backend integration:
-- Backend Piston run-code exists but frontend code runner UI is not done.
-- Backend code submit exists but frontend submit UI is not done.
-- Backend code submissions history exists but frontend history UI is not done.
-- Backend AI code review exists but frontend AI review UI is not done.
-- Monaco editor is not yet added and should be a separate task because it may require package changes.
+Important completed backend features already available:
+- Backend Piston run-code endpoint exists: POST `/api/problems/{problemId}/run`.
+- Backend code submit endpoint exists: POST `/api/problems/{problemId}/submit`.
+- Backend code submissions history endpoint exists: GET `/api/problems/{problemId}/submissions?page=0&size=20`.
+- Backend AI code review endpoint exists: POST `/api/ai/review-code`.
+- Backend leaderboard endpoint exists and frontend leaderboard UI exists.
+- Backend Docker setup exists.
+
+Remaining planned features/checklist:
+- Frontend Code Submit UI
+- Frontend Code Submission History UI
+- Frontend AI Code Review UI
+- Monaco Editor Integration
+- Dashboard UI polish / section organization
+- CI/CD
+- Deployment
+- README
+- Screenshots
+- Demo video
+- Resume bullets updated
 
 Recommended next feature:
-Frontend Code Runner UI Foundation:
-- Add a simple code practice panel using existing `POST /api/problems/{problemId}/run`.
-- Use simple textarea first, not Monaco yet.
-- Fields: problemId, language dropdown java/python/javascript/cpp, code, stdin optional, expectedOutput optional.
-- Button: Run Code.
-- Show stdout/stderr/output/exitCode/passed/message safely.
-- Use existing token pattern.
+Frontend Code Submit UI Foundation:
+- Add a Submit Code action using existing POST `/api/problems/{problemId}/submit`.
+- Reuse the Code Runner form where sensible.
+- Show passed/failed, XP awarded, firstAccepted, stdout/stderr/output, exitCode, runtimeMs, and safe message.
+- Refresh profile after XP award if available.
 - No backend changes.
+- No Monaco yet.
+- No submission history yet.
+- No AI review yet.
 - Run `cd frontend && npm run build`.
 - Manual browser verify.
 - Do not commit until verified.
 ```
 
 ## Latest Safe Continuation Notes
-- Latest feature commit pushed to main: `1bb5159 feat: add frontend leaderboard ui`.
-- Previous docs commit on main: `0e7c90c docs: record backend docker setup`.
-- Previous feature commit on main: `bc321df chore: add backend dockerfile`.
-- Frontend Leaderboard UI Foundation is the latest completed feature.
-- Frontend Leaderboard UI Foundation changed only `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`.
-- `getLeaderboard()` calls authenticated GET `/api/leaderboard?page=0&size=50&period=ALL_TIME`.
-- DashboardShell now has a Leaderboard section with manual Load/Refresh behavior.
-- Leaderboard does not auto-fetch on dashboard page load.
-- Leaderboard shows loading, empty, and safe error states.
-- 401 errors show safe login-again messaging.
-- Other errors show safe generic messaging.
-- Current-user standing shows position, XP, and rank.
-- Leaderboard rows show only rank position, name, XP, rank, and streak.
-- UI does not show email, password fields, roles, access tokens, refresh tokens, tokenHash, lastLogin, raw JSON, stack traces, or secrets.
+- Latest feature commit pushed to main: `f7b4598 feat: add frontend code runner ui`.
+- Previous docs commit on main: `34f31d6 docs: record frontend leaderboard ui`.
+- Previous feature commit on main: `1bb5159 feat: add frontend leaderboard ui`.
+- Frontend Code Runner UI Foundation is the latest completed feature.
+- Frontend Code Runner UI Foundation changed only `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`.
+- `runCode(problemId, payload)` calls authenticated POST `/api/problems/{problemId}/run`.
+- DashboardShell now has a Code Runner section with problem id, language, code, stdin, expected output, and Run Code controls.
+- Code Runner does not auto-run.
+- Code Runner does not submit code or persist anything.
+- Code Runner does not fetch submission history.
+- Code Runner does not call AI review.
+- Code Runner does not award XP.
+- Code Runner uses simple textarea, not Monaco editor.
+- Code Runner validates blank problem id, blank code, and code over 20000 characters.
+- Code Runner shows loading, safe error, and safe result states.
+- Code Runner outputs render as plain text only.
+- Browser verification passed for the safe Piston-unavailable path using `11111111-1111-1111-1111-111111111111` as problem id.
+- Safe user-facing unavailable message observed: `Code runner is currently unavailable. Please try again later.`
+- UI does not show access tokens, refresh tokens, passwords, roles, token hashes, userId, raw backend JSON, raw Piston internals, hidden tests, correctAnswer, stack traces, or secrets.
 - Frontend build passed after the feature.
-- Manual browser verification passed from user dashboard paste.
-- Existing dashboard sections still rendered after the feature, including Profile Summary, Generate Course, generated course result, Open Course Map entry point, and Quiz Attempt History.
-- Local observation: pasted dashboard showed Profile Summary XP and Leaderboard current-user XP differed at that moment. Treat as non-blocking unless reproducible after fresh profile refresh/login.
-- Backend Leaderboard REST Foundation remains implemented and committed as `68144b3 feat: add leaderboard endpoint`.
+- Backend Piston availability is external and may return safe 503; this is acceptable when shown safely.
+- Frontend Leaderboard UI Foundation remains implemented and committed as `1bb5159 feat: add frontend leaderboard ui`.
 - Backend Docker Setup Foundation remains implemented and committed as `bc321df chore: add backend dockerfile`.
-- Build Log docs update after Frontend Leaderboard UI should be committed separately before starting the next feature.
-- Recommended next implementation feature after docs commit: Frontend Code Runner UI Foundation.
+- Build Log docs update after Frontend Code Runner UI should be committed separately before starting the next feature.
+- Recommended next implementation feature after docs commit: Frontend Code Submit UI Foundation.
 - Use Maven Wrapper only for backend tests; never use plain `mvn`.
 - For frontend-only work, run `cd frontend && npm run build`.
-- Do not start CI/CD/deployment until the visible frontend integrations for code runner/code submit/history/AI review are considered, unless the user explicitly chooses DevOps next.
+- Do not start CI/CD/deployment until the visible frontend integrations for code submit/history/AI review are considered, unless the user explicitly chooses DevOps next.
