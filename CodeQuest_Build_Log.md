@@ -5,14 +5,14 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: DevOps / Docker
-Current feature: Backend Docker Setup Foundation completed, backend-tested, Docker-image-build-verified, committed, pushed, and awaiting Build Log docs commit
-Latest commit: `bc321df chore: add backend dockerfile`
-Previous docs commit: `4ddeb5c docs: record leaderboard endpoint`
-Previous feature commit: `68144b3 feat: add leaderboard endpoint`
+Current module: Frontend / Leaderboard
+Current feature: Frontend Leaderboard UI Foundation completed, frontend-build-verified, browser-manually-verified, committed, pushed, and awaiting Build Log docs commit
+Latest commit: `1bb5159 feat: add frontend leaderboard ui`
+Previous docs commit: `0e7c90c docs: record backend docker setup`
+Previous feature commit: `bc321df chore: add backend dockerfile`
 Current branch: main
-Test status: Backend `cd backend && .\mvnw.cmd test` PASS after Backend Docker Setup Foundation according to Codex output. Docker Desktop engine was started and `docker info` confirmed the Docker server was running. Manual Docker verification PASS: `docker build -t codequest-backend:local ./backend` completed successfully after fixing the Windows CRLF Maven Wrapper script issue inside the Linux builder stage; Docker output showed the image was named `docker.io/library/codequest-backend:local`; `docker images codequest-backend` showed `codequest-backend:local` present with image ID `4afd74688965`, disk usage about 455MB, and content size about 115MB. Initial Docker build failed with `env: $'bash\r': No such file or directory` at `RUN ./mvnw clean package -DskipTests`; root cause was CRLF line endings in `mvnw` copied from Windows into the Linux builder stage; fix was to normalize line endings in `backend/Dockerfile` using `RUN sed -i 's/\r$//' mvnw && chmod +x mvnw` before running the Maven Wrapper. Scope checks PASS: only `backend/Dockerfile` and `backend/.dockerignore` changed; frontend, frontend package files, backend/pom.xml, backend source, backend tests, migrations, application.yml, docs, Build Log, README, .github, docker-compose, CI/CD, deployment, and Phase 2 files were not part of the feature implementation.
-Git status: clean after `bc321df chore: add backend dockerfile` was pushed to `main`; Build Log docs update in progress
+Test status: Frontend `cd frontend && npm run build` PASS after Frontend Leaderboard UI Foundation according to Codex output and user-side verification flow. Manual browser verification PASS from the dashboard paste: Leaderboard section is visible, `Refresh Leaderboard` button works after load, current-user standing card appears, leaderboard table displays sorted users with safe fields only, and existing Dashboard sections still render including Profile Summary, Generate Course, generated course result, Open Course Map entry point, and Quiz Attempt History. Scope checks PASS: only `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js` changed; backend, backend Docker files, backend/pom.xml, migrations, application.yml, docs, Build Log, README, .github, docker-compose, frontend package files, CI/CD, deployment, and Phase 2 files were not part of the feature implementation. Manual UI note: the pasted local dashboard showed Profile Summary XP and Leaderboard current-user XP values not matching in that moment; this is treated as a local state/test-data observation, not a blocking leaderboard UI failure, because the leaderboard itself rendered from the backend and the safe UI contract passed.
+Git status: clean after `1bb5159 feat: add frontend leaderboard ui` was pushed to `main`; Build Log docs update in progress
 
 ## Completed Features
 - [x] Project setup
@@ -80,6 +80,7 @@ Git status: clean after `bc321df chore: add backend dockerfile` was pushed to `m
 - [x] Code submissions history
 - [x] AI code review
 - [x] Leaderboard
+- [x] Frontend Leaderboard UI
 - [x] Docker
 - [ ] CI/CD
 - [ ] Deployment
@@ -110,6 +111,14 @@ Git status: clean after `bc321df chore: add backend dockerfile` was pushed to `m
 - Leaderboard response is safe and must not expose email, passwords, role, tokens, refresh-token hashes, lastLogin, secrets, raw entities, or stack traces.
 - Leaderboard sorting/ranking uses deterministic ordinal global positions based on XP descending with stable tie-breaking.
 - Leaderboard does not mutate XP, rank, streak, progress, quiz attempts, code submissions, or any user data.
+- Frontend Leaderboard UI Foundation is implemented in the existing DashboardShell as a frontend-only MVP section.
+- Frontend leaderboard uses authenticated `GET /api/leaderboard?page=0&size=50&period=ALL_TIME` through the existing Bearer token pattern.
+- Frontend leaderboard loads only after explicit user action through `Load Leaderboard` / `Refresh Leaderboard`; it does not auto-fetch on initial dashboard load.
+- Frontend leaderboard shows safe loading, empty, and error states.
+- Frontend leaderboard displays current-user standing separately with position, XP, and rank.
+- Frontend leaderboard table displays only safe user-facing fields: rank position, name, XP, rank, and streak.
+- Frontend leaderboard intentionally does not display email, password fields, roles, access tokens, refresh tokens, token hashes, raw backend JSON, stack traces, or secrets.
+- Frontend leaderboard intentionally does not add weekly/monthly filters, pagination controls, search, avatars, realtime updates, backend changes, DB migrations, package changes, deployment changes, or Phase 2 features.
 - Deployment target: Vercel frontend, Render backend, Neon PostgreSQL, GitHub Actions CI.
 - MVP first, no Phase 2 features yet.
 - Source-of-truth priority: CodeQuest_AI_Control_Master_Blueprint_v3, CodeQuest_Core_Rules, CodeQuest_DB_Schema, CodeQuest_API_Contracts, CodeQuest_Feature_Prompts, CodeQuest_Build_Log, then AGENTS.md.
@@ -820,6 +829,7 @@ Git status: clean after `bc321df chore: add backend dockerfile` was pushed to `m
 
 ## Bugs / Issues
 - None blocking currently.
+- Frontend Leaderboard UI Foundation note: No blocking issue after browser verification. Manual dashboard verification showed the Leaderboard section visible, current-user standing visible, `Refresh Leaderboard` button working after load, leaderboard rows displaying position/name/XP/rank/streak, and no visible token/password/role/raw JSON/stack trace data. Existing dashboard sections still rendered, including Profile Summary, Generate Course, generated course result, and Quiz Attempt History. Scope stayed frontend-only with expected changes limited to `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`; no backend, DB migration, Docker, docs/Build Log during implementation, README, .github, docker-compose, frontend package, CI/CD, deployment, or Phase 2 files changed. Local observation: the pasted dashboard showed Profile Summary XP and Leaderboard current-user XP not matching at that moment; treat this as a non-blocking local state/test-data observation unless it is reproducible after a fresh profile refresh/login.
 - Backend Docker Setup Foundation note: No blocking issue after manual Docker verification. Initial Docker build failed because the Linux builder stage read Windows CRLF line endings in `mvnw` and failed with `env: $'bash\r': No such file or directory`. This was fixed by normalizing `mvnw` inside `backend/Dockerfile` using `RUN sed -i 's/\r$//' mvnw && chmod +x mvnw` before running `./mvnw clean package -DskipTests`. After Docker Desktop engine was running, `docker build -t codequest-backend:local ./backend` completed successfully and `docker images codequest-backend` showed `codequest-backend:local` present. Backend tests passed with Maven Wrapper according to Codex output. Scope stayed Docker-only with expected changes limited to `backend/Dockerfile` and `backend/.dockerignore`; no frontend, frontend package files, backend/pom.xml, backend source, backend tests, migrations, application.yml, docs/Build Log during implementation, README, .github, docker-compose, CI/CD, deployment, or Phase 2 files changed.
 - Backend Leaderboard REST Foundation note: No blocking issue after manual API verification. Manual verification used three fresh authenticated users and local verification-only SQL updates to set deterministic XP/rank/streak values. Authenticated `GET /api/leaderboard?page=0&size=50&period=ALL_TIME` returned 200 with users sorted by XP descending, global 1-based rank positions, and `currentUser` for Bravo at rankPosition 3. Pagination with `page=0,size=1` and `page=1,size=1` returned rank positions 1 and 2 while still including `currentUser`. Invalid page -1, size 0, size 51, and period `WEEKLY` returned safe 400 ErrorDTO responses. No-token request returned 401. Safety checks returned false for email, password fields, token fields, refresh tokens, tokenHash, role, secrets, lastLogin, `org.springframework`, and `java.lang`. Backend tests passed with 293 tests. Scope stayed backend-only with expected changes limited to `backend/src/main/java/com/codequest/leaderboard/LeaderboardController.java`, `backend/src/main/java/com/codequest/leaderboard/LeaderboardService.java`, leaderboard DTOs, leaderboard tests, and read-only query methods in `backend/src/main/java/com/codequest/user/UserRepository.java`; no frontend, frontend package files, backend/pom.xml, DB migration, docs/Build Log, AI/Gemini, problem, auth, course, level, progress, quiz, flashcard, note, Docker, CI/CD, deployment, or Phase 2 work.
 - Backend AI Code Review Foundation note: No blocking code issue after manual API verification. Live manual success review could not be confirmed because the authenticated `POST /api/ai/review-code` request returned safe 503 `AI_SERVICE_UNAVAILABLE` during local runtime, which is acceptable when Gemini config/service is unavailable. The 503 body was a safe ErrorDTO with message `AI review service is currently unavailable. Please try again later.`, path `/api/ai/review-code`, and a requestId; it did not expose raw Gemini response, raw prompt, stack trace, secrets, tokens, passwords, userId, or backend internals. Invalid language `ruby` returned safe 400 `BAD_REQUEST` with message `Language must be one of: java, python, javascript, cpp.` Blank code returned safe 400 `VALIDATION_ERROR`. No-token request returned 401. Backend tests passed with 272 tests. Scope stayed backend-only with changes limited to `backend/src/main/java/com/codequest/ai/GeminiService.java`, `backend/src/main/java/com/codequest/ai/PromptBuilder.java`, `backend/src/main/java/com/codequest/ai/ResponseParser.java`, `backend/src/main/java/com/codequest/ai/AiCodeReviewService.java`, `backend/src/main/java/com/codequest/ai/AiController.java`, `backend/src/main/java/com/codequest/ai/dto/ReviewCodeRequest.java`, `backend/src/main/java/com/codequest/ai/dto/ReviewCodeResponse.java`, `backend/src/main/java/com/codequest/common/exception/ErrorCode.java`, `backend/src/main/java/com/codequest/common/exception/GlobalExceptionHandler.java`, and AI tests; no frontend, backend/pom.xml, DB migration, problem module, docs/Build Log, auth, course, level, progress, user, quiz, flashcard, note, leaderboard, Docker, CI/CD, deployment, or Phase 2 work.
@@ -1092,6 +1102,8 @@ Git status: clean after `bc321df chore: add backend dockerfile` was pushed to `m
 
 | 64 | 2026-06-09 | Backend Docker Setup Foundation | DevOps / Docker | backend/Dockerfile; backend/.dockerignore | Backend `cd backend && .\mvnw.cmd test` PASS according to Codex output. Docker build verification PASS: `docker build -t codequest-backend:local ./backend` completed successfully after CRLF fix; `docker images codequest-backend` showed `codequest-backend:local` present with image ID `4afd74688965`. Scope checks clean: only backend Docker files changed; no frontend, pom, source, tests, migrations, application.yml, docs/Build Log during implementation, README, .github, docker-compose, CI/CD, deployment, or Phase 2 work. | `bc321df chore: add backend dockerfile`. Added backend-only multi-stage Java 21 Dockerfile using Maven Wrapper in the builder stage and Java 21 JRE runtime image, plus backend `.dockerignore`. Fixed Linux builder CRLF issue by normalizing `mvnw` with `sed -i 's/\r$//' mvnw` before `chmod +x`. Runtime config remains env-var based; no secrets are baked into the image. |
 
+| 65 | 2026-06-10 | Frontend Leaderboard UI Foundation | Frontend / Leaderboard | frontend/src/pages/DashboardShell.jsx; frontend/src/services/courseApi.js | Frontend `cd frontend && npm run build` PASS according to Codex output. Manual browser verification PASS from user dashboard paste: Leaderboard section rendered, current-user standing rendered, leaderboard table showed safe fields, Refresh Leaderboard was visible, and existing dashboard/course/quiz history sections still rendered. Scope checks clean: only DashboardShell and courseApi changed; no backend, docs, Build Log during implementation, Docker, package, CI/CD, deployment, or Phase 2 files changed. | `1bb5159 feat: add frontend leaderboard ui`. Added authenticated `getLeaderboard()` helper and a manual-load DashboardShell leaderboard section using GET `/api/leaderboard?page=0&size=50&period=ALL_TIME`. Includes loading/error/empty states, current-user standing, safe table fields, and no auto-fetch/pagination/weekly filters/search/realtime/backend changes. |
+
 
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
@@ -1197,6 +1209,7 @@ Git status: clean after `bc321df chore: add backend dockerfile` was pushed to `m
 | 2026-06-09 | `cd backend && .\mvnw.cmd test` after Backend Leaderboard REST Foundation | PASS | Backend tests passed with 293 tests, 0 failures, 0 errors after adding authenticated `GET /api/leaderboard`, safe leaderboard/currentUser DTOs, XP-desc deterministic sorting, global rank positions, pagination/period validation, read-only user repository queries, and leaderboard controller/service tests. | Yes |
 | 2026-06-09 | `cd backend && .\mvnw.cmd test` after Backend Docker Setup Foundation | PASS | Backend tests passed according to Codex output after adding backend Dockerfile and backend `.dockerignore`; no Java source, tests, pom, migrations, or application.yml were changed. | Yes |
 | 2026-06-09 | `docker build -t codequest-backend:local ./backend` after Backend Docker Setup Foundation | PASS | Initial Docker build failed with `env: $'bash\r': No such file or directory` because Windows CRLF line endings in `mvnw` broke the Linux builder shebang. Fixed by normalizing `mvnw` in Dockerfile using `sed -i 's/\r$//' mvnw && chmod +x mvnw`. Re-run Docker build completed successfully and image `codequest-backend:local` was created. | Yes |
+| 2026-06-10 | `cd frontend && npm run build` after Frontend Leaderboard UI Foundation | PASS | Frontend build passed after adding authenticated leaderboard API helper and DashboardShell leaderboard UI. No package changes were made. | Yes |
 
 
 ## Manual Verification Log
@@ -1303,7 +1316,8 @@ Git status: clean after `bc321df chore: add backend dockerfile` was pushed to `m
 | 2026-06-09 | Backend Code Submit Foundation | PowerShell-only backend check: start backend with PostgreSQL/JWT env vars and optional `PISTON_BASE_URL` -> register/login fresh user -> call authenticated POST `/api/problems/{problemId}/submit` with Java code and expected output -> external Piston unavailable -> capture 503 body through `Invoke-WebRequest` -> verify DB count through full `psql.exe` path -> verify profile XP -> invalid language -> no-token submit -> inspect V9 migration content | External Piston was unavailable during manual runtime, so submit returned safe 503 ErrorDTO with `CODE_RUNNER_UNAVAILABLE` and safe message; DB count for the manual problemId stayed `0`; profile XP stayed at daily-login XP `30`; invalid language returned safe 400 with allowlist message; no-token submit returned 401; V9 migration safely creates `code_submissions` and indexes only; no raw Piston body, stack trace, tokens, passwords, userId, hidden tests, or correctAnswer were exposed. Happy-path accepted/repeat/failed persistence and XP behavior were covered by mocked backend tests. | Passed |
 | 2026-06-09 | Backend Code Submissions History / Fetch Foundation | PowerShell-only backend check: start backend with PostgreSQL/JWT env vars -> register/login user 1 and user 2 -> insert four local manual `code_submissions` rows only for verification: two rows for user 1/problem, one row for user 2/same problem, and one row for user 1/other problem -> call authenticated GET `/api/problems/{problemId}/submissions?page=0&size=20` as both users -> check empty history -> check pagination -> check invalid page/size -> check no-token request -> run response safety string checks | User 1 response returned `totalItems=2`, `totalPages=1`, and exactly user 1's two rows for the requested problem sorted newest-first (`println(2)` before `println(1)`). User 2 response returned `totalItems=1` and only user 2's row. User 1's other-problem row was hidden. Empty history returned 200 with `totalItems=0`, `totalPages=0`, and empty `items`. Pagination with `size=1` returned page 0 newest row and page 1 older row with `totalPages=2`. Negative page, size 0, and size 51 returned safe 400 ErrorDTO responses. No-token request returned 401. Safety checks returned false for `userId`, password fields, token fields, refresh tokens, tokenHash, role, secrets, correctAnswer, hidden tests, expectedOutput, stdin, stackTrace, and Spring internals. | Passed |
 
-| 2026-06-09 | Backend AI Code Review Foundation | PowerShell-only backend check: start backend with PostgreSQL/JWT/Gemini env vars -> register/login fresh user -> call authenticated `POST /api/ai/review-code` with Java binary-search code -> capture safe 503 body when Gemini unavailable -> invalid language `ruby` -> blank code -> no-token request -> backend tests -> scope checks | Authenticated review request reached backend and returned safe 503 `AI_SERVICE_UNAVAILABLE` with message `AI review service is currently unavailable. Please try again later.`, path `/api/ai/review-code`, and requestId; no raw Gemini response, raw prompt, stack trace, secrets, token, password, userId, or backend internals were exposed. Invalid language returned safe 400 `BAD_REQUEST`; blank code returned safe 400 `VALIDATION_ERROR`; no-token returned 401; backend tests passed with 272 tests; scope stayed limited to AI module source/tests plus minimal common exception mapping. | Passed |
+| 2026-06-09 | Backend AI Code Review Foundation | PowerShell-only backend check: start backend with PostgreSQL/JWT/Gemini env vars -> register/login fresh user -> call authenticated `POST /api/ai/review-code` with Java binary-search code -> capture safe 503 body when Gemini unavailable -> invalid language `ruby` -> blank code -> no-token request -> backend tests -> scope checks | Authenticated review request reached backend and returned safe 503 `AI_SERVICE_UNAVAILABLE` with message `AI review service is currently unavailable. Please try again later.`, path `/api/ai/review-code`, and requestId; no raw Gemini response, raw prompt, stack trace, secrets, token, password, userId, or backend internals were exposed. Invalid language returned safe 400 `BAD_REQUEST`; blank code returned safe 400 `VALIDATION_ERROR`; no-token returned 401; backend tests passed with 272 tests; scope stayed limited to AI module source/tests plus minimal common exception mapping. | Passed || 2026-06-10 | Frontend Leaderboard UI Foundation | Dashboard browser check after login: load/refresh leaderboard, inspect current-user standing, inspect table, confirm existing dashboard sections still render | Leaderboard section visible, Refresh Leaderboard works, current-user standing shows position/XP/rank, table shows position/name/XP/rank/streak only, no sensitive fields/raw JSON/stack traces visible, and existing Generate Course / generated result / Quiz Attempt History sections still render | Passed |
+
 
 ## Backend Progress Fetch Endpoint Foundation Manual Test Commands
 Use these after the backend progress fetch endpoint task `f408fd6 feat: add course progress fetch endpoint`.
@@ -8194,11 +8208,33 @@ npm run dev
 
 Current repo status from last chat:
 - Branch: main
-- Latest feature commit: bc321df chore: add backend dockerfile
-- Previous docs commit: 4ddeb5c docs: record leaderboard endpoint
-- Previous feature commit: 68144b3 feat: add leaderboard endpoint
-- Latest completed feature: Backend Docker Setup Foundation
-- Build Log docs update after Docker may still need a docs commit if CodeQuest_Build_Log.md is modified.
+- Latest feature commit: 1bb5159 feat: add frontend leaderboard ui
+- Previous docs commit: 0e7c90c docs: record backend docker setup
+- Previous feature commit: bc321df chore: add backend dockerfile
+- Latest completed feature: Frontend Leaderboard UI Foundation
+- Build Log docs update after Frontend Leaderboard UI may still need a docs commit if CodeQuest_Build_Log.md is modified.
+
+Latest completed feature details:
+Frontend Leaderboard UI Foundation:
+- Added `getLeaderboard()` in `frontend/src/services/courseApi.js`.
+- Added a new DashboardShell Leaderboard section in `frontend/src/pages/DashboardShell.jsx`.
+- Calls authenticated GET `/api/leaderboard?page=0&size=50&period=ALL_TIME` with the existing Bearer token pattern.
+- Loads only after explicit user action through `Load Leaderboard` / `Refresh Leaderboard`.
+- Does not auto-fetch on dashboard load.
+- Shows loading state, safe error state, and safe empty state.
+- Shows current-user standing with position, XP, and rank.
+- Shows leaderboard rows with rank position, name, XP, rank, and streak.
+- Does not display email, password fields, roles, access tokens, refresh tokens, token hashes, raw backend JSON, stack traces, or secrets.
+- Does not add pagination controls, weekly/monthly filters, search, avatars, realtime updates, backend changes, package changes, Docker changes, CI/CD, deployment, or Phase 2 work.
+- Frontend build passed.
+- Manual dashboard verification passed from user browser paste.
+- Scope changed only `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`.
+- Commit pushed: `1bb5159 feat: add frontend leaderboard ui`.
+
+Important local observation:
+- The user pasted a dashboard where Profile Summary XP and Leaderboard current-user XP differed at that moment.
+- Treat this as a non-blocking local state/test-data observation unless reproducible after fresh profile refresh/login.
+- Do not redesign or change backend for this unless the user explicitly asks to investigate.
 
 Current important completed features:
 - Auth register/login/refresh/logout/JWT/profile
@@ -8212,98 +8248,30 @@ Current important completed features:
 - XPService rank recalculation
 - StreakService daily login XP guard
 - Weak concept detection
-- Piston run code
-- Code submit
-- Code submissions history
-- AI code review
-- Leaderboard
-- Docker
+- Piston run code backend
+- Code submit backend
+- Code submissions history backend
+- AI code review backend
+- Leaderboard backend
+- Backend Docker setup
+- Frontend Leaderboard UI
 
-Latest completed feature details:
-Backend Docker Setup Foundation:
-- Added `backend/Dockerfile` and `backend/.dockerignore`.
-- Dockerfile uses a multi-stage Java 21 build.
-- Builder stage uses `eclipse-temurin:21-jdk`.
-- Runtime stage uses `eclipse-temurin:21-jre`.
-- Builder copies `.mvn/`, `mvnw`, `pom.xml`, and `src/`.
-- Builder normalizes Windows CRLF in `mvnw` using `sed -i 's/\r$//' mvnw` before `chmod +x mvnw`.
-- Builder runs `./mvnw clean package -DskipTests`.
-- Runtime copies the generated jar to `/app/app.jar`, exposes port 8080, and runs `java -jar /app/app.jar`.
-- `.dockerignore` excludes `target/`, `.git/`, IDE folders, logs, `.env`, `.env.*`, `node_modules/`, `build/`, and `dist/`.
-- Runtime config remains env-var based; no DB password, Gemini key, JWT secret, Piston URL, or local secrets are baked into the image.
-- This task did not add docker-compose, frontend Dockerfile, CI/CD, deployment, README, production CORS changes, application logic, APIs, migrations, or Phase 2 features.
-- Feature commit: `bc321df chore: add backend dockerfile`.
+Recommended next feature:
+Frontend Code Runner UI Foundation.
 
-Verification after Backend Docker Setup Foundation:
-- Backend tests passed with Maven Wrapper according to Codex output.
-- Docker Desktop engine was running.
-- First Docker build failed with `env: $'bash\r': No such file or directory` because `mvnw` had Windows CRLF line endings inside Linux.
-- Dockerfile was fixed with `sed -i 's/\r$//' mvnw && chmod +x mvnw`.
-- Re-run `docker build -t codequest-backend:local ./backend` completed successfully.
-- `docker images codequest-backend` showed `codequest-backend:local` present with image ID `4afd74688965`.
-- Scope checks showed only backend Docker files changed.
-
-Previous completed feature details:
-Backend Leaderboard REST Foundation:
-- GET /api/leaderboard is implemented and authenticated.
-- Query params: page optional default 0, size optional default 50, period optional default ALL_TIME.
-- Only period ALL_TIME is supported for MVP.
-- size max is 50.
-- Invalid page < 0, size < 1, size > 50, and period other than ALL_TIME return safe 400 BAD_REQUEST.
-- No-token request returns 401 through Spring Security.
-- Response wrapper fields: page, size, period, totalItems, totalPages, items, currentUser.
-- Leaderboard items expose only rankPosition, userId, name, xp, rank, and streak.
-- currentUser exposes only rankPosition, userId, xp, and rank.
-- Sorting is XP descending with deterministic tie-breaking by name ascending and id ascending.
-- rankPosition is a global 1-based ordinal position after sorting, not dense/shared rank.
-- currentUser is included even if the current user is not on the requested page.
-- Implementation uses a new leaderboard module and read-only UserRepository query methods.
-- No new Flyway migration was added.
-- It does not mutate XP/rank/streak/progress/user data.
-- It does not call Gemini, Piston, or XPService.
-- It does not expose email, password fields, token fields, refresh tokens, tokenHash, role, secrets, lastLogin, raw entities, stack traces, or backend internals.
-
-Verification after Backend Leaderboard REST Foundation:
-- Backend tests passed with 293 tests using Maven Wrapper.
-- Manual API verification passed:
-  - Authenticated GET /api/leaderboard?page=0&size=50&period=ALL_TIME returned 200.
-  - Users were sorted by XP descending.
-  - rankPosition started from 1 and stayed global across pagination.
-  - currentUser for Bravo returned rankPosition 3.
-  - page=0&size=1 returned rankPosition 1.
-  - page=1&size=1 returned rankPosition 2.
-  - invalid page -1 returned 400.
-  - invalid size 0 returned 400.
-  - invalid size 51 returned 400.
-  - invalid period WEEKLY returned 400.
-  - no-token request returned 401.
-  - safety check confirmed no email/password/token/role/secret/lastLogin/internal stack fields.
-
-Remaining MVP items:
-- CI/CD
-- Deployment
-- README
-- Screenshots
-- Demo video
-- Resume bullets updated
-
-Next likely MVP task:
-- Docker Foundation or deployment preparation, depending on CodeQuest docs/API/feature prompts.
-- Before implementation, inspect Build Log and docs. Prefer a plan-first Codex prompt if contracts are ambiguous.
-
-Before giving any new Codex prompt:
-1. Ask me to run:
-   cd C:\Users\hp\Desktop\CodeQuestFinalProject
-   git status --short
-   git log --oneline -5
-2. If CodeQuest_Build_Log.md is modified, commit docs first:
-   git add CodeQuest_Build_Log.md
-   git commit -m "docs: record backend docker setup"
-   git push
-3. Only then give the next detailed Codex prompt.
-4. Every Codex prompt must include manual verification steps after implementation.
+Reason:
+- Backend Piston run-code endpoint already exists.
+- Frontend still needs visible code practice UI.
+- Start with a simple textarea/code input and language dropdown first.
+- Do not add Monaco in the same task unless explicitly requested; Monaco should be a separate package-change task.
+- Keep it frontend-only if possible.
+- Use existing endpoint `POST /api/problems/{problemId}/run`.
+- No backend changes unless an API contract bug is discovered.
+- Run `cd frontend && npm run build`.
+- Manually verify in browser.
+- Do not commit until after verification.
+- Update Build Log only after the feature commit is pushed.
 ```
-
 
 ## New Chat Continuation Summary Template
 Copy this into a new chat if this chat becomes slow:
@@ -8315,163 +8283,80 @@ We are building CodeQuest, a Java 21 + Spring Boot + React + PostgreSQL AI-assis
 
 Latest repo state:
 - Branch: main
-- Latest feature commit: bc321df chore: add backend dockerfile
-- Previous docs commit: 4ddeb5c docs: record leaderboard endpoint
-- Previous feature commit: 68144b3 feat: add leaderboard endpoint
-- Latest completed feature: Backend Docker Setup Foundation
-- Build Log docs update after Docker may still need a docs commit if CodeQuest_Build_Log.md is modified.
+- Latest feature commit: 1bb5159 feat: add frontend leaderboard ui
+- Previous docs commit: 0e7c90c docs: record backend docker setup
+- Previous feature commit: bc321df chore: add backend dockerfile
+- Latest completed feature: Frontend Leaderboard UI Foundation
+- Build Log docs update after Frontend Leaderboard UI may still need a docs commit if CodeQuest_Build_Log.md is modified.
 
 Latest completed feature:
-Backend Leaderboard REST Foundation:
-- GET /api/leaderboard is implemented and authenticated.
-- Query params: page optional default 0, size optional default 50, period optional default ALL_TIME.
-- ALL_TIME is the only supported period for MVP.
-- size max is 50.
-- Invalid page < 0, size < 1, size > 50, and period other than ALL_TIME return safe 400 BAD_REQUEST.
-- No-token request returns 401.
-- Response wrapper: page, size, period, totalItems, totalPages, items, currentUser.
-- items expose only rankPosition, userId, name, xp, rank, streak.
-- currentUser exposes only rankPosition, userId, xp, rank.
-- Sorting is XP descending with deterministic tie-breaker by name ascending and id ascending.
-- rankPosition is a global 1-based ordinal position.
-- currentUser is included even if the authenticated user is not on the requested page.
-- Implementation changed only leaderboard module files and read-only UserRepository query methods.
-- No migration was added.
-- No frontend work was done.
-- It does not mutate XP, rank, streak, progress, quiz attempts, code submissions, or any user data.
-- It does not call Gemini, Piston, or XPService.
-- It does not expose email, password fields, role, tokens, refreshToken, tokenHash, secrets, lastLogin, raw entities, stack traces, or backend internals.
+Frontend Leaderboard UI Foundation:
+- Added authenticated `getLeaderboard()` frontend helper.
+- Added DashboardShell Leaderboard UI.
+- Uses GET `/api/leaderboard?page=0&size=50&period=ALL_TIME`.
+- Uses existing Bearer token pattern.
+- Loads only after explicit click through Load/Refresh Leaderboard.
+- Shows loading, empty, and safe error states.
+- Shows current-user standing separately.
+- Shows safe leaderboard fields only: rank position, name, XP, rank, streak.
+- Does not show email, password, role, token fields, refresh tokens, tokenHash, raw JSON, stack traces, or secrets.
+- Does not add auto-fetch, pagination controls, weekly/monthly filters, search, avatars, realtime updates, backend changes, package changes, CI/CD, deployment, or Phase 2 features.
+- Frontend build passed.
+- Manual browser dashboard verification passed.
+- Commit pushed: `1bb5159 feat: add frontend leaderboard ui`.
 
-Verification:
-- Backend tests passed with 293 tests.
-- Manual verification passed:
-  - Authenticated GET /api/leaderboard?page=0&size=50&period=ALL_TIME returned 200.
-  - Users were sorted by XP descending.
-  - rankPosition was global and started from 1.
-  - currentUser for Bravo showed rankPosition 3.
-  - page=0&size=1 returned rankPosition 1.
-  - page=1&size=1 returned rankPosition 2.
-  - invalid page -1 returned 400.
-  - invalid size 0 returned 400.
-  - invalid size 51 returned 400.
-  - invalid period WEEKLY returned 400.
-  - no-token returned 401.
-  - safety check returned false for email, password fields, token fields, refresh tokens, tokenHash, role, secret, lastLogin, org.springframework, and java.lang.
+Previous latest DevOps feature:
+Backend Docker Setup Foundation:
+- Commit `bc321df chore: add backend dockerfile`.
+- Added `backend/Dockerfile` and `backend/.dockerignore`.
+- Dockerfile uses Java 21 multi-stage build with Maven Wrapper.
+- Dockerfile normalizes CRLF in `mvnw` using `sed -i 's/\r$//' mvnw && chmod +x mvnw`.
+- Docker image build verified with `docker build -t codequest-backend:local ./backend`.
 
-Previous problem/code features:
-- Backend Piston Run Code Foundation: POST /api/problems/{problemId}/run is authenticated, uses Piston only, does not persist, does not award XP, and safely returns CODE_RUNNER_UNAVAILABLE on runner failure.
-- Backend Code Submit Foundation: POST /api/problems/{problemId}/submit is authenticated, persists runner-backed attempts into code_submissions, awards 100 XP only for first accepted submission per authenticated user/problem, repeated accepted attempts award 0 XP, and Piston-unavailable submit does not persist or award XP.
-- Backend Code Submissions History / Fetch Foundation: GET /api/problems/{problemId}/submissions?page=0&size=20 is authenticated, user-scoped, problem-scoped, newest-first, paginated, and safe.
-- Backend AI Code Review Foundation: POST /api/ai/review-code is authenticated raw-code review only, return-only, Gemini through GeminiService, parser through ResponseParser, no persistence/submissionId/Piston/XP.
+Important remaining frontend/backend integration:
+- Backend Piston run-code exists but frontend code runner UI is not done.
+- Backend code submit exists but frontend submit UI is not done.
+- Backend code submissions history exists but frontend history UI is not done.
+- Backend AI code review exists but frontend AI review UI is not done.
+- Monaco editor is not yet added and should be a separate task because it may require package changes.
 
-Completed key features:
-- Auth register/login/refresh/logout/JWT/profile
-- Frontend auth/protected routes/dashboard shell
-- Course generation foundation with Gemini/fallback/sourceType
-- Course fetch endpoint and frontend course map/lesson
-- Quiz/flashcard persistence/fetch/display
-- Notes save/fetch/editor/preload
-- Quiz submit/scoring and attempt history
-- Progress/level complete/unlock/progress fetch + frontend progress/complete UI
-- XPService rank recalculation
-- StreakService daily login XP guard
-- Weak concept detection
-- Piston run code
-- Code submit
-- Code submissions history
-- AI code review
-- Leaderboard
-- Docker
-
-Remaining MVP items:
-- CI/CD
-- Deployment
-- README
-- Screenshots
-- Demo video
-- Resume bullets updated
-
-Critical rules:
-- Maven Wrapper only: cd backend; .\mvnw.cmd test
-- Never plain mvn.
-- Backend run needs local env vars for PostgreSQL/JWT.
-- Never commit secrets/API keys/passwords.
-- Piston only for code execution; never local execution.
-- Gemini only through GeminiService/GeminiClient; prompts through PromptBuilder; structured AI parsing through ResponseParser.
-- One feature at a time.
-- Do not update Build Log unless user asks.
-- Always include manual verification steps in Codex prompts.
+Recommended next feature:
+Frontend Code Runner UI Foundation:
+- Add a simple code practice panel using existing `POST /api/problems/{problemId}/run`.
+- Use simple textarea first, not Monaco yet.
+- Fields: problemId, language dropdown java/python/javascript/cpp, code, stdin optional, expectedOutput optional.
+- Button: Run Code.
+- Show stdout/stderr/output/exitCode/passed/message safely.
+- Use existing token pattern.
+- No backend changes.
+- Run `cd frontend && npm run build`.
+- Manual browser verify.
+- Do not commit until verified.
 ```
 
-
 ## Latest Safe Continuation Notes
-- Latest feature commit pushed to main: `bc321df chore: add backend dockerfile`.
-- Previous docs commit on main: `4ddeb5c docs: record leaderboard endpoint`.
-- Previous feature commit on main: `68144b3 feat: add leaderboard endpoint`.
-- Backend Docker Setup Foundation is the latest completed feature.
-- Backend Docker Setup Foundation added `backend/Dockerfile` and `backend/.dockerignore`.
-- Backend Dockerfile uses multi-stage Java 21 images: `eclipse-temurin:21-jdk` builder and `eclipse-temurin:21-jre` runtime.
-- Backend Docker build uses Linux Maven Wrapper command `./mvnw clean package -DskipTests` inside the builder stage.
-- Backend Dockerfile normalizes CRLF line endings in `mvnw` using `sed -i 's/\r$//' mvnw && chmod +x mvnw` before executing it.
-- This CRLF normalization fixed the Docker build failure `env: $'bash\r': No such file or directory`.
-- Docker image exposes port 8080 and starts with `java -jar /app/app.jar`.
-- Runtime environment variables must be provided externally; no secrets are baked into the image.
-- Docker image build was verified with `docker build -t codequest-backend:local ./backend`.
-- Docker image was present as `codequest-backend:local` with image ID `4afd74688965`.
-- Backend tests passed according to Codex output before Docker commit.
-- Scope stayed Docker-only: `backend/Dockerfile` and `backend/.dockerignore`.
-- No frontend, backend source, tests, pom, migrations, application.yml, docs during implementation, README, .github, docker-compose, CI/CD, deployment, or Phase 2 files changed.
-- Backend tests after Backend Leaderboard REST Foundation passed with 293 tests using `cd backend && .\mvnw.cmd test`.
-- Backend Leaderboard REST Foundation is implemented through authenticated `GET /api/leaderboard`.
-- Query params are `page`, `size`, and `period`.
-- Defaults are `page=0`, `size=50`, and `period=ALL_TIME`.
-- Maximum size is 50.
-- MVP supports only `ALL_TIME`.
-- Invalid `page < 0` returns safe 400 `BAD_REQUEST`.
-- Invalid `size < 1` returns safe 400 `BAD_REQUEST`.
-- Invalid `size > 50` returns safe 400 `BAD_REQUEST`.
-- Invalid period such as `WEEKLY` returns safe 400 `BAD_REQUEST` with message `Period must be ALL_TIME.`.
-- No-token request returns 401 through Spring Security.
-- Leaderboard response wrapper includes `page`, `size`, `period`, `totalItems`, `totalPages`, `items`, and `currentUser`.
-- Leaderboard item DTO includes only `rankPosition`, `userId`, `name`, `xp`, `rank`, and `streak`.
-- Current user DTO includes only `rankPosition`, `userId`, `xp`, and `rank`.
-- Sorting is XP descending with deterministic tie-breaking by name ascending and id ascending.
-- `rankPosition` is a 1-based global ordinal position after sorting.
-- `currentUser` is included even if the authenticated user is not on the requested page.
-- Implementation uses a new `com.codequest.leaderboard` module.
-- `UserRepository` has read-only leaderboard query methods.
-- No new Flyway migration was added for leaderboard.
-- No frontend files changed for leaderboard.
-- `backend/pom.xml` was not changed for leaderboard.
-- No AI/Gemini files changed for leaderboard.
-- No problem/auth/course/level/progress/quiz/flashcard/note/docs/Docker/CI/CD/deployment files changed for leaderboard.
-- Leaderboard does not call Gemini.
-- Leaderboard does not call Piston.
-- Leaderboard does not execute code.
-- Leaderboard does not award XP and does not call `XPService`.
-- Leaderboard does not mutate XP, rank, streak, progress, quiz attempts, code submissions, or any user data.
-- Leaderboard response/errors must not expose email, password fields, role, token fields, refresh tokens, tokenHash, secrets, lastLogin, raw entities, stack traces, `org.springframework`, or `java.lang` internals.
-- Manual verification confirmed successful runtime behavior:
-  - Authenticated leaderboard request returned 200.
-  - XP-desc sorting worked.
-  - Global rank positions worked.
-  - Bravo currentUser returned rankPosition 3.
-  - Pagination with size 1 returned global rank positions 1 and 2.
-  - Invalid page/size/period returned safe 400.
-  - No-token returned 401.
-  - Safety check returned all False for sensitive/internal fields.
-- AI code review remains implemented and unchanged.
-- Code submissions history remains implemented and unchanged.
-- Code submit remains implemented and unchanged.
-- Piston run-code remains implemented and unchanged.
-- CI/CD, deployment, README, screenshots, demo video, and resume bullets remain unfinished.
-- Next safest MVP task is likely CI/CD Foundation or deployment preparation, but only after git status is clean and the Build Log docs update is committed.
-- Before starting any new feature, always run:
-  - `cd C:\Users\hp\Desktop\CodeQuestFinalProject`
-  - `git status --short`
-  - `git log --oneline -5`
-- Do not start a new feature unless `git status --short` is clean.
-- If `CodeQuest_Build_Log.md` is modified after this update, commit it first:
-  - `git add CodeQuest_Build_Log.md`
-  - `git commit -m "docs: record backend docker setup"`
-  - `git push`
+- Latest feature commit pushed to main: `1bb5159 feat: add frontend leaderboard ui`.
+- Previous docs commit on main: `0e7c90c docs: record backend docker setup`.
+- Previous feature commit on main: `bc321df chore: add backend dockerfile`.
+- Frontend Leaderboard UI Foundation is the latest completed feature.
+- Frontend Leaderboard UI Foundation changed only `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`.
+- `getLeaderboard()` calls authenticated GET `/api/leaderboard?page=0&size=50&period=ALL_TIME`.
+- DashboardShell now has a Leaderboard section with manual Load/Refresh behavior.
+- Leaderboard does not auto-fetch on dashboard page load.
+- Leaderboard shows loading, empty, and safe error states.
+- 401 errors show safe login-again messaging.
+- Other errors show safe generic messaging.
+- Current-user standing shows position, XP, and rank.
+- Leaderboard rows show only rank position, name, XP, rank, and streak.
+- UI does not show email, password fields, roles, access tokens, refresh tokens, tokenHash, lastLogin, raw JSON, stack traces, or secrets.
+- Frontend build passed after the feature.
+- Manual browser verification passed from user dashboard paste.
+- Existing dashboard sections still rendered after the feature, including Profile Summary, Generate Course, generated course result, Open Course Map entry point, and Quiz Attempt History.
+- Local observation: pasted dashboard showed Profile Summary XP and Leaderboard current-user XP differed at that moment. Treat as non-blocking unless reproducible after fresh profile refresh/login.
+- Backend Leaderboard REST Foundation remains implemented and committed as `68144b3 feat: add leaderboard endpoint`.
+- Backend Docker Setup Foundation remains implemented and committed as `bc321df chore: add backend dockerfile`.
+- Build Log docs update after Frontend Leaderboard UI should be committed separately before starting the next feature.
+- Recommended next implementation feature after docs commit: Frontend Code Runner UI Foundation.
+- Use Maven Wrapper only for backend tests; never use plain `mvn`.
+- For frontend-only work, run `cd frontend && npm run build`.
+- Do not start CI/CD/deployment until the visible frontend integrations for code runner/code submit/history/AI review are considered, unless the user explicitly chooses DevOps next.
