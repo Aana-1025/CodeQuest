@@ -10,6 +10,7 @@ import {
   getQuizAttemptHistory,
   runCode,
   saveNoteForLevel,
+  submitCode,
   submitQuizAnswer,
 } from "../services/courseApi";
 import { getAccessToken } from "../utils/tokenStorage";
@@ -325,6 +326,22 @@ function getCodeRunnerErrorMessage(error) {
   return "Could not run code right now. Please try again.";
 }
 
+function getCodeSubmitErrorMessage(error) {
+  if (error?.status === 401) {
+    return "Your session may have expired. Please log in again.";
+  }
+
+  if (error?.status === 400) {
+    return "Please check your code submit input and try again.";
+  }
+
+  if (error?.status === 503) {
+    return "Code runner is currently unavailable. Please try again later.";
+  }
+
+  return "Could not submit code right now. Please try again.";
+}
+
 function getCodeRunnerComparisonMessage(result) {
   if (result?.passed === true) {
     return "Passed expected output";
@@ -338,6 +355,34 @@ function getCodeRunnerComparisonMessage(result) {
 }
 
 function getCodeRunnerStatusClass(result) {
+  if (result?.passed === true) {
+    return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  }
+
+  if (result?.passed === false) {
+    return "border-amber-200 bg-amber-50 text-amber-800";
+  }
+
+  return "border-slate-200 bg-slate-50 text-slate-700";
+}
+
+function getCodeSubmitSummary(result) {
+  if (result?.passed === true && result?.firstAccepted === true) {
+    return `Accepted - first solve! XP awarded: ${result?.xpAwarded ?? 0}`;
+  }
+
+  if (result?.passed === true && result?.firstAccepted === false) {
+    return "Accepted again - no extra XP for repeated accepted submission.";
+  }
+
+  if (result?.passed === false) {
+    return "Not accepted yet. Output did not match expected output.";
+  }
+
+  return "Submission completed without comparison status.";
+}
+
+function getCodeSubmitStatusClass(result) {
   if (result?.passed === true) {
     return "border-emerald-200 bg-emerald-50 text-emerald-800";
   }
@@ -421,6 +466,10 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
   const [codeRunnerError, setCodeRunnerError] = useState("");
   const [codeRunnerResult, setCodeRunnerResult] = useState(null);
   const [codeRunnerCodeTouched, setCodeRunnerCodeTouched] = useState(false);
+  const [codeSubmitLoading, setCodeSubmitLoading] = useState(false);
+  const [codeSubmitError, setCodeSubmitError] = useState("");
+  const [codeSubmitResult, setCodeSubmitResult] = useState(null);
+  const [codeSubmitProfileMessage, setCodeSubmitProfileMessage] = useState("");
 
   const clearLevelCompletionFeedback = (levelId) => {
     if (!levelId) {
@@ -1003,6 +1052,57 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
       setCodeRunnerError(getCodeRunnerErrorMessage(error));
     } finally {
       setCodeRunnerLoading(false);
+    }
+  };
+
+  const handleCodeSubmit = async () => {
+    const trimmedProblemId = codeRunnerForm.problemId.trim();
+    const trimmedCode = codeRunnerForm.code.trim();
+    const trimmedExpectedOutput = codeRunnerForm.expectedOutput.trim();
+
+    if (!trimmedProblemId || !trimmedCode) {
+      setCodeSubmitError("Please check your code submit input and try again.");
+      return;
+    }
+
+    if (!trimmedExpectedOutput) {
+      setCodeSubmitError("Expected output is required before submitting.");
+      return;
+    }
+
+    if (trimmedCode.length > 20000) {
+      setCodeSubmitError("Please check your code submit input and try again.");
+      return;
+    }
+
+    setCodeSubmitLoading(true);
+    setCodeSubmitError("");
+    setCodeSubmitResult(null);
+    setCodeSubmitProfileMessage("");
+
+    try {
+      const response = await submitCode(trimmedProblemId, {
+        language: codeRunnerForm.language,
+        code: codeRunnerForm.code,
+        stdin: codeRunnerForm.stdin,
+        expectedOutput: codeRunnerForm.expectedOutput,
+      });
+
+      setCodeSubmitResult(response);
+
+      if ((response?.xpAwarded ?? 0) > 0 && typeof onRefreshProfile === "function") {
+        try {
+          await onRefreshProfile();
+        } catch {
+          setCodeSubmitProfileMessage(
+            "Submission saved, but profile refresh failed. Refresh the page to see updated XP.",
+          );
+        }
+      }
+    } catch (error) {
+      setCodeSubmitError(getCodeSubmitErrorMessage(error));
+    } finally {
+      setCodeSubmitLoading(false);
     }
   };
 
@@ -1946,6 +2046,20 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
               >
                 {codeRunnerLoading ? "Running Code..." : "Run Code"}
               </button>
+
+              <button
+                type="button"
+                onClick={handleCodeSubmit}
+                disabled={
+                  codeSubmitLoading ||
+                  !codeRunnerForm.problemId.trim() ||
+                  !codeRunnerForm.code.trim() ||
+                  !codeRunnerForm.expectedOutput.trim()
+                }
+                className="ml-3 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+              >
+                {codeSubmitLoading ? "Submitting Code..." : "Submit Code"}
+              </button>
             </form>
 
             {codeRunnerResult && (
@@ -2015,6 +2129,107 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
                     <p className="text-sm font-semibold text-slate-700">Output</p>
                     <pre className="mt-2 whitespace-pre-wrap break-words text-sm text-slate-700">
                       {codeRunnerResult.output ? codeRunnerResult.output : "No output."}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {codeSubmitError && (
+              <div
+                className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+                role="alert"
+              >
+                {codeSubmitError}
+              </div>
+            )}
+
+            {codeSubmitResult && (
+              <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900">Submit Result</h3>
+                    <p className="mt-1 text-sm text-slate-600">{getCodeSubmitSummary(codeSubmitResult)}</p>
+                    {codeSubmitResult.message && (
+                      <p className="mt-1 text-sm text-slate-600">{codeSubmitResult.message}</p>
+                    )}
+                  </div>
+                  <span className={`inline-flex w-fit rounded-full border px-3 py-1 text-xs font-semibold ${getCodeSubmitStatusClass(codeSubmitResult)}`}>
+                    {codeSubmitResult.passed === true
+                      ? "Accepted"
+                      : codeSubmitResult.passed === false
+                        ? "Not accepted"
+                        : "Submitted"}
+                  </span>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <div className="rounded-xl bg-white p-4">
+                    <p className="text-sm text-slate-500">Language</p>
+                    <p className="mt-1 text-base font-semibold text-slate-900">
+                      {codeSubmitResult.language ?? codeRunnerForm.language}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-white p-4">
+                    <p className="text-sm text-slate-500">Exit Code</p>
+                    <p className="mt-1 text-base font-semibold text-slate-900">
+                      {codeSubmitResult.exitCode ?? "Unavailable"}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-white p-4">
+                    <p className="text-sm text-slate-500">Runtime</p>
+                    <p className="mt-1 text-base font-semibold text-slate-900">
+                      {codeSubmitResult.runtimeMs ?? codeSubmitResult.runtimeMs === 0
+                        ? `${codeSubmitResult.runtimeMs} ms`
+                        : "Unavailable"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="rounded-xl bg-white p-4">
+                    <p className="text-sm text-slate-500">XP Awarded</p>
+                    <p className="mt-1 text-base font-semibold text-slate-900">
+                      {codeSubmitResult.xpAwarded ?? codeSubmitResult.xpAwarded === 0
+                        ? codeSubmitResult.xpAwarded
+                        : "Unavailable"}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-white p-4">
+                    <p className="text-sm text-slate-500">First Accepted</p>
+                    <p className="mt-1 text-base font-semibold text-slate-900">
+                      {codeSubmitResult.firstAccepted === true
+                        ? "Yes"
+                        : codeSubmitResult.firstAccepted === false
+                          ? "No"
+                          : "Unavailable"}
+                    </p>
+                  </div>
+                </div>
+
+                {codeSubmitProfileMessage && (
+                  <p className="mt-4 text-sm text-slate-600">{codeSubmitProfileMessage}</p>
+                )}
+
+                <div className="mt-4 space-y-4">
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <p className="text-sm font-semibold text-slate-700">Stdout</p>
+                    <pre className="mt-2 whitespace-pre-wrap break-words text-sm text-slate-700">
+                      {codeSubmitResult.stdout ? codeSubmitResult.stdout : "No stdout."}
+                    </pre>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <p className="text-sm font-semibold text-slate-700">Stderr</p>
+                    <pre className="mt-2 whitespace-pre-wrap break-words text-sm text-slate-700">
+                      {codeSubmitResult.stderr ? codeSubmitResult.stderr : "No stderr."}
+                    </pre>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 bg-white p-4">
+                    <p className="text-sm font-semibold text-slate-700">Output</p>
+                    <pre className="mt-2 whitespace-pre-wrap break-words text-sm text-slate-700">
+                      {codeSubmitResult.output ? codeSubmitResult.output : "No output."}
                     </pre>
                   </div>
                 </div>
