@@ -5,6 +5,7 @@ import {
   generateCourse,
   getCourseById,
   getCourseProgress,
+  getLeaderboard,
   getNoteForLevel,
   getQuizAttemptHistory,
   saveNoteForLevel,
@@ -259,6 +260,30 @@ function getCompleteLevelErrorMessage(error) {
   return "Could not complete this level right now.";
 }
 
+function getLeaderboardErrorMessage(error) {
+  if (error?.status === 401) {
+    return "Your session may have expired. Please log in again.";
+  }
+
+  return "Could not load leaderboard right now. Please try again.";
+}
+
+function getLeaderboardBadgeClass(rankPosition) {
+  if (rankPosition === 1) {
+    return "bg-amber-100 text-amber-800";
+  }
+
+  if (rankPosition === 2) {
+    return "bg-slate-200 text-slate-700";
+  }
+
+  if (rankPosition === 3) {
+    return "bg-orange-100 text-orange-800";
+  }
+
+  return "bg-sky-50 text-sky-700";
+}
+
 function mergeCourseMapLevels(courseMap, courseProgress) {
   const progressLevels = Array.isArray(courseProgress?.levels) ? courseProgress.levels : [];
   const progressByLevelId = new Map(
@@ -322,6 +347,10 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
   const [quizAttemptHistoryLoading, setQuizAttemptHistoryLoading] = useState(false);
   const [quizAttemptHistoryError, setQuizAttemptHistoryError] = useState("");
   const [quizAttemptHistoryLoaded, setQuizAttemptHistoryLoaded] = useState(false);
+  const [leaderboard, setLeaderboard] = useState(null);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [leaderboardError, setLeaderboardError] = useState("");
+  const [leaderboardLoaded, setLeaderboardLoaded] = useState(false);
 
   const clearLevelCompletionFeedback = (levelId) => {
     if (!levelId) {
@@ -838,6 +867,22 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
       }
     } finally {
       setQuizAttemptHistoryLoading(false);
+    }
+  };
+
+  const handleLoadLeaderboard = async () => {
+    setLeaderboardLoading(true);
+    setLeaderboardError("");
+
+    try {
+      const response = await getLeaderboard();
+      setLeaderboard(response);
+      setLeaderboardLoaded(true);
+    } catch (error) {
+      setLeaderboardError(getLeaderboardErrorMessage(error));
+      setLeaderboardLoaded(true);
+    } finally {
+      setLeaderboardLoading(false);
     }
   };
 
@@ -1452,6 +1497,103 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
             )}
           </div>
 
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-900 mb-1">Leaderboard</h2>
+                <p className="text-sm text-slate-600">See how learners rank by XP.</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleLoadLeaderboard}
+                disabled={leaderboardLoading}
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+              >
+                {leaderboardLoading
+                  ? "Loading Leaderboard..."
+                  : leaderboardLoaded
+                    ? "Refresh Leaderboard"
+                    : "Load Leaderboard"}
+              </button>
+            </div>
+
+            {leaderboardError && (
+              <div
+                className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+                role="alert"
+              >
+                {leaderboardError}
+              </div>
+            )}
+
+            {leaderboard?.currentUser && (
+              <div className="mt-5 rounded-2xl border border-sky-200 bg-sky-50 p-5">
+                <p className="text-sm font-semibold text-sky-800">Your Standing</p>
+                <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div>
+                    <p className="text-sm text-sky-700">Your position</p>
+                    <p className="text-lg font-semibold text-slate-900">
+                      {leaderboard.currentUser.rankPosition ? `#${leaderboard.currentUser.rankPosition}` : "Unranked"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-sky-700">XP</p>
+                    <p className="text-lg font-semibold text-slate-900">{leaderboard.currentUser.xp ?? 0}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-sky-700">Rank</p>
+                    <p className="text-lg font-semibold text-slate-900">{leaderboard.currentUser.rank ?? "Unknown"}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {leaderboardLoading && !leaderboard && (
+              <div className="mt-4 rounded-xl bg-slate-50 p-5">
+                <p className="text-sm text-slate-600">Loading leaderboard...</p>
+              </div>
+            )}
+
+            {leaderboardLoaded && !leaderboardError && (!Array.isArray(leaderboard?.items) || leaderboard.items.length === 0) && (
+              <div className="mt-4 rounded-xl bg-slate-50 p-5">
+                <p className="text-sm text-slate-600">No leaderboard entries yet. Earn XP to appear here.</p>
+              </div>
+            )}
+
+            {Array.isArray(leaderboard?.items) && leaderboard.items.length > 0 && (
+              <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-slate-200">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Position</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Name</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">XP</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Rank</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Streak</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 bg-white">
+                      {leaderboard.items.map((entry, index) => (
+                        <tr key={`${entry.userId ?? entry.name ?? "leader"}-${entry.rankPosition ?? index}`} className="align-top">
+                          <td className="px-4 py-4 text-sm text-slate-700">
+                            <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getLeaderboardBadgeClass(entry.rankPosition)}`}>
+                              #{entry.rankPosition ?? "-"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 text-sm font-semibold text-slate-900">{entry.name ?? "Unknown learner"}</td>
+                          <td className="px-4 py-4 text-sm text-slate-700">{entry.xp ?? 0}</td>
+                          <td className="px-4 py-4 text-sm text-slate-700">{entry.rank ?? "Unknown"}</td>
+                          <td className="px-4 py-4 text-sm text-slate-700">{entry.streak ?? 0}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Course generation */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="mb-4 text-xl font-semibold text-slate-900">Generate Course</h2>
@@ -1701,7 +1843,7 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
           {/* Status note */}
           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
             <p className="text-sm text-amber-800">
-              <strong>Dashboard shell:</strong> Placeholder course generation is now wired to the backend foundation. AI, lessons, quizzes, XP, streak, leaderboard, and code execution are still not implemented yet.
+              <strong>Dashboard shell:</strong> Course generation, lessons, quiz history, and leaderboard loading are wired to the current MVP foundation. Advanced filters, realtime updates, and broader dashboard polish are still pending later tasks.
             </p>
           </div>
         </div>

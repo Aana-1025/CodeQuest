@@ -214,6 +214,39 @@ async function getQuizAttemptHistory() {
   return handleResponse(response);
 }
 
+async function getLeaderboard() {
+  const accessToken = getAccessToken();
+
+  if (!accessToken) {
+    const error = new Error("Your session may have expired. Please log in again.");
+    error.status = 401;
+    throw error;
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/leaderboard?page=0&size=50&period=ALL_TIME`, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+    },
+  });
+
+  const data = await parseJsonResponse(response);
+
+  if (response.status === 401) {
+    const error = new Error("Your session may have expired. Please log in again.");
+    error.status = 401;
+    throw error;
+  }
+
+  if (!response.ok) {
+    const error = new Error(data?.message ? "Could not load leaderboard right now. Please try again." : "Could not load leaderboard right now. Please try again.");
+    error.status = response.status;
+    throw error;
+  }
+
+  return data;
+}
+
 export {
   generateCourse,
   getCourseById,
@@ -223,4 +256,5 @@ export {
   getNoteForLevel,
   submitQuizAnswer,
   getQuizAttemptHistory,
+  getLeaderboard,
 };
