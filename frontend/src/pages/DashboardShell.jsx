@@ -5,6 +5,7 @@ import {
   generateCourse,
   getCourseById,
   getCourseProgress,
+  getCodeSubmissions,
   getLeaderboard,
   getNoteForLevel,
   getQuizAttemptHistory,
@@ -394,6 +395,42 @@ function getCodeSubmitStatusClass(result) {
   return "border-slate-200 bg-slate-50 text-slate-700";
 }
 
+function getCodeSubmissionHistoryErrorMessage(error) {
+  if (error?.status === 401) {
+    return "Your session may have expired. Please log in again.";
+  }
+
+  if (error?.status === 400) {
+    return "Please check the submissions history request and try again.";
+  }
+
+  return "Could not load code submissions right now. Please try again.";
+}
+
+function getSubmissionStatusLabel(submission) {
+  if (submission?.passed === true) {
+    return "Accepted";
+  }
+
+  if (submission?.passed === false) {
+    return "Not Accepted";
+  }
+
+  return "Unknown status";
+}
+
+function getSubmissionStatusClass(submission) {
+  if (submission?.passed === true) {
+    return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  }
+
+  if (submission?.passed === false) {
+    return "border-amber-200 bg-amber-50 text-amber-800";
+  }
+
+  return "border-slate-200 bg-slate-50 text-slate-700";
+}
+
 function mergeCourseMapLevels(courseMap, courseProgress) {
   const progressLevels = Array.isArray(courseProgress?.levels) ? courseProgress.levels : [];
   const progressByLevelId = new Map(
@@ -470,6 +507,11 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
   const [codeSubmitError, setCodeSubmitError] = useState("");
   const [codeSubmitResult, setCodeSubmitResult] = useState(null);
   const [codeSubmitProfileMessage, setCodeSubmitProfileMessage] = useState("");
+  const [codeSubmissionsHistoryLoading, setCodeSubmissionsHistoryLoading] = useState(false);
+  const [codeSubmissionsHistoryError, setCodeSubmissionsHistoryError] = useState("");
+  const [codeSubmissionsHistory, setCodeSubmissionsHistory] = useState(null);
+  const [codeSubmissionsHistoryLoaded, setCodeSubmissionsHistoryLoaded] = useState(false);
+  const [codeSubmissionsHistoryPage, setCodeSubmissionsHistoryPage] = useState(0);
 
   const clearLevelCompletionFeedback = (levelId) => {
     if (!levelId) {
@@ -1104,6 +1146,56 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
     } finally {
       setCodeSubmitLoading(false);
     }
+  };
+
+  const loadCodeSubmissionsHistory = async (page = 0) => {
+    const trimmedProblemId = codeRunnerForm.problemId.trim();
+
+    if (!trimmedProblemId) {
+      setCodeSubmissionsHistoryError("Please check the submissions history request and try again.");
+      return;
+    }
+
+    setCodeSubmissionsHistoryLoading(true);
+    setCodeSubmissionsHistoryError("");
+
+    try {
+      const response = await getCodeSubmissions(trimmedProblemId, page, 20);
+      setCodeSubmissionsHistory(response);
+      setCodeSubmissionsHistoryLoaded(true);
+      setCodeSubmissionsHistoryPage(page);
+    } catch (error) {
+      setCodeSubmissionsHistoryError(getCodeSubmissionHistoryErrorMessage(error));
+      setCodeSubmissionsHistoryLoaded(true);
+    } finally {
+      setCodeSubmissionsHistoryLoading(false);
+    }
+  };
+
+  const handleLoadCodeSubmissionsHistory = async () => {
+    await loadCodeSubmissionsHistory(0);
+  };
+
+  const handlePreviousCodeSubmissionsPage = async () => {
+    if (codeSubmissionsHistoryPage <= 0 || codeSubmissionsHistoryLoading) {
+      return;
+    }
+
+    await loadCodeSubmissionsHistory(codeSubmissionsHistoryPage - 1);
+  };
+
+  const handleNextCodeSubmissionsPage = async () => {
+    const totalPages = codeSubmissionsHistory?.totalPages ?? 0;
+
+    if (
+      codeSubmissionsHistoryLoading ||
+      totalPages <= 0 ||
+      codeSubmissionsHistoryPage >= totalPages - 1
+    ) {
+      return;
+    }
+
+    await loadCodeSubmissionsHistory(codeSubmissionsHistoryPage + 1);
   };
 
   if (courseMap && selectedLevel) {
@@ -2235,6 +2327,156 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
                 </div>
               </div>
             )}
+
+            <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">Code Submission History</h3>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Load your own recent submissions for the current problem ID.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleLoadCodeSubmissionsHistory}
+                  disabled={codeSubmissionsHistoryLoading || !codeRunnerForm.problemId.trim()}
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                >
+                  {codeSubmissionsHistoryLoading
+                    ? "Loading Submissions..."
+                    : codeSubmissionsHistoryLoaded
+                      ? "Refresh Submissions"
+                      : "Load Submissions"}
+                </button>
+              </div>
+
+              {codeSubmissionsHistoryError && (
+                <div
+                  className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+                  role="alert"
+                >
+                  {codeSubmissionsHistoryError}
+                </div>
+              )}
+
+              {codeSubmissionsHistoryLoading && !codeSubmissionsHistory && (
+                <div className="mt-4 rounded-xl bg-white p-5">
+                  <p className="text-sm text-slate-600">Loading code submissions...</p>
+                </div>
+              )}
+
+              {codeSubmissionsHistory && (
+                <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-slate-600">
+                  <span>Page: {codeSubmissionsHistory.page ?? codeSubmissionsHistoryPage}</span>
+                  <span>Size: {codeSubmissionsHistory.size ?? 20}</span>
+                  <span>Total Items: {codeSubmissionsHistory.totalItems ?? 0}</span>
+                  <span>Total Pages: {codeSubmissionsHistory.totalPages ?? 0}</span>
+                </div>
+              )}
+
+              {codeSubmissionsHistoryLoaded &&
+                !codeSubmissionsHistoryError &&
+                (!Array.isArray(codeSubmissionsHistory?.items) || codeSubmissionsHistory.items.length === 0) && (
+                  <div className="mt-4 rounded-xl bg-white p-5">
+                    <p className="text-sm text-slate-600">No submissions found for this problem yet.</p>
+                  </div>
+                )}
+
+              {Array.isArray(codeSubmissionsHistory?.items) && codeSubmissionsHistory.items.length > 0 && (
+                <div className="mt-5 space-y-4">
+                  {codeSubmissionsHistory.items.map((submission, index) => (
+                    <div
+                      key={submission.submissionId ?? `${submission.submittedAt ?? "submission"}-${index}`}
+                      className="rounded-xl border border-slate-200 bg-white p-5"
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <h4 className="text-base font-semibold text-slate-900">
+                            {submission.language ?? "Unknown language"}
+                          </h4>
+                          <p className="mt-1 text-sm text-slate-600">
+                            {submission.submittedAt ? formatSavedTimestamp(submission.submittedAt) : "Submission time unavailable"}
+                          </p>
+                        </div>
+                        <span className={`inline-flex w-fit rounded-full border px-3 py-1 text-xs font-semibold ${getSubmissionStatusClass(submission)}`}>
+                          {getSubmissionStatusLabel(submission)}
+                        </span>
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+                        <div className="rounded-xl bg-slate-50 p-4">
+                          <p className="text-sm text-slate-500">Visible Tests</p>
+                          <p className="mt-1 text-base font-semibold text-slate-900">
+                            {submission.passedTestCases ?? 0}/{submission.totalTestCases ?? 0} visible tests
+                          </p>
+                        </div>
+                        <div className="rounded-xl bg-slate-50 p-4">
+                          <p className="text-sm text-slate-500">Runtime</p>
+                          <p className="mt-1 text-base font-semibold text-slate-900">
+                            {submission.runtimeMs ?? submission.runtimeMs === 0
+                              ? `${submission.runtimeMs} ms`
+                              : "Runtime not available"}
+                          </p>
+                        </div>
+                        <div className="rounded-xl bg-slate-50 p-4">
+                          <p className="text-sm text-slate-500">Memory</p>
+                          <p className="mt-1 text-base font-semibold text-slate-900">
+                            {submission.memoryKb ?? submission.memoryKb === 0
+                              ? `${submission.memoryKb} KB`
+                              : "Memory not available"}
+                          </p>
+                        </div>
+                        <div className="rounded-xl bg-slate-50 p-4">
+                          <p className="text-sm text-slate-500">Problem ID</p>
+                          <p className="mt-1 break-all text-base font-semibold text-slate-900">
+                            {submission.problemId ?? codeRunnerForm.problemId.trim()}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                        <p className="text-sm font-semibold text-slate-700">Submitted Code</p>
+                        <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words text-sm text-slate-700">
+                          {submission.code ? submission.code : "No submitted code."}
+                        </pre>
+                      </div>
+
+                      <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                        <p className="text-sm font-semibold text-slate-700">AI Review</p>
+                        <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words text-sm text-slate-700">
+                          {submission.aiReview ? submission.aiReview : "No AI review saved yet"}
+                        </pre>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {codeSubmissionsHistory && (
+                <div className="mt-5 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handlePreviousCodeSubmissionsPage}
+                    disabled={codeSubmissionsHistoryLoading || codeSubmissionsHistoryPage <= 0}
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleNextCodeSubmissionsPage}
+                    disabled={
+                      codeSubmissionsHistoryLoading ||
+                      (codeSubmissionsHistory?.totalPages ?? 0) <= 0 ||
+                      codeSubmissionsHistoryPage >= (codeSubmissionsHistory?.totalPages ?? 0) - 1
+                    }
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Quiz attempt history */}

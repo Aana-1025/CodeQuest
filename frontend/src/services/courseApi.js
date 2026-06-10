@@ -369,6 +369,60 @@ async function submitCode(problemId, payload) {
   return data;
 }
 
+async function getCodeSubmissions(problemId, page = 0, size = 20) {
+  const accessToken = getAccessToken();
+
+  if (!accessToken) {
+    const error = new Error("Your session may have expired. Please log in again.");
+    error.status = 401;
+    throw error;
+  }
+
+  const trimmedProblemId = typeof problemId === "string" ? problemId.trim() : "";
+
+  if (!trimmedProblemId) {
+    const error = new Error("Please check the submissions history request and try again.");
+    error.status = 400;
+    throw error;
+  }
+
+  const safePage = Number.isInteger(page) && page >= 0 ? page : 0;
+  const safeSize = size === 20 ? 20 : 20;
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/problems/${encodeURIComponent(trimmedProblemId)}/submissions?page=${safePage}&size=${safeSize}`,
+    {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+      },
+    },
+  );
+
+  const data = await parseJsonResponse(response);
+
+  if (response.status === 401) {
+    const error = new Error("Your session may have expired. Please log in again.");
+    error.status = 401;
+    throw error;
+  }
+
+  if (response.status === 400) {
+    const error = new Error("Please check the submissions history request and try again.");
+    error.status = 400;
+    throw error;
+  }
+
+  if (!response.ok) {
+    const error = new Error("Could not load code submissions right now. Please try again.");
+    error.status = response.status;
+    error.data = data ?? null;
+    throw error;
+  }
+
+  return data;
+}
+
 export {
   generateCourse,
   getCourseById,
@@ -381,4 +435,5 @@ export {
   getLeaderboard,
   runCode,
   submitCode,
+  getCodeSubmissions,
 };
