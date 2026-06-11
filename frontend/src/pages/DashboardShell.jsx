@@ -9,6 +9,7 @@ import {
   getLeaderboard,
   getNoteForLevel,
   getQuizAttemptHistory,
+  reviewCodeWithAi,
   runCode,
   saveNoteForLevel,
   submitCode,
@@ -44,6 +45,8 @@ const INITIAL_CODE_RUNNER_FORM = {
   code: CODE_RUNNER_STARTER_CODE.java,
   stdin: "",
   expectedOutput: "",
+  problemTitle: "",
+  problemDescription: "",
 };
 
 function getCourseBadgeLabel(generatedCourse) {
@@ -407,6 +410,48 @@ function getCodeSubmissionHistoryErrorMessage(error) {
   return "Could not load code submissions right now. Please try again.";
 }
 
+function getAiCodeReviewErrorMessage(error) {
+  if (error?.status === 401) {
+    return "Your session may have expired. Please log in again.";
+  }
+
+  if (error?.status === 400) {
+    return "Please check your AI review input and try again.";
+  }
+
+  if (error?.status === 502) {
+    return "AI review response was invalid. Please try again.";
+  }
+
+  if (error?.status === 503) {
+    return "AI review service is currently unavailable. Please try again later.";
+  }
+
+  return "Could not review code right now. Please try again.";
+}
+
+function getAiReviewText(value) {
+  if (typeof value !== "string") {
+    return "Not provided.";
+  }
+
+  const trimmedValue = value.trim();
+  return trimmedValue ? trimmedValue : "Not provided.";
+}
+
+function getAiReviewItems(value, emptyMessage) {
+  if (!Array.isArray(value)) {
+    return [emptyMessage];
+  }
+
+  const items = value
+    .filter((item) => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  return items.length > 0 ? items : [emptyMessage];
+}
+
 function getSubmissionStatusLabel(submission) {
   if (submission?.passed === true) {
     return "Accepted";
@@ -507,6 +552,9 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
   const [codeSubmitError, setCodeSubmitError] = useState("");
   const [codeSubmitResult, setCodeSubmitResult] = useState(null);
   const [codeSubmitProfileMessage, setCodeSubmitProfileMessage] = useState("");
+  const [aiCodeReviewLoading, setAiCodeReviewLoading] = useState(false);
+  const [aiCodeReviewError, setAiCodeReviewError] = useState("");
+  const [aiCodeReviewResult, setAiCodeReviewResult] = useState(null);
   const [codeSubmissionsHistoryLoading, setCodeSubmissionsHistoryLoading] = useState(false);
   const [codeSubmissionsHistoryError, setCodeSubmissionsHistoryError] = useState("");
   const [codeSubmissionsHistory, setCodeSubmissionsHistory] = useState(null);
@@ -1094,6 +1142,39 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
       setCodeRunnerError(getCodeRunnerErrorMessage(error));
     } finally {
       setCodeRunnerLoading(false);
+    }
+  };
+
+  const handleAiCodeReview = async () => {
+    const trimmedCode = codeRunnerForm.code.trim();
+
+    if (!trimmedCode) {
+      setAiCodeReviewError("Please check your AI review input and try again.");
+      return;
+    }
+
+    if (trimmedCode.length > 20000) {
+      setAiCodeReviewError("Please check your AI review input and try again.");
+      return;
+    }
+
+    setAiCodeReviewLoading(true);
+    setAiCodeReviewError("");
+    setAiCodeReviewResult(null);
+
+    try {
+      const response = await reviewCodeWithAi({
+        language: codeRunnerForm.language,
+        code: codeRunnerForm.code,
+        problemTitle: codeRunnerForm.problemTitle.trim() || null,
+        problemDescription: codeRunnerForm.problemDescription.trim() || null,
+      });
+
+      setAiCodeReviewResult(response);
+    } catch (error) {
+      setAiCodeReviewError(getAiCodeReviewErrorMessage(error));
+    } finally {
+      setAiCodeReviewLoading(false);
     }
   };
 
@@ -2118,6 +2199,153 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
                 </div>
               </div>
 
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold text-slate-900">AI Code Review</h3>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Send the current language and code to the backend AI review endpoint for structured feedback.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  <div>
+                    <label htmlFor="ai-review-problem-title" className="mb-2 block text-sm font-medium text-slate-700">
+                      Problem Title (Optional)
+                    </label>
+                    <input
+                      id="ai-review-problem-title"
+                      type="text"
+                      value={codeRunnerForm.problemTitle}
+                      onChange={(event) => handleCodeRunnerFieldChange("problemTitle", event.target.value)}
+                      placeholder="Hello World"
+                      className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="ai-review-problem-description" className="mb-2 block text-sm font-medium text-slate-700">
+                      Problem Description (Optional)
+                    </label>
+                    <textarea
+                      id="ai-review-problem-description"
+                      value={codeRunnerForm.problemDescription}
+                      onChange={(event) => handleCodeRunnerFieldChange("problemDescription", event.target.value)}
+                      rows={4}
+                      placeholder="Print Hello CodeQuest."
+                      className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                    />
+                  </div>
+                </div>
+
+                {codeRunnerForm.code.length > 20000 && (
+                  <div
+                    className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+                    role="alert"
+                  >
+                    Code must be 20000 characters or fewer for AI review.
+                  </div>
+                )}
+
+                {aiCodeReviewError && (
+                  <div
+                    className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+                    role="alert"
+                  >
+                    {aiCodeReviewError}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleAiCodeReview}
+                  disabled={
+                    aiCodeReviewLoading ||
+                    !codeRunnerForm.code.trim() ||
+                    codeRunnerForm.code.length > 20000
+                  }
+                  className="mt-4 rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                >
+                  {aiCodeReviewLoading ? "Reviewing Code..." : "Review Code with AI"}
+                </button>
+
+                {aiCodeReviewLoading && !aiCodeReviewResult && (
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-white p-5">
+                    <p className="text-sm text-slate-600">Reviewing your code with AI...</p>
+                  </div>
+                )}
+
+                {aiCodeReviewResult && (
+                  <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <h4 className="text-lg font-semibold text-slate-900">AI Review Result</h4>
+                        <p className="mt-1 text-sm text-slate-600">
+                          Structured feedback only. No raw backend or model internals are shown.
+                        </p>
+                      </div>
+                      <span className="inline-flex w-fit rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-800">
+                        {codeRunnerForm.language}
+                      </span>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div className="rounded-xl bg-slate-50 p-4">
+                        <p className="text-sm text-slate-500">Time Complexity</p>
+                        <p className="mt-1 text-base font-semibold text-slate-900">
+                          {getAiReviewText(aiCodeReviewResult.timeComplexity)}
+                        </p>
+                      </div>
+                      <div className="rounded-xl bg-slate-50 p-4">
+                        <p className="text-sm text-slate-500">Space Complexity</p>
+                        <p className="mt-1 text-base font-semibold text-slate-900">
+                          {getAiReviewText(aiCodeReviewResult.spaceComplexity)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                        <p className="text-sm font-semibold text-slate-700">Correctness Issues</p>
+                        <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                          {getAiReviewItems(
+                            aiCodeReviewResult.correctnessIssues,
+                            "No correctness issues returned.",
+                          ).map((item, index) => (
+                            <li key={`correctness-issue-${index}`}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                        <p className="text-sm font-semibold text-slate-700">Improvements</p>
+                        <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                          {getAiReviewItems(
+                            aiCodeReviewResult.improvements,
+                            "No improvements returned.",
+                          ).map((item, index) => (
+                            <li key={`improvement-${index}`}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-sm font-semibold text-slate-700">Better Approach</p>
+                      <p className="mt-2 text-sm text-slate-700">
+                        {getAiReviewText(aiCodeReviewResult.betterApproach)}
+                      </p>
+                    </div>
+
+                    <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-sm font-semibold text-slate-700">Encouragement</p>
+                      <p className="mt-2 text-sm text-slate-700">
+                        {getAiReviewText(aiCodeReviewResult.encouragement)}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {codeRunnerError && (
                 <div
                   className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
@@ -2605,7 +2833,7 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
           {/* Status note */}
           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
             <p className="text-sm text-amber-800">
-              <strong>Dashboard shell:</strong> Course generation, lessons, quiz history, leaderboard loading, and the run-only code runner are wired to the current MVP foundation. Submit flow, AI review, and broader dashboard polish are still pending later tasks.
+              <strong>Dashboard shell:</strong> Course generation, lessons, quiz history, leaderboard loading, code runner, code submit, submission history, and AI review are wired to the current MVP foundation. Broader dashboard polish is still pending later tasks.
             </p>
           </div>
         </div>
