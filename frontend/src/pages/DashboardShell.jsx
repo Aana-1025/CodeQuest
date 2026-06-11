@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { Component, useEffect, useState } from "react";
+import Editor from "@monaco-editor/react";
 
 import {
   completeLevel,
@@ -38,6 +39,83 @@ int main() {
     return 0;
 }`,
 };
+
+const MONACO_LANGUAGE_BY_CODE_RUNNER_LANGUAGE = {
+  java: "java",
+  python: "python",
+  javascript: "javascript",
+  cpp: "cpp",
+};
+
+const MONACO_EDITOR_OPTIONS = {
+  minimap: { enabled: false },
+  fontSize: 14,
+  automaticLayout: true,
+  wordWrap: "on",
+  scrollBeyondLastLine: false,
+};
+
+class MonacoEditorErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+
+    this.state = {
+      hasError: false,
+    };
+  }
+
+  static getDerivedStateFromError() {
+    return {
+      hasError: true,
+    };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+
+    return this.props.children;
+  }
+}
+
+function CodeEditorField({ language, value, onChange }) {
+  const monacoLanguage = MONACO_LANGUAGE_BY_CODE_RUNNER_LANGUAGE[language] ?? "plaintext";
+
+  const fallbackEditor = (
+    <div className="rounded-xl border border-slate-300 bg-slate-50 p-4">
+      <p className="mb-3 text-sm text-slate-600">
+        Monaco editor could not be loaded. Using the safe fallback editor instead.
+      </p>
+      <textarea
+        id="code-runner-code"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        rows={12}
+        className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+      />
+    </div>
+  );
+
+  return (
+    <MonacoEditorErrorBoundary fallback={fallbackEditor}>
+      <div className="overflow-hidden rounded-xl border border-slate-300">
+        <Editor
+          height="360px"
+          language={monacoLanguage}
+          value={value}
+          onChange={(nextValue) => onChange(nextValue ?? "")}
+          loading={
+            <div className="flex h-[360px] items-center justify-center bg-slate-50 px-4 text-sm text-slate-600">
+              Loading editor...
+            </div>
+          }
+          options={MONACO_EDITOR_OPTIONS}
+        />
+      </div>
+    </MonacoEditorErrorBoundary>
+  );
+}
 
 const INITIAL_CODE_RUNNER_FORM = {
   problemId: "",
@@ -2156,15 +2234,13 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
                 <label htmlFor="code-runner-code" className="mb-2 block text-sm font-medium text-slate-700">
                   Code
                 </label>
-                <textarea
-                  id="code-runner-code"
+                <CodeEditorField
+                  language={codeRunnerForm.language}
                   value={codeRunnerForm.code}
-                  onChange={(event) => {
+                  onChange={(nextValue) => {
                     setCodeRunnerCodeTouched(true);
-                    handleCodeRunnerFieldChange("code", event.target.value);
+                    handleCodeRunnerFieldChange("code", nextValue);
                   }}
-                  rows={12}
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                 />
                 <p className="mt-2 text-xs text-slate-500">
                   {codeRunnerForm.code.length}/20000 characters
