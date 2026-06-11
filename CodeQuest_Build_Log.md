@@ -5,14 +5,14 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Frontend / AI Code Review
-Current feature: Frontend AI Code Review UI Foundation completed, frontend-build-verified, browser-manually-verified for safe AI-unavailable path and safe Piston-unavailable regression path, committed, pushed, and awaiting Build Log docs commit
-Latest commit: `428301a feat: add frontend ai code review ui`
-Previous docs commit: `a7ec98b docs: record frontend code submission history ui`
-Previous feature commit: `7f12a8a feat: add frontend code submission history ui`
+Current module: Frontend / Monaco Editor
+Current feature: Monaco Editor Integration Foundation completed, frontend-build-verified, browser-manually-verified for Monaco editor visibility/editing flow, safe Piston-unavailable Run Code path, safe AI-unavailable review path, committed, pushed, and awaiting Build Log docs commit
+Latest commit: `6e5097a feat: add monaco code editor`
+Previous docs commit: `28857c1 docs: record frontend ai code review ui`
+Previous feature commit: `428301a feat: add frontend ai code review ui`
 Current branch: main
-Test status: Frontend `cd frontend && npm run build` PASS after Frontend AI Code Review UI Foundation according to Codex output and user-side verification flow. Manual browser verification PASS for the safe AI-unavailable path: the existing DashboardShell Code Runner / Submit Code / Code Submission History area now includes an `AI Code Review` panel, the AI review panel reuses the current language and code from the Code Runner form, optional problem title and problem description fields accept input, and clicking `Review Code with AI` returns the safe user-facing message `AI review service is currently unavailable. Please try again later.` when Gemini/AI service is unavailable. Regression verification PASS: `Run Code` still sends the request and shows the known safe Piston-unavailable message `Code runner is currently unavailable. Please try again later.`, Submit Code remains separate, Code Submission History remains visible, and existing Dashboard sections such as Leaderboard, Generate Course, Quiz Attempt History, Course Progress, and Next Actions still render. The UI did not show raw stack traces, raw backend JSON dumps, raw Gemini response bodies, raw prompts, raw Piston internals, access tokens, refresh tokens, passwords, roles, token hashes, userId, hidden tests, correctAnswer, expectedOutput/stdin internals, or secrets. Scope checks PASS: only `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js` changed; backend, backend Docker files, backend/pom.xml, migrations, application.yml, docs, Build Log, README, .github, docker-compose, frontend package files, CI/CD, deployment, and Phase 2 files were not part of the feature implementation.
-Git status: clean after `428301a feat: add frontend ai code review ui` was pushed to `main`; Build Log docs update in progress
+Test status: Frontend `cd frontend && npm run build` PASS after Monaco Editor Integration Foundation according to Codex output and user-side verification flow. Manual browser verification PASS: DashboardShell Code Runner now shows a Monaco editor in place of the previous plain code textarea, Java syntax highlighting and line numbers are visible, code can be edited through Monaco, the existing character counter remains visible and updates from the same editor-backed `code` state, and existing Run Code / Submit Code / AI Code Review flows continue to use the same code state. Manual regression verification PASS for safe external-service-unavailable paths: clicking `Run Code` with Java hello-world code reaches the backend and shows the known safe Piston-unavailable message `Code runner is currently unavailable. Please try again later.`, and clicking `Review Code with AI` reaches the backend AI review flow and shows the safe AI-unavailable message `AI review service is currently unavailable. Please try again later.` when Gemini/AI service is unavailable. The existing Code Submission History, Quiz Attempt History, Course Progress, Next Actions, Leaderboard, Generate Course, and other dashboard sections still render. The UI did not show raw stack traces, raw backend JSON dumps, raw Gemini response bodies, raw prompts, raw Piston internals, access tokens, refresh tokens, passwords, roles, token hashes, userId, hidden tests, correctAnswer, expectedOutput/stdin internals, or secrets. Scope checks PASS: only `frontend/src/pages/DashboardShell.jsx`, `frontend/package.json`, and `frontend/package-lock.json` changed for the feature; backend, backend Docker files, backend/pom.xml, migrations, application.yml, docs, Build Log, README, .github, docker-compose, CI/CD, deployment, and Phase 2 files were not part of the feature implementation.
+Git status: clean after `6e5097a feat: add monaco code editor` was pushed to `main`; Build Log docs update in progress
 
 ## Completed Features
 - [x] Project setup
@@ -86,7 +86,7 @@ Git status: clean after `428301a feat: add frontend ai code review ui` was pushe
 - [x] Frontend Code Submit UI
 - [x] Frontend Code Submission History UI
 - [x] Frontend AI Code Review UI
-- [ ] Monaco Editor Integration
+- [x] Monaco Editor Integration
 - [ ] Dashboard UI polish / section organization
 - [ ] CI/CD
 - [ ] Deployment
@@ -129,7 +129,7 @@ Git status: clean after `428301a feat: add frontend ai code review ui` was pushe
 - Frontend code runner uses authenticated `POST /api/problems/{problemId}/run` through the existing Bearer token pattern.
 - Frontend code runner is run-only and intentionally does not submit code, persist submissions, fetch submission history, call AI review, award XP, change progress, or mutate any backend state.
 - Frontend code runner includes fields for problem id, language, code, optional stdin, and optional expected output.
-- Frontend code runner currently uses a simple textarea, not Monaco editor.
+- Frontend Code Runner now uses Monaco editor for the main code input after Monaco Editor Integration Foundation.
 - Frontend code runner supports starter code for Java, Python, JavaScript, and C++ without overwriting user-edited code unexpectedly.
 - Frontend code runner validates blank problem id, blank code, and code length over 20000 characters before sending the request.
 - Frontend code runner renders stdout, stderr, output, exitCode, runtimeMs, passed status, and safe message as plain text only.
@@ -179,6 +179,18 @@ Git status: clean after `428301a feat: add frontend ai code review ui` was pushe
 - Frontend AI code review intentionally does not display access tokens, refresh tokens, passwords, roles, token hashes, userId, raw backend JSON, raw Gemini response bodies, raw prompts, Java/Spring stack traces, raw Piston internals, hidden tests, correctAnswer, expectedOutput, stdin, or secrets.
 - Frontend AI code review intentionally does not store code, problem context, or review results in localStorage or sessionStorage.
 - Frontend AI code review intentionally does not add Monaco editor, AI review persistence, `code_submissions.ai_review` updates, Piston calls, local code execution, XP awards, problem browsing, backend changes, DB migrations, package changes, deployment changes, or Phase 2 features.
+- Monaco Editor Integration Foundation is implemented in the existing DashboardShell Code Runner section as a frontend-only editor upgrade.
+- Monaco Editor Integration added the `@monaco-editor/react` dependency only; no other dependency was intentionally added.
+- Monaco editor replaces the previous plain code textarea while preserving the existing `code` React state as the single source of truth.
+- Monaco editor value updates the same code state used by Run Code, Submit Code, AI Code Review, blank-code validation, 20000-character validation, and the visible character counter.
+- Monaco editor maps current CodeQuest language values to Monaco language ids: `java`, `python`, `javascript`, and `cpp`.
+- Monaco editor uses safe options including minimap disabled, font size 14, automatic layout enabled, word wrap enabled, and scroll beyond last line disabled.
+- Monaco `onChange` safely normalizes `undefined`/`null` editor values to an empty string.
+- Existing starter-code behavior is preserved through the existing code-touched guard so language switching does not unexpectedly overwrite user-edited code.
+- Monaco integration intentionally did not change backend APIs, run/submit/history/review request or response shapes, Piston integration, Gemini integration, code submission persistence, AI review persistence, XP rules, progress rules, leaderboard behavior, dashboard section organization, React Router, Docker, CI/CD, deployment, README, or Phase 2 features.
+- Monaco editor content is not stored in localStorage or sessionStorage.
+- Monaco editor does not execute code locally and does not call Piston or Gemini directly from the frontend.
+- Monaco editor UI must not display access tokens, refresh tokens, passwords, roles, token hashes, userId, raw backend JSON, raw Piston internals, raw Gemini response bodies, raw prompts, stack traces, hidden tests, correctAnswer, expectedOutput/stdin internals, or secrets.
 - Deployment target: Vercel frontend, Render backend, Neon PostgreSQL, GitHub Actions CI.
 - MVP first, no Phase 2 features yet.
 - Source-of-truth priority: CodeQuest_AI_Control_Master_Blueprint_v3, CodeQuest_Core_Rules, CodeQuest_DB_Schema, CodeQuest_API_Contracts, CodeQuest_Feature_Prompts, CodeQuest_Build_Log, then AGENTS.md.
@@ -889,6 +901,7 @@ Git status: clean after `428301a feat: add frontend ai code review ui` was pushe
 
 ## Bugs / Issues
 - None blocking currently.
+- Monaco Editor Integration Foundation note: No blocking issue after browser verification. Manual dashboard verification showed the Code Runner section now renders a Monaco editor in place of the old code textarea, with Java syntax highlighting, line numbers, editable code, and the existing character counter still visible. Run Code regression verification showed the known safe Piston-unavailable message `Code runner is currently unavailable. Please try again later.` after click, which means the Monaco-backed code state still reaches the backend flow and the unavailable state is the existing external Piston condition, not a Monaco/frontend break. AI Code Review regression verification showed the safe unavailable message `AI review service is currently unavailable. Please try again later.` when Gemini/AI service is unavailable. Existing Code Submission History, Quiz Attempt History, Course Progress, Next Actions, Leaderboard, Generate Course, and dashboard sections still render. The UI did not expose raw stack traces, raw backend JSON dumps, raw Gemini bodies, raw prompts, raw Piston internals, access tokens, refresh tokens, passwords, roles, token hashes, userId, hidden tests, correctAnswer, expectedOutput/stdin internals, or secrets. Scope stayed frontend-only with expected changes limited to `frontend/src/pages/DashboardShell.jsx`, `frontend/package.json`, and `frontend/package-lock.json`; no backend, DB migration, Docker, docs/Build Log during implementation, README, .github, docker-compose, CI/CD, deployment, or Phase 2 files changed.
 - Frontend AI Code Review UI Foundation note: No blocking issue after browser verification of the safe AI-unavailable path and Run Code regression path. Manual dashboard verification showed the `AI Code Review` panel visible near Code Runner with optional Problem Title and Problem Description fields. Clicking `Review Code with AI` with Java hello-world code and optional context reached the backend AI review flow and showed the expected safe unavailable message `AI review service is currently unavailable. Please try again later.` This is acceptable because backend AI review already safely returns 503 when Gemini/config/service is unavailable. Run Code was also regression-checked and still showed the known safe Piston-unavailable message `Code runner is currently unavailable. Please try again later.` after click, which means the frontend button/request path is still active and the unavailable state is the existing external Piston condition, not a new frontend break. The UI did not expose raw stack traces, raw backend JSON dumps, raw Gemini bodies, raw prompts, raw Piston internals, access tokens, refresh tokens, passwords, roles, token hashes, userId, hidden tests, correctAnswer, expectedOutput/stdin internals, or secrets. Scope stayed frontend-only with expected changes limited to `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`; no backend, DB migration, Docker, docs/Build Log during implementation, README, .github, docker-compose, frontend package, CI/CD, deployment, or Phase 2 files changed.
 - Frontend Code Submission History UI Foundation note: No blocking issue after browser verification of the empty-history path. Manual dashboard verification showed the `Code Submission History` section visible near the Code Runner / Code Submit controls. Refresh Submissions worked for UUID-style problem id `11111111-1111-1111-1111-111111111111`; the UI displayed page metadata `Page: 0`, `Size: 20`, `Total Items: 0`, `Total Pages: 0`; the empty state `No submissions found for this problem yet.` appeared; and Previous/Next pagination controls were disabled for the empty result. This is acceptable because local Piston unavailability meant no successful runner-backed submissions existed for that problem. The UI did not expose raw stack traces, raw backend JSON dumps, raw Piston internals, access tokens, refresh tokens, passwords, roles, token hashes, userId, hidden tests, correctAnswer, expectedOutput, stdin, or secrets. Scope stayed frontend-only with expected changes limited to `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`; no backend, DB migration, Docker, docs/Build Log during implementation, README, .github, docker-compose, frontend package, CI/CD, deployment, or Phase 2 files changed.
 - Frontend Code Submit UI Foundation note: No blocking issue after browser verification of validation and safe unavailable path. Manual dashboard verification showed the Code Runner section still visible with problem id, language, code, stdin, expected output, Run Code, and Submit Code controls. Submit Code stayed disabled until expected output was provided, blank code disabled both Run Code and Submit Code, and clicking Submit Code after filling expected output reached the backend and showed the expected safe Piston-unavailable message `Code runner is currently unavailable. Please try again later.` This is acceptable because external Piston availability had already been known to fail intermittently during backend/frontend verification. The UI did not expose raw stack traces, raw Piston internals, raw backend JSON dumps, tokens, passwords, roles, token hashes, userId, hidden tests, correctAnswer, stdin/expectedOutput from backend internals, or secrets. Scope stayed frontend-only with expected changes limited to `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`; no backend, DB migration, Docker, docs/Build Log during implementation, README, .github, docker-compose, frontend package, CI/CD, deployment, or Phase 2 files changed.
@@ -1175,9 +1188,12 @@ Git status: clean after `428301a feat: add frontend ai code review ui` was pushe
 
 | 69 | 2026-06-11 | Frontend AI Code Review UI Foundation | Frontend / AI Code Review | frontend/src/pages/DashboardShell.jsx; frontend/src/services/courseApi.js | Frontend `cd frontend && npm run build` PASS according to Codex output. Manual browser verification PASS for safe AI-unavailable path and Run Code regression path: AI Code Review panel rendered near Code Runner, optional problem title/description fields accepted input, `Review Code with AI` showed safe `AI review service is currently unavailable. Please try again later.` when Gemini/AI service was unavailable, Run Code still showed the known safe `Code runner is currently unavailable. Please try again later.` Piston-unavailable message, and existing dashboard sections still rendered. Scope checks clean: only DashboardShell and courseApi changed; no backend, docs, Build Log during implementation, Docker, package, CI/CD, deployment, or Phase 2 files changed. | `428301a feat: add frontend ai code review ui`. Added authenticated `reviewCodeWithAi(payload)` helper and a DashboardShell AI Code Review panel using POST `/api/ai/review-code`. Reuses current language/code, supports optional problem title/description context, includes loading/error/result states, safe structured review rendering for time/space complexity, correctness issues, improvements, better approach, and encouragement, and no persistence/Monaco/Piston/backend/package changes. |
 
+| 70 | 2026-06-11 | Monaco Editor Integration Foundation | Frontend / Code Editor | frontend/src/pages/DashboardShell.jsx; frontend/package.json; frontend/package-lock.json | Frontend `cd frontend && npm run build` PASS according to Codex output. Manual browser verification PASS: Monaco editor rendered in the Code Runner section, Java syntax highlighting and line numbers were visible, code editing worked through the editor-backed state, character counter stayed visible, Run Code still showed the known safe `Code runner is currently unavailable. Please try again later.` Piston-unavailable message, AI Code Review still showed safe `AI review service is currently unavailable. Please try again later.` when Gemini/AI was unavailable, and existing dashboard sections still rendered. Scope checks clean: only DashboardShell and frontend package files changed; no backend, docs, Build Log during implementation, Docker, CI/CD, deployment, or Phase 2 files changed. | `6e5097a feat: add monaco code editor`. Added `@monaco-editor/react`, replaced the code textarea with Monaco while preserving the existing `code` state, language mapping, starter-code guard, blank/length validation, Run Code, Submit Code, Code Submission History, and AI Code Review flows. No backend/API changes, no local code execution, no auto-run/submit/review, no local/session storage, and no dashboard reorganization. |
+
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
 |---|---|---|---|---|
+| 2026-06-11 | `cd frontend && npm run build` after Monaco Editor Integration Foundation | PASS | Frontend build passed after adding `@monaco-editor/react` and replacing the Code Runner code textarea with Monaco editor. Manual browser verification confirmed Monaco renders and existing safe Run Code / AI Review unavailable paths still work. | Yes |
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
@@ -1290,6 +1306,7 @@ Git status: clean after `428301a feat: add frontend ai code review ui` was pushe
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
 |---|---|---|---|---|
+| 2026-06-11 | Monaco Editor Integration Foundation | Browser dashboard Monaco editor verification plus Run Code and AI Review regression checks | Monaco editor renders in Code Runner with Java syntax highlighting and line numbers, code is editable through the existing code state, character counter remains visible, Run Code shows safe known Piston-unavailable message when external runner is unavailable, AI Review shows safe AI-unavailable message when Gemini/AI is unavailable, existing dashboard sections remain visible, and no raw JSON/stack traces/tokens/passwords/raw Gemini/raw prompt/raw Piston/secrets are visible. | Passed |
 | 2026-06-11 | Frontend AI Code Review UI Foundation | Browser dashboard AI Code Review verification and Run Code regression verification | AI Code Review panel renders near Code Runner, optional problem title/description fields work, clicking Review Code with AI shows safe `AI review service is currently unavailable. Please try again later.` when Gemini/AI is unavailable, Run Code still shows safe `Code runner is currently unavailable. Please try again later.` for known Piston-unavailable path, existing dashboard sections remain visible, and no raw JSON/stack traces/tokens/passwords/raw Gemini/raw prompt/raw Piston/secrets are visible. | Passed |
 | 2026-06-10 | Frontend Code Runner UI Foundation | Browser dashboard Code Runner verification | Code Runner section renders, UUID-style problem id reaches backend, Java code can be entered, safe Piston-unavailable message displays, and no raw stack traces/raw Piston internals/tokens/passwords/userId/secrets are visible. | Passed |
 | 2026-06-10 | Frontend Code Submit UI Foundation | Browser dashboard Submit Code verification | Submit Code appears beside Run Code, expected output is required before submit, blank code disables both run and submit, UUID-style problem id reaches backend after Submit Code, safe Piston-unavailable message displays, and no raw stack traces/raw Piston internals/tokens/passwords/userId/secrets are visible. | Passed |
@@ -8245,6 +8262,98 @@ Manual verification result recorded for this feature:
 | 2026-06-09 | Backend Docker Setup Foundation | Start Docker Desktop -> confirm `docker info` server output -> run `docker build -t codequest-backend:local ./backend` -> handle initial CRLF `mvnw` failure -> fix Dockerfile with line-ending normalization -> rerun Docker build -> run `docker images codequest-backend` -> run `git status --short` and diff safety checks | Docker Desktop engine was running; initial build failed with `env: $'bash\r': No such file or directory`; after Dockerfile fix, Docker build completed successfully, image was named `docker.io/library/codequest-backend:local`, `docker images codequest-backend` showed `codequest-backend:local` present with image ID `4afd74688965`; scope stayed limited to `backend/Dockerfile` and `backend/.dockerignore`; no secrets were committed and no application logic changed. | Passed |
 
 
+## Frontend Monaco Editor Integration Manual Test Commands
+
+Use these commands/checks to verify the Monaco editor feature locally.
+
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject
+
+git status --short
+git log --oneline -5
+```
+
+Expected latest feature commit after Monaco:
+```text
+6e5097a feat: add monaco code editor
+28857c1 docs: record frontend ai code review ui
+428301a feat: add frontend ai code review ui
+a7ec98b docs: record frontend code submission history ui
+7f12a8a feat: add frontend code submission history ui
+```
+
+Frontend build:
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject\frontend
+npm run build
+```
+
+Backend runtime:
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject\backend
+
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
+$env:DATABASE_USERNAME="postgres"
+$env:DATABASE_PASSWORD="<your-local-postgres-password>"
+$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
+$env:PISTON_BASE_URL="https://emkc.org/api/v2/piston"
+
+.\mvnw.cmd spring-boot:run
+```
+
+Frontend runtime:
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject\frontend
+npm run dev
+```
+
+Browser checks:
+1. Open `http://localhost:5173/`.
+2. Login.
+3. Go to Dashboard.
+4. Confirm Code Runner section renders.
+5. Confirm Monaco editor appears where the code textarea used to be.
+6. Confirm Java syntax highlighting and line numbers are visible.
+7. Edit the code in Monaco:
+   ```java
+   public class Main {
+       public static void main(String[] args) {
+           System.out.println("Hello CodeQuest");
+       }
+   }
+   ```
+8. Confirm the character count updates from the editor-backed code value.
+9. Click `Run Code`; safe Piston-unavailable message is acceptable:
+   `Code runner is currently unavailable. Please try again later.`
+10. Click `Review Code with AI`; safe AI-unavailable message is acceptable:
+    `AI review service is currently unavailable. Please try again later.`
+11. Change language to Python and confirm the editor does not crash.
+12. Confirm Code Submission History, Quiz Attempt History, Course Progress, Next Actions, Leaderboard, and Generate Course sections still render.
+13. Confirm no raw JSON, stack traces, tokens, passwords, raw Gemini bodies, raw prompts, raw Piston internals, hidden tests, correctAnswer, expectedOutput/stdin internals, or secrets appear.
+
+Scope checks:
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject
+
+git status --short
+git diff --stat
+git diff -- backend
+git diff -- docs
+git diff -- CodeQuest_Build_Log.md
+git diff -- README.md
+git diff -- .github
+git diff -- docker-compose.yml
+git diff -- backend/Dockerfile
+git diff -- backend/.dockerignore
+```
+
+Expected Monaco feature files:
+```text
+frontend/src/pages/DashboardShell.jsx
+frontend/package.json
+frontend/package-lock.json
+```
+
 ## Next Chat Prompt
 Use this prompt in the next chat if this one becomes slow:
 
@@ -8253,82 +8362,69 @@ You are continuing the CodeQuest project. This is a Java 21 + Spring Boot + Reac
 
 Current repo state:
 - Branch: main
-- Latest feature commit: 428301a feat: add frontend ai code review ui
-- Previous docs commit: a7ec98b docs: record frontend code submission history ui
-- Previous feature commit: 7f12a8a feat: add frontend code submission history ui
-- Latest completed feature: Frontend AI Code Review UI Foundation
-- Build Log docs update after Frontend AI Code Review UI may still need a docs commit if CodeQuest_Build_Log.md is modified.
+- Latest feature commit: 6e5097a feat: add monaco code editor
+- Previous docs commit: 28857c1 docs: record frontend ai code review ui
+- Previous feature commit: 428301a feat: add frontend ai code review ui
+- Latest completed feature: Monaco Editor Integration Foundation
+- Build Log docs update after Monaco Editor Integration may still need a docs commit if CodeQuest_Build_Log.md is modified.
 
 Latest completed feature:
-Frontend AI Code Review UI Foundation:
-- Added authenticated `reviewCodeWithAi(payload)` frontend helper in `frontend/src/services/courseApi.js`.
-- Added DashboardShell `AI Code Review` panel near Code Runner / Submit Code / Code Submission History.
-- Uses POST `/api/ai/review-code`.
-- Uses existing Bearer token pattern.
-- Reuses current language and code from the Code Runner form.
-- Adds optional Problem Title and Problem Description fields for context.
-- Manual `Review Code with AI` button only; no auto-review on dashboard load or typing.
-- Shows loading, safe error, and structured result states.
-- Renders safe structured fields only: timeComplexity, spaceComplexity, correctnessIssues, improvements, betterApproach, encouragement.
-- Handles empty arrays/nulls with safe fallback text.
-- Does not store code/context/review results in localStorage or sessionStorage.
-- Does not display tokens/passwords/roles/token hashes/userId/raw backend JSON/raw Gemini bodies/raw prompts/raw Piston internals/hidden tests/correctAnswer/expectedOutput/stdin/stack traces/secrets.
-- Does not persist AI review, does not update `code_submissions.ai_review`, does not call Piston, does not execute code locally, and does not award XP.
-- Browser verification passed for safe AI-unavailable path: `AI review service is currently unavailable. Please try again later.`.
-- Run Code regression verification passed for known safe Piston-unavailable path: `Code runner is currently unavailable. Please try again later.`.
-- Frontend build passed.
-- Commit pushed: `428301a feat: add frontend ai code review ui`.
+Monaco Editor Integration Foundation:
+- Added `@monaco-editor/react` to the frontend.
+- Replaced the old Code Runner code textarea with Monaco editor in `frontend/src/pages/DashboardShell.jsx`.
+- Updated `frontend/package.json` and `frontend/package-lock.json`.
+- Kept the existing Code Runner section and existing `code` React state as the single source of truth.
+- Monaco editor value feeds the same code state used by Run Code, Submit Code, AI Code Review, blank-code validation, 20000-character validation, and the character counter.
+- Language mapping is preserved: `java -> java`, `python -> python`, `javascript -> javascript`, `cpp -> cpp`.
+- Monaco editor uses safe options: minimap disabled, font size 14, automatic layout, word wrap, and no scroll beyond last line.
+- Monaco `onChange` normalizes undefined/null to an empty string.
+- Existing starter-code guard remains in place so language switching does not unexpectedly wipe user-edited code.
+- No backend/API changes were made.
+- No local code execution was added.
+- No direct frontend Piston or Gemini calls were added.
+- No auto-run, auto-submit, or auto-review was added.
+- No code/editor content is stored in localStorage or sessionStorage.
+- No dashboard reorganization/tabs/accordion were implemented in this feature.
+- Browser verification passed: Monaco rendered with Java syntax highlighting and line numbers, character count remained visible, Run Code still reached the backend and showed the known safe Piston-unavailable message, AI Review still reached the backend and showed the safe AI-unavailable message, and existing dashboard sections still rendered.
 
-Previous latest features:
-- Frontend Code Submission History UI Foundation: `7f12a8a feat: add frontend code submission history ui`.
-- Frontend Code Submit UI Foundation: `52db876 feat: add frontend code submit ui`.
-- Frontend Code Runner UI Foundation: `f7b4598 feat: add frontend code runner ui`.
-- Frontend Leaderboard UI Foundation: `1bb5159 feat: add frontend leaderboard ui`.
+Current safe external-service notes:
+- `Code runner is currently unavailable. Please try again later.` is acceptable during local verification when external Piston is unavailable. It means the frontend/backend path is active and safe 503 handling works.
+- `AI review service is currently unavailable. Please try again later.` is acceptable during local verification when Gemini/config/service is unavailable. It means the frontend/backend path is active and safe 503 handling works.
 
-Important completed backend features already available:
-- Backend Piston run-code endpoint exists: POST `/api/problems/{problemId}/run`.
-- Backend code submit endpoint exists: POST `/api/problems/{problemId}/submit`.
-- Backend code submissions history endpoint exists: GET `/api/problems/{problemId}/submissions?page=0&size=20`.
-- Backend AI code review endpoint exists: POST `/api/ai/review-code`.
-- Backend leaderboard endpoint exists: GET `/api/leaderboard?page=0&size=50&period=ALL_TIME`.
-- Backend Docker image foundation exists.
+Files changed in latest feature:
+- `frontend/src/pages/DashboardShell.jsx`
+- `frontend/package.json`
+- `frontend/package-lock.json`
 
-Current remaining planned items:
-- [ ] Monaco Editor Integration
-- [ ] Dashboard UI polish / section organization
-- [ ] CI/CD
-- [ ] Deployment
-- [ ] README
-- [ ] Screenshots
-- [ ] Demo video
-- [ ] Resume bullets updated
+Important repo rules:
+- Use Maven Wrapper only. Never use plain `mvn`.
+- Backend tests on Windows:
+  `cd backend && .\mvnw.cmd test`
+- For suspicious stale compiled class issues:
+  `cd backend && .\mvnw.cmd clean test`
+- Frontend build:
+  `cd frontend && npm run build`
+- Do not start the next feature unless `git status --short` is clean after the docs commit.
+- Do not commit before tests/build and manual verification.
+- Update CodeQuest_Build_Log.md after every feature.
+- Keep MVP scope only. Do not add Phase 2 features unless explicitly requested.
 
-Recommended next feature:
-Monaco Editor Integration OR Dashboard UI polish / section organization. Choose based on deadline and UI stability. If the dashboard feels too long, do Dashboard UI polish first; if code editor quality matters more, do Monaco next.
+Next recommended feature:
+Dashboard UI polish / section organization.
 
-Expected next feature scope if Monaco Editor Integration:
-- Frontend-only unless package installation is required.
-- Add Monaco/editor integration carefully around existing code textarea behavior.
-- Preserve Run Code, Submit Code, Submission History, and AI Review flows.
-- Do not touch backend, DB migrations, Docker, CI/CD, deployment, or Build Log during Codex implementation.
-- Run `cd frontend && npm run build`.
-- Manually verify in browser.
-- Commit feature first, then update Build Log in a separate docs commit.
+Reason:
+DashboardShell now contains Profile Summary, Leaderboard, Generate Course, Course Map/Lesson flows, Code Runner with Monaco, Submit Code, AI Code Review, Code Submission History, Quiz Attempt History, Course Progress, and Next Actions. The dashboard is long, so the next useful MVP improvement is visual organization only.
 
-Expected next feature scope if Dashboard UI polish:
-- Frontend-only.
-- Organize long DashboardShell into simple tabs/sections/accordions without React Router.
-- Preserve all existing features and state behavior.
-- Do not change backend, package files, DB migrations, Docker, CI/CD, deployment, or Build Log during Codex implementation.
-- Run `cd frontend && npm run build`.
-- Manually verify in browser.
-- Commit feature first, then update Build Log in a separate docs commit.
-
-Rules:
-- Use Maven Wrapper only for backend commands; never plain `mvn`.
-- For frontend-only tasks, run `cd frontend && npm run build`.
-- Do not commit until build, manual browser verification, and diff checks pass.
-- Update CodeQuest_Build_Log.md after the feature commit, as a separate docs commit.
+Suggested next task scope:
+Frontend-only Dashboard UI polish / section organization:
+- Organize long DashboardShell sections with simple tabs, grouped cards, or collapsible sections.
+- Keep existing React state navigation only unless explicitly instructed otherwise.
+- Do not add React Router.
+- Do not change backend APIs.
+- Do not change run/submit/history/review behavior.
+- Do not change course/lesson/quiz/notes/progress behavior.
+- Do not add new dependencies unless absolutely necessary.
+- Do not touch backend, DB migrations, Docker, CI/CD, deployment, README, screenshots, demo video, or resume bullets in that task.
 ```
 
 ## New Chat Continuation Summary Template
@@ -8341,101 +8437,83 @@ We are building CodeQuest, a Java 21 + Spring Boot + React + PostgreSQL AI-assis
 
 Latest repo state:
 - Branch: main
-- Latest feature commit: 428301a feat: add frontend ai code review ui
-- Previous docs commit: a7ec98b docs: record frontend code submission history ui
-- Previous feature commit: 7f12a8a feat: add frontend code submission history ui
-- Latest completed feature: Frontend AI Code Review UI Foundation
-- Build Log docs update after Frontend AI Code Review UI may still need a docs commit if CodeQuest_Build_Log.md is modified.
+- Latest feature commit: 6e5097a feat: add monaco code editor
+- Previous docs commit: 28857c1 docs: record frontend ai code review ui
+- Previous feature commit: 428301a feat: add frontend ai code review ui
+- Latest completed feature: Monaco Editor Integration Foundation
+- Build Log docs update after Monaco Editor Integration may still need a docs commit if CodeQuest_Build_Log.md is modified.
 
 Latest completed feature:
-Frontend AI Code Review UI Foundation:
-- Added authenticated `reviewCodeWithAi(payload)` helper.
-- Added DashboardShell AI Code Review panel near Code Runner / Submit Code / Code Submission History.
-- Uses POST `/api/ai/review-code` with the existing Bearer token pattern.
-- Sends only language, code, optional problemTitle, and optional problemDescription.
-- Reuses current language/code from Code Runner.
-- Manual review only; no auto-review.
-- Shows loading/error/result states separate from Run Code, Submit Code, and Submission History.
-- Renders safe structured fields only: timeComplexity, spaceComplexity, correctnessIssues, improvements, betterApproach, encouragement.
-- Handles null/empty values safely.
-- Does not display secrets/tokens/raw backend JSON/raw Gemini/raw prompts/raw Piston/stack traces/userId/correctAnswer/hidden tests.
-- Does not store review data in localStorage/sessionStorage.
-- Does not persist reviews or update `code_submissions.ai_review`.
-- Does not call Piston or execute code locally.
-- Does not award XP.
-- Browser verification passed for safe AI-unavailable message and Run Code safe Piston-unavailable regression.
-- Commit pushed: `428301a feat: add frontend ai code review ui`.
+Monaco Editor Integration Foundation:
+- Added `@monaco-editor/react`.
+- Replaced the Code Runner code textarea with Monaco editor.
+- Kept existing `code` React state as the single source of truth.
+- Run Code, Submit Code, AI Code Review, blank-code validation, 20000-character validation, and character counter all still use the same editor-backed code value.
+- Monaco language mapping is `java`, `python`, `javascript`, `cpp`.
+- Monaco safe options include minimap off, font size 14, automatic layout, word wrap, and scrollBeyondLastLine false.
+- Existing starter-code guard remains; language switching should not unexpectedly wipe user-edited code.
+- No backend/API changes.
+- No local code execution.
+- No direct frontend Piston/Gemini calls.
+- No auto-run/auto-submit/auto-review.
+- No localStorage/sessionStorage persistence for editor content.
+- No dashboard reorganization was done in this task.
+- Browser verification passed for Monaco render/editing and safe unavailable Run Code / AI Review paths.
+- Latest feature files: `frontend/src/pages/DashboardShell.jsx`, `frontend/package.json`, `frontend/package-lock.json`.
 
-Previous latest features:
-- Frontend Code Submission History UI Foundation: `7f12a8a feat: add frontend code submission history ui`.
-- Frontend Code Submit UI Foundation: `52db876 feat: add frontend code submit ui`.
-- Frontend Code Runner UI Foundation: `f7b4598 feat: add frontend code runner ui`.
-- Frontend Leaderboard UI Foundation: `1bb5159 feat: add frontend leaderboard ui`.
+Current known safe unavailable messages:
+- Run Code may show `Code runner is currently unavailable. Please try again later.` when external Piston is unavailable. This is acceptable if the request reaches backend and no raw internals are exposed.
+- AI Review may show `AI review service is currently unavailable. Please try again later.` when Gemini/config/service is unavailable. This is acceptable if no raw Gemini/prompt/secrets are exposed.
 
-Important completed backend/frontend features:
-- Auth/JWT/refresh/logout/profile.
-- Course generation with Gemini safe fallback and source badges.
-- Course map, lesson page, quiz/flashcards, notes save/preload.
-- Quiz submit, attempts, history, XP refresh, weak concepts.
-- Progress fetch, unlocks, level completion, XP/rank, streak.
-- Piston run-code backend and frontend UI.
-- Code submit backend and frontend UI.
-- Code submission history backend and frontend UI.
-- AI code review backend and frontend UI.
-- Leaderboard backend and frontend UI.
-- Backend Docker foundation.
+Completed relevant frontend coding area:
+- Frontend Leaderboard UI
+- Frontend Code Runner UI
+- Frontend Code Submit UI
+- Frontend Code Submission History UI
+- Frontend AI Code Review UI
+- Monaco Editor Integration
 
-Current remaining planned items:
-- [ ] Monaco Editor Integration
-- [ ] Dashboard UI polish / section organization
-- [ ] CI/CD
-- [ ] Deployment
-- [ ] README
-- [ ] Screenshots
-- [ ] Demo video
-- [ ] Resume bullets updated
+Next recommended feature:
+Dashboard UI polish / section organization.
 
-Recommended next feature:
-Monaco Editor Integration OR Dashboard UI polish / section organization. Pick Dashboard polish first if deadline/demo readability matters more; pick Monaco first if code editor quality matters more.
+Recommended next scope:
+Frontend-only organization of the long DashboardShell. Use simple tabs/groups/collapsible sections if useful. Preserve all existing API behavior and state. Do not add React Router. Do not touch backend/migrations/Docker/CI/CD/deployment/README/screenshots/demo video/resume bullets yet.
 
-Process reminders:
-- Always use Maven Wrapper only; never plain `mvn`.
-- For frontend-only features, run `cd frontend && npm run build`.
-- Do not start next feature with uncommitted changes.
-- Do not commit until build + manual browser verification + diff safety checks pass.
-- Build Log update must be a separate docs commit after feature commit.
+Critical project rules:
+- Use Maven Wrapper only for backend; never plain mvn.
+- Backend tests: `cd backend && .\mvnw.cmd test`
+- Frontend build: `cd frontend && npm run build`
+- Always inspect `git status --short` before starting.
+- Do not start if working tree has uncommitted changes.
+- For frontend-only tasks, backend tests are not required unless backend/shared API files change.
+- Update Build Log after each feature and commit docs separately.
 ```
 
 ## Latest Safe Continuation Notes
-- Latest feature commit pushed to main: `428301a feat: add frontend ai code review ui`.
-- Previous docs commit on main: `a7ec98b docs: record frontend code submission history ui`.
-- Previous feature commit on main: `7f12a8a feat: add frontend code submission history ui`.
-- Frontend AI Code Review UI Foundation is the latest completed feature.
-- Frontend AI Code Review UI Foundation changed only `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`.
-- `reviewCodeWithAi(payload)` calls authenticated POST `/api/ai/review-code`.
-- AI review sends only language, code, optional problemTitle, and optional problemDescription.
-- DashboardShell now has Code Runner, Submit Code, Code Submission History, and AI Code Review controls together.
-- AI Code Review reuses the current language and code from Code Runner.
-- AI Code Review supports optional Problem Title and Problem Description fields.
-- AI Code Review loads only by explicit `Review Code with AI` action.
-- AI Code Review does not auto-review on dashboard load or while typing.
-- AI Code Review state is separate from Run Code, Submit Code, and Submission History.
-- AI Code Review renders safe structured fields only: timeComplexity, spaceComplexity, correctnessIssues, improvements, betterApproach, encouragement.
-- AI Code Review handles empty/null fields with safe fallback text.
-- AI Code Review does not show access tokens, refresh tokens, passwords, roles, token hashes, userId, raw backend JSON, raw Gemini bodies, raw prompts, raw Piston internals, hidden tests, correctAnswer, expectedOutput, stdin, stack traces, or secrets.
-- AI Code Review does not store code/context/review results in localStorage or sessionStorage.
-- AI Code Review does not persist review output and does not update `code_submissions.ai_review`.
-- AI Code Review does not call Piston, does not execute code locally, and does not award XP.
-- Browser verification passed for safe AI-unavailable path: `AI review service is currently unavailable. Please try again later.`.
-- Run Code regression verification passed for known safe Piston-unavailable path: `Code runner is currently unavailable. Please try again later.`.
-- Frontend build passed after the feature.
-- Frontend Code Submission History UI Foundation remains implemented and committed as `7f12a8a feat: add frontend code submission history ui`.
-- Frontend Code Submit UI Foundation remains implemented and committed as `52db876 feat: add frontend code submit ui`.
-- Frontend Code Runner UI Foundation remains implemented and committed as `f7b4598 feat: add frontend code runner ui`.
-- Frontend Leaderboard UI Foundation remains implemented and committed as `1bb5159 feat: add frontend leaderboard ui`.
-- Backend Docker Setup Foundation remains implemented and committed as `bc321df chore: add backend dockerfile`.
-- Build Log docs update after Frontend AI Code Review UI should be committed separately before starting the next feature.
-- Recommended next implementation feature after docs commit: Monaco Editor Integration OR Dashboard UI polish / section organization.
-- Use Maven Wrapper only for backend tests; never use plain `mvn`.
-- For frontend-only work, run `cd frontend && npm run build`.
-- Do not start CI/CD/deployment until frontend code editing/review experience and dashboard readability are stable, unless the user explicitly chooses DevOps next.
+- Latest feature commit pushed to main: `6e5097a feat: add monaco code editor`.
+- Previous docs commit on main: `28857c1 docs: record frontend ai code review ui`.
+- Previous feature commit on main: `428301a feat: add frontend ai code review ui`.
+- Monaco Editor Integration Foundation is the latest completed feature.
+- Monaco feature changed only `frontend/src/pages/DashboardShell.jsx`, `frontend/package.json`, and `frontend/package-lock.json`.
+- `@monaco-editor/react` is installed in the frontend.
+- Code Runner now uses Monaco editor instead of the old plain textarea.
+- Monaco editor preserves the same existing `code` React state.
+- Run Code, Submit Code, AI Code Review, code length validation, blank validation, and character count all use the Monaco-backed code state.
+- Monaco language mapping is `java`, `python`, `javascript`, and `cpp`.
+- Monaco editor is configured with minimap disabled, font size 14, automatic layout, word wrap, and no scroll beyond last line.
+- Existing starter-code/language-change guard remains in place to avoid unexpectedly overwriting user-edited code.
+- Monaco editor content is not stored in localStorage or sessionStorage.
+- Monaco does not execute code locally.
+- Monaco does not call Piston or Gemini directly from the frontend.
+- Monaco feature did not change backend APIs, DB migrations, Docker, CI/CD, deployment, README, screenshots, demo video, resume bullets, or Phase 2 scope.
+- Manual browser verification passed:
+  - Code Runner renders Monaco with Java syntax highlighting and line numbers.
+  - Character counter remains visible.
+  - Run Code still shows safe known Piston-unavailable message when external Piston is unavailable.
+  - AI Code Review still shows safe AI-unavailable message when Gemini/AI service is unavailable.
+  - Existing dashboard sections such as Code Submission History, Quiz Attempt History, Course Progress, Next Actions, Leaderboard, and Generate Course still render.
+  - No raw JSON, stack traces, tokens, passwords, raw Gemini response bodies, raw prompts, raw Piston internals, hidden tests, correctAnswer, expectedOutput/stdin internals, or secrets were visible.
+- Known safe unavailable message for code runner: `Code runner is currently unavailable. Please try again later.`
+- Known safe unavailable message for AI review: `AI review service is currently unavailable. Please try again later.`
+- Next recommended feature: Dashboard UI polish / section organization.
+- Do not start Dashboard UI polish until Build Log docs update after Monaco is committed and `git status --short` is clean.
