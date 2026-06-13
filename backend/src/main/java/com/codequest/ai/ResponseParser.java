@@ -2,6 +2,7 @@ package com.codequest.ai;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.springframework.stereotype.Component;
@@ -16,6 +17,7 @@ public class ResponseParser {
     private static final Set<String> COURSE_DIFFICULTIES = Set.of("BEGINNER", "INTERMEDIATE", "ADVANCED");
     private static final Set<String> QUIZ_ANSWERS = Set.of("A", "B", "C", "D");
     private static final Set<String> CODING_DIFFICULTIES = Set.of("EASY", "MEDIUM", "HARD");
+    private static final Set<String> CODING_LANGUAGES = Set.of("java", "python", "javascript", "cpp");
 
     private final ObjectMapper objectMapper;
 
@@ -163,6 +165,45 @@ public class ResponseParser {
             validateTrimmedLength(codingProblem.description(), "codingProblem.description", 10, 2000);
             validateEnumValue(codingProblem.difficulty(), "codingProblem.difficulty", CODING_DIFFICULTIES);
             validateXpReward(codingProblem.xpReward(), "codingProblem.xpReward", 1, 500);
+            validateStarterCode(codingProblem.starterCode());
+            validateTestCases(codingProblem.sampleTestCases(), "codingProblem.sampleTestCases");
+            validateTestCases(codingProblem.hiddenTests(), "codingProblem.hiddenTests");
+        }
+    }
+
+    private void validateStarterCode(Map<String, String> starterCode) {
+        if (starterCode == null || starterCode.isEmpty()) {
+            throw new AiResponseValidationException("codingProblem.starterCode is required.");
+        }
+
+        for (String language : CODING_LANGUAGES) {
+            if (!starterCode.containsKey(language)) {
+                throw new AiResponseValidationException("codingProblem.starterCode must include " + language + ".");
+            }
+
+            validateTrimmedLength(starterCode.get(language), "codingProblem.starterCode." + language, 1, 20000);
+        }
+    }
+
+    private void validateTestCases(List<Map<String, String>> testCases, String fieldName) {
+        if (testCases == null || testCases.isEmpty()) {
+            throw new AiResponseValidationException(fieldName + " must contain at least 1 item.");
+        }
+
+        for (Map<String, String> testCase : testCases) {
+            if (testCase == null) {
+                throw new AiResponseValidationException(fieldName + " must not contain null items.");
+            }
+
+            if (!testCase.containsKey("stdin")) {
+                throw new AiResponseValidationException(fieldName + " item.stdin is required.");
+            }
+            if (!testCase.containsKey("expectedOutput")) {
+                throw new AiResponseValidationException(fieldName + " item.expectedOutput is required.");
+            }
+
+            validateTrimmedLength(testCase.get("stdin"), fieldName + " item.stdin", 0, 4000);
+            validateTrimmedLength(testCase.get("expectedOutput"), fieldName + " item.expectedOutput", 1, 4000);
         }
     }
 

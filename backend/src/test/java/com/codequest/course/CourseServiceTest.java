@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -23,6 +24,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.codequest.ai.AiCourseResponse;
+import com.codequest.ai.AiCodingProblemResponse;
 import com.codequest.ai.AiFlashcardResponse;
 import com.codequest.ai.AiLevelResponse;
 import com.codequest.ai.AiResponseValidationException;
@@ -38,6 +40,8 @@ import com.codequest.flashcard.Flashcard;
 import com.codequest.flashcard.FlashcardRepository;
 import com.codequest.level.Level;
 import com.codequest.level.LevelRepository;
+import com.codequest.problem.CodingProblem;
+import com.codequest.problem.CodingProblemRepository;
 import com.codequest.quiz.Quiz;
 import com.codequest.quiz.QuizRepository;
 import com.codequest.user.User;
@@ -58,6 +62,9 @@ class CourseServiceTest {
 
     @Mock
     private FlashcardRepository flashcardRepository;
+
+    @Mock
+    private CodingProblemRepository codingProblemRepository;
 
     @Mock
     private GeminiService geminiService;
@@ -107,6 +114,7 @@ class CourseServiceTest {
         verify(responseParser, never()).parseCourseResponse(any());
         verify(quizRepository, never()).saveAll(any());
         verify(flashcardRepository, never()).saveAll(any());
+        verify(codingProblemRepository, never()).saveAll(any());
         verify(levelRepository).findByCourseIdOrderByOrderNumberAsc(savedCourse.getId());
     }
 
@@ -139,6 +147,7 @@ class CourseServiceTest {
         verify(responseParser, never()).parseCourseResponse(any());
         verify(quizRepository, never()).saveAll(any());
         verify(flashcardRepository, never()).saveAll(any());
+        verify(codingProblemRepository, never()).saveAll(any());
         verify(levelRepository).findByCourseIdOrderByOrderNumberAsc(existingCourse.getId());
     }
 
@@ -251,7 +260,14 @@ class CourseServiceTest {
                                                         20
                                                 )
                                         ),
-                                        List.of()
+                                        List.of(
+                                                createAiCodingProblem(
+                                                        "DFS Reachability",
+                                                        "Count how many nodes are reachable from the start node using depth-first traversal.",
+                                                        "EASY",
+                                                        80
+                                                )
+                                        )
                                 )
                         )
                 ));
@@ -259,11 +275,14 @@ class CourseServiceTest {
         ArgumentCaptor<Course> courseCaptor = ArgumentCaptor.forClass(Course.class);
         ArgumentCaptor<List<Quiz>> quizCaptor = ArgumentCaptor.forClass(List.class);
         ArgumentCaptor<List<Flashcard>> flashcardCaptor = ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<List<CodingProblem>> codingProblemCaptor = ArgumentCaptor.forClass(List.class);
         when(courseRepository.save(courseCaptor.capture()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(quizRepository.saveAll(quizCaptor.capture()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(flashcardRepository.saveAll(flashcardCaptor.capture()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(codingProblemRepository.saveAll(codingProblemCaptor.capture()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         GenerateCourseResponse response = courseService.generateCourse(creator, request);
@@ -273,10 +292,13 @@ class CourseServiceTest {
         assertEquals(CourseSourceType.AI, courseCaptor.getValue().getSourceType());
         assertEquals(1, quizCaptor.getValue().size());
         assertEquals(1, flashcardCaptor.getValue().size());
+        assertEquals(1, codingProblemCaptor.getValue().size());
         assertEquals("Which traversal uses a stack-friendly approach?", quizCaptor.getValue().get(0).getQuestion());
         assertEquals(courseCaptor.getValue().getLevels().get(0).getId(), quizCaptor.getValue().get(0).getLevel().getId());
         assertEquals("DFS uses which core data structure idea?", flashcardCaptor.getValue().get(0).getFront());
         assertEquals(courseCaptor.getValue().getLevels().get(0).getId(), flashcardCaptor.getValue().get(0).getLevel().getId());
+        assertEquals("DFS Reachability", codingProblemCaptor.getValue().get(0).getTitle());
+        assertEquals(courseCaptor.getValue().getLevels().get(0).getId(), codingProblemCaptor.getValue().get(0).getLevel().getId());
         verify(geminiService, times(2)).generateCourseJson(request);
         verify(responseParser).parseCourseResponse("{\"title\":\"Graph DFS\"}");
     }
@@ -305,6 +327,7 @@ class CourseServiceTest {
         verify(responseParser, never()).parseCourseResponse(any());
         verify(quizRepository, never()).saveAll(any());
         verify(flashcardRepository, never()).saveAll(any());
+        verify(codingProblemRepository, never()).saveAll(any());
     }
 
     @Test
@@ -330,6 +353,7 @@ class CourseServiceTest {
         verify(responseParser, never()).parseCourseResponse(any());
         verify(quizRepository, never()).saveAll(any());
         verify(flashcardRepository, never()).saveAll(any());
+        verify(codingProblemRepository, never()).saveAll(any());
     }
 
     @Test
@@ -355,6 +379,7 @@ class CourseServiceTest {
         verify(responseParser, never()).parseCourseResponse(any());
         verify(quizRepository, never()).saveAll(any());
         verify(flashcardRepository, never()).saveAll(any());
+        verify(codingProblemRepository, never()).saveAll(any());
     }
 
     @Test
@@ -399,6 +424,7 @@ class CourseServiceTest {
         verify(geminiService, times(1)).generateCourseJson(request);
         verify(quizRepository, never()).saveAll(any());
         verify(flashcardRepository, never()).saveAll(any());
+        verify(codingProblemRepository, never()).saveAll(any());
     }
 
     @Test
@@ -441,7 +467,14 @@ class CourseServiceTest {
                                                         20
                                                 )
                                         ),
-                                        List.of()
+                                        List.of(
+                                                createAiCodingProblem(
+                                                        "Graph Degree Count",
+                                                        "Return the degree of the chosen node in an undirected graph.",
+                                                        "EASY",
+                                                        60
+                                                )
+                                        )
                                 ),
                                 new AiLevelResponse(
                                         "Graph Traversal Boss",
@@ -451,7 +484,14 @@ class CourseServiceTest {
                                         120,
                                         List.of(),
                                         List.of(),
-                                        List.of()
+                                        List.of(
+                                                createAiCodingProblem(
+                                                        "Shortest Reachability Boss",
+                                                        "Determine whether every node is reachable from the source vertex.",
+                                                        "MEDIUM",
+                                                        120
+                                                )
+                                        )
                                 ),
                                 new AiLevelResponse(
                                         "Introduction to Graphs",
@@ -467,11 +507,14 @@ class CourseServiceTest {
                 ));
 
         ArgumentCaptor<Course> courseCaptor = ArgumentCaptor.forClass(Course.class);
+        ArgumentCaptor<List<CodingProblem>> codingProblemCaptor = ArgumentCaptor.forClass(List.class);
         when(courseRepository.save(courseCaptor.capture()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(quizRepository.saveAll(any()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(flashcardRepository.saveAll(any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(codingProblemRepository.saveAll(codingProblemCaptor.capture()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         GenerateCourseResponse response = courseService.generateCourse(creator, request);
@@ -489,8 +532,10 @@ class CourseServiceTest {
         assertEquals(2, response.levels().get(1).orderNumber());
         assertEquals(3, response.levels().get(2).orderNumber());
         assertTrue(response.levels().get(2).isBoss());
+        assertEquals(2, codingProblemCaptor.getValue().size());
         verify(quizRepository).saveAll(any());
         verify(flashcardRepository).saveAll(any());
+        verify(codingProblemRepository).saveAll(any());
     }
 
     @Test
@@ -549,6 +594,7 @@ class CourseServiceTest {
         );
         verify(quizRepository, never()).saveAll(any());
         verify(flashcardRepository, never()).saveAll(any());
+        verify(codingProblemRepository, never()).saveAll(any());
     }
 
     @Test
@@ -576,6 +622,8 @@ class CourseServiceTest {
         Quiz thirdLevelQuiz = createQuiz(third, 1, "Which traversal can use a queue?", "DFS", "BFS", "Merge sort", "Heapify", "B");
         Flashcard firstLevelFlashcard = createFlashcard(first, 2, "Graph traversal start", "Choose a node and mark it visited.");
         Flashcard secondLevelFlashcard = createFlashcard(second, 1, "Adjacency list", "Stores each vertex with its connected neighbors.");
+        CodingProblem firstLevelCodingProblem = createCodingProblem(first, "Graph Warmup", "Identify the number of vertices in the graph.", "EASY", 60);
+        CodingProblem secondLevelCodingProblem = createCodingProblem(second, "Adjacency Query", "Return the neighbors of the selected node.", "MEDIUM", 80);
 
         when(courseRepository.findById(course.getId())).thenReturn(Optional.of(course));
         when(levelRepository.findByCourseIdOrderByOrderNumberAsc(course.getId())).thenReturn(List.of(first, second, third));
@@ -583,6 +631,8 @@ class CourseServiceTest {
                 .thenReturn(List.of(secondLevelQuiz, thirdLevelQuiz));
         when(flashcardRepository.findByLevelIdInOrderByLevelIdAscOrderNumberAsc(List.of(first.getId(), second.getId(), third.getId())))
                 .thenReturn(List.of(firstLevelFlashcard, secondLevelFlashcard));
+        when(codingProblemRepository.findByLevelIdInOrderByLevelIdAscCreatedAtAsc(List.of(first.getId(), second.getId(), third.getId())))
+                .thenReturn(List.of(firstLevelCodingProblem, secondLevelCodingProblem));
 
         CourseResponse response = courseService.getCourseById(course.getId());
 
@@ -598,18 +648,53 @@ class CourseServiceTest {
         assertEquals(0, response.levels().get(0).quizQuestions().size());
         assertEquals(1, response.levels().get(0).flashcards().size());
         assertEquals("Graph traversal start", response.levels().get(0).flashcards().get(0).front());
+        assertEquals(1, response.levels().get(0).codingProblems().size());
+        assertEquals("Graph Warmup", response.levels().get(0).codingProblems().get(0).title());
+        assertEquals("public class Main {}", response.levels().get(0).codingProblems().get(0).starterCode().get("java"));
         assertEquals(1, response.levels().get(1).quizQuestions().size());
         assertEquals("What is an adjacency list?", response.levels().get(1).quizQuestions().get(0).question());
         assertEquals("A graph representation", response.levels().get(1).quizQuestions().get(0).options().b());
         assertEquals("graph-basics", response.levels().get(1).quizQuestions().get(0).conceptTag());
         assertEquals(1, response.levels().get(1).flashcards().size());
         assertEquals("Adjacency list", response.levels().get(1).flashcards().get(0).front());
+        assertEquals(1, response.levels().get(1).codingProblems().size());
+        assertEquals("Adjacency Query", response.levels().get(1).codingProblems().get(0).title());
         assertEquals(3, response.levels().get(2).orderNumber());
         assertTrue(response.levels().get(2).isBoss());
 
         verify(geminiService, never()).isConfigured();
         verify(geminiService, never()).generateCourseJson(any());
         verify(responseParser, never()).parseCourseResponse(any());
+    }
+
+    @Test
+    void getCourseById_shouldReturnEmptyCodingProblemsWhenNoProblemsExist() {
+        User creator = createUser();
+        Course course = createCourse(creator, "binary search", "Binary Search");
+        List<Level> levels = createOrderedLevels(course);
+
+        when(courseRepository.findById(course.getId())).thenReturn(Optional.of(course));
+        when(levelRepository.findByCourseIdOrderByOrderNumberAsc(course.getId())).thenReturn(levels);
+        when(quizRepository.findByLevelIdInOrderByLevelIdAscOrderNumberAsc(List.of(
+                levels.get(0).getId(),
+                levels.get(1).getId(),
+                levels.get(2).getId()
+        ))).thenReturn(List.of());
+        when(flashcardRepository.findByLevelIdInOrderByLevelIdAscOrderNumberAsc(List.of(
+                levels.get(0).getId(),
+                levels.get(1).getId(),
+                levels.get(2).getId()
+        ))).thenReturn(List.of());
+        when(codingProblemRepository.findByLevelIdInOrderByLevelIdAscCreatedAtAsc(List.of(
+                levels.get(0).getId(),
+                levels.get(1).getId(),
+                levels.get(2).getId()
+        ))).thenReturn(List.of());
+
+        CourseResponse response = courseService.getCourseById(course.getId());
+
+        assertEquals(3, response.levels().size());
+        assertTrue(response.levels().stream().allMatch(level -> level.codingProblems().isEmpty()));
     }
 
     @Test
@@ -651,7 +736,29 @@ class CourseServiceTest {
         verify(levelRepository, never()).findByCourseIdOrderByOrderNumberAsc(any());
         verify(quizRepository, never()).findByLevelIdInOrderByLevelIdAscOrderNumberAsc(any());
         verify(flashcardRepository, never()).findByLevelIdInOrderByLevelIdAscOrderNumberAsc(any());
+        verify(codingProblemRepository, never()).findByLevelIdInOrderByLevelIdAscCreatedAtAsc(any());
         verify(geminiService, never()).generateCourseJson(any());
+    }
+
+    @Test
+    void generateCourse_shouldNotPersistCodingProblemsOnCacheHit() {
+        User creator = createUser();
+        Course existingCourse = createCourse(creator, "dynamic programming", "Dynamic Programming");
+        List<Level> existingLevels = createOrderedLevels(existingCourse);
+        existingCourse.setLevels(existingLevels);
+
+        when(courseRepository.findByNormalizedTopicAndDifficulty("dynamic programming", CourseDifficulty.BEGINNER))
+                .thenReturn(Optional.of(existingCourse));
+        when(levelRepository.findByCourseIdOrderByOrderNumberAsc(existingCourse.getId()))
+                .thenReturn(existingLevels);
+
+        GenerateCourseResponse response = courseService.generateCourse(
+                creator,
+                new GenerateCourseRequest("Dynamic Programming", CourseDifficulty.BEGINNER, null)
+        );
+
+        assertTrue(response.cacheHit());
+        verify(codingProblemRepository, never()).saveAll(any());
     }
 
     private User createUser() {
@@ -738,6 +845,45 @@ class CourseServiceTest {
                 "graph-basics",
                 now,
                 now
+        );
+    }
+
+    private CodingProblem createCodingProblem(Level level, String title, String description, String difficulty, int xpReward) {
+        Instant now = Instant.now();
+        return new CodingProblem(
+                UUID.randomUUID(),
+                level,
+                title,
+                description,
+                Map.of(
+                        "java", "public class Main {}",
+                        "python", "def solve():\n    pass",
+                        "javascript", "function solve() {}",
+                        "cpp", "int main() { return 0; }"
+                ),
+                List.of(Map.of("stdin", "", "expectedOutput", "2")),
+                List.of(Map.of("stdin", "", "expectedOutput", "4")),
+                difficulty,
+                xpReward,
+                now,
+                now
+        );
+    }
+
+    private AiCodingProblemResponse createAiCodingProblem(String title, String description, String difficulty, int xpReward) {
+        return new AiCodingProblemResponse(
+                title,
+                description,
+                difficulty,
+                xpReward,
+                Map.of(
+                        "java", "public class Main {}",
+                        "python", "def solve():\n    pass",
+                        "javascript", "function solve() {}",
+                        "cpp", "int main() { return 0; }"
+                ),
+                List.of(Map.of("stdin", "", "expectedOutput", "3")),
+                List.of(Map.of("stdin", "", "expectedOutput", "5"))
         );
     }
 }

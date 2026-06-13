@@ -35,6 +35,9 @@ import com.codequest.flashcard.FlashcardRepository;
 import com.codequest.flashcard.dto.FlashcardResponse;
 import com.codequest.level.Level;
 import com.codequest.level.LevelRepository;
+import com.codequest.problem.CodingProblem;
+import com.codequest.problem.CodingProblemRepository;
+import com.codequest.problem.dto.CodingProblemResponse;
 import com.codequest.quiz.Quiz;
 import com.codequest.quiz.QuizRepository;
 import com.codequest.quiz.dto.QuizOptionsResponse;
@@ -53,17 +56,20 @@ public class CourseService {
     private final LevelRepository levelRepository;
     private final QuizRepository quizRepository;
     private final FlashcardRepository flashcardRepository;
+    private final CodingProblemRepository codingProblemRepository;
     private final UserRepository userRepository;
     private final GeminiService geminiService;
     private final ResponseParser responseParser;
 
     public CourseService(CourseRepository courseRepository, LevelRepository levelRepository, QuizRepository quizRepository,
-                         FlashcardRepository flashcardRepository, UserRepository userRepository,
+                         FlashcardRepository flashcardRepository, CodingProblemRepository codingProblemRepository,
+                         UserRepository userRepository,
                          GeminiService geminiService, ResponseParser responseParser) {
         this.courseRepository = courseRepository;
         this.levelRepository = levelRepository;
         this.quizRepository = quizRepository;
         this.flashcardRepository = flashcardRepository;
+        this.codingProblemRepository = codingProblemRepository;
         this.userRepository = userRepository;
         this.geminiService = geminiService;
         this.responseParser = responseParser;
@@ -100,11 +106,13 @@ public class CourseService {
 
         Map<UUID, List<QuizQuestionResponse>> quizQuestionsByLevelId = getQuizQuestionsByLevelId(orderedLevels);
         Map<UUID, List<FlashcardResponse>> flashcardsByLevelId = getFlashcardsByLevelId(orderedLevels);
+        Map<UUID, List<CodingProblemResponse>> codingProblemsByLevelId = getCodingProblemsByLevelId(orderedLevels);
         List<CourseLevelResponse> levels = orderedLevels.stream()
                 .map(level -> toCourseLevelResponse(
                         level,
                         quizQuestionsByLevelId.getOrDefault(level.getId(), List.of()),
-                        flashcardsByLevelId.getOrDefault(level.getId(), List.of())
+                        flashcardsByLevelId.getOrDefault(level.getId(), List.of()),
+                        codingProblemsByLevelId.getOrDefault(level.getId(), List.of())
                 ))
                 .collect(Collectors.toList());
 
@@ -263,6 +271,7 @@ public class CourseService {
         Course savedCourse = courseRepository.save(course);
         persistAiQuizzes(savedCourse.getLevels(), orderedAiLevels, now);
         persistAiFlashcards(savedCourse.getLevels(), orderedAiLevels, now);
+        persistAiCodingProblems(savedCourse.getLevels(), orderedAiLevels, now);
         return toGenerateCourseResponse(savedCourse, false);
     }
 
@@ -299,7 +308,8 @@ public class CourseService {
     }
 
     private CourseLevelResponse toCourseLevelResponse(Level level, List<QuizQuestionResponse> quizQuestions,
-                                                      List<FlashcardResponse> flashcards) {
+                                                      List<FlashcardResponse> flashcards,
+                                                      List<CodingProblemResponse> codingProblems) {
         return new CourseLevelResponse(
                 level.getId(),
                 level.getOrderNumber(),
@@ -308,7 +318,8 @@ public class CourseService {
                 level.getXpReward(),
                 level.isBoss(),
                 quizQuestions,
-                flashcards
+                flashcards,
+                codingProblems
         );
     }
 
@@ -346,6 +357,23 @@ public class CourseService {
         }
     }
 
+    private void persistAiCodingProblems(List<Level> savedLevels, List<AiLevelResponse> orderedAiLevels, Instant now) {
+        if (savedLevels.isEmpty() || orderedAiLevels.isEmpty()) {
+            return;
+        }
+
+        Map<Integer, Level> levelsByOrderNumber = savedLevels.stream()
+                .collect(Collectors.toMap(Level::getOrderNumber, level -> level));
+
+        List<CodingProblem> codingProblemsToPersist = orderedAiLevels.stream()
+                .flatMap(aiLevel -> buildCodingProblemEntitiesForLevel(aiLevel, levelsByOrderNumber.get(aiLevel.orderNumber()), now).stream())
+                .toList();
+
+        if (!codingProblemsToPersist.isEmpty()) {
+            codingProblemRepository.saveAll(codingProblemsToPersist);
+        }
+    }
+
     private List<Quiz> buildQuizEntitiesForLevel(AiLevelResponse aiLevel, Level savedLevel, Instant now) {
         if (savedLevel == null || aiLevel.quiz() == null || aiLevel.quiz().isEmpty()) {
             return List.of();
@@ -365,6 +393,16 @@ public class CourseService {
         List<AiFlashcardResponse> flashcards = aiLevel.flashcards();
         return java.util.stream.IntStream.range(0, flashcards.size())
                 .mapToObj(index -> toFlashcardEntity(savedLevel, flashcards.get(index), index + 1, now))
+                .toList();
+    }
+
+    private List<CodingProblem> buildCodingProblemEntitiesForLevel(AiLevelResponse aiLevel, Level savedLevel, Instant now) {
+        if (savedLevel == null || aiLevel.codingProblems() == null || aiLevel.codingProblems().isEmpty()) {
+            return List.of();
+        }
+
+        return aiLevel.codingProblems().stream()
+                .map(codingProblem -> toCodingProblemEntity(savedLevel, codingProblem, now))
                 .toList();
     }
 
@@ -395,6 +433,22 @@ public class CourseService {
                 flashcard.front().trim(),
                 flashcard.back().trim(),
                 null,
+                now,
+                now
+        );
+    }
+
+    private CodingProblem toCodingProblemEntity(Level savedLevel, com.codequest.ai.AiCodingProblemResponse codingProblem, Instant now) {
+        return new CodingProblem(
+                UUID.randomUUID(),
+                savedLevel,
+                codingProblem.title().trim(),
+                codingProblem.description().trim(),
+                Map.copyOf(codingProblem.starterCode()),
+                copyTestCases(codingProblem.sampleTestCases()),
+                copyTestCases(codingProblem.hiddenTests()),
+                codingProblem.difficulty().trim(),
+                codingProblem.xpReward(),
                 now,
                 now
         );
@@ -444,6 +498,28 @@ public class CourseService {
                 ));
     }
 
+    private Map<UUID, List<CodingProblemResponse>> getCodingProblemsByLevelId(List<Level> orderedLevels) {
+        if (orderedLevels.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        List<UUID> levelIds = orderedLevels.stream()
+                .map(Level::getId)
+                .toList();
+
+        List<CodingProblem> codingProblems = codingProblemRepository.findByLevelIdInOrderByLevelIdAscCreatedAtAsc(levelIds);
+        if (codingProblems.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        return codingProblems.stream()
+                .collect(Collectors.groupingBy(
+                        codingProblem -> codingProblem.getLevel().getId(),
+                        LinkedHashMap::new,
+                        Collectors.mapping(this::toCodingProblemResponse, Collectors.toList())
+                ));
+    }
+
     private QuizQuestionResponse toQuizQuestionResponse(Quiz quiz) {
         return new QuizQuestionResponse(
                 quiz.getId(),
@@ -469,6 +545,28 @@ public class CourseService {
                 flashcard.getBack(),
                 flashcard.getConceptTag()
         );
+    }
+
+    private CodingProblemResponse toCodingProblemResponse(CodingProblem codingProblem) {
+        return new CodingProblemResponse(
+                codingProblem.getId(),
+                codingProblem.getTitle(),
+                codingProblem.getDescription(),
+                codingProblem.getDifficulty(),
+                codingProblem.getXpReward(),
+                Map.copyOf(codingProblem.getStarterCodeJson()),
+                copyTestCases(codingProblem.getTestCasesJson())
+        );
+    }
+
+    private List<Map<String, String>> copyTestCases(List<Map<String, String>> testCases) {
+        if (testCases == null || testCases.isEmpty()) {
+            return List.of();
+        }
+
+        return testCases.stream()
+                .map(Map::copyOf)
+                .toList();
     }
 
     private String trimToNull(String value) {

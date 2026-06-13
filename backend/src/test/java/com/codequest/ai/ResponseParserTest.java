@@ -130,6 +130,33 @@ class ResponseParserTest {
         assertEquals(1, response.levels().get(0).orderNumber());
         assertEquals("B", response.levels().get(0).quiz().get(0).correctAnswer());
         assertEquals("EASY", response.levels().get(0).codingProblems().get(0).difficulty());
+        assertEquals("public class Main {}", response.levels().get(0).codingProblems().get(0).starterCode().get("java"));
+        assertEquals("", response.levels().get(0).codingProblems().get(0).sampleTestCases().get(0).get("stdin"));
+        assertEquals("6", response.levels().get(0).codingProblems().get(0).hiddenTests().get(0).get("expectedOutput"));
+    }
+
+    @Test
+    void shouldRejectCodingProblemWithoutStarterCode() {
+        String invalidCodingProblemJson = validCourseJson().replace(starterCodeBlock(), "\"starterCode\": null");
+
+        AiResponseValidationException exception = assertThrows(
+                AiResponseValidationException.class,
+                () -> responseParser.parseCourseResponse(invalidCodingProblemJson)
+        );
+
+        assertEquals("codingProblem.starterCode is required.", exception.getMessage());
+    }
+
+    @Test
+    void shouldRejectCodingProblemWithoutHiddenTests() {
+        String invalidCodingProblemJson = validCourseJson().replace(hiddenTestsBlock(), "\"hiddenTests\": []");
+
+        AiResponseValidationException exception = assertThrows(
+                AiResponseValidationException.class,
+                () -> responseParser.parseCourseResponse(invalidCodingProblemJson)
+        );
+
+        assertEquals("codingProblem.hiddenTests must contain at least 1 item.", exception.getMessage());
     }
 
     @Test
@@ -363,7 +390,25 @@ class ResponseParserTest {
                           "title": "Find Target with Binary Search",
                           "description": "Return the index of target in a sorted array, or -1 if missing.",
                           "difficulty": "EASY",
-                          "xpReward": 50
+                          "xpReward": 50,
+                          "starterCode": {
+                            "java": "public class Main {}",
+                            "python": "def solve():\\n    pass",
+                            "javascript": "function solve() {}",
+                            "cpp": "int main() { return 0; }"
+                          },
+                          "sampleTestCases": [
+                            {
+                              "stdin": "",
+                              "expectedOutput": "4"
+                            }
+                          ],
+                          "hiddenTests": [
+                            {
+                              "stdin": "",
+                              "expectedOutput": "6"
+                            }
+                          ]
                         }
                       ]
                     }
@@ -405,7 +450,25 @@ class ResponseParserTest {
                           "title": "Find Target with Binary Search",
                           "description": "Return the index of target in a sorted array, or -1 if missing.",
                           "difficulty": "EASY",
-                          "xpReward": 50
+                          "xpReward": 50,
+                          "starterCode": {
+                            "java": "public class Main {}",
+                            "python": "def solve():\\n    pass",
+                            "javascript": "function solve() {}",
+                            "cpp": "int main() { return 0; }"
+                          },
+                          "sampleTestCases": [
+                            {
+                              "stdin": "",
+                              "expectedOutput": "4"
+                            }
+                          ],
+                          "hiddenTests": [
+                            {
+                              "stdin": "",
+                              "expectedOutput": "6"
+                            }
+                          ]
                         }
                       ]
                     }
@@ -427,6 +490,28 @@ class ResponseParserTest {
                   "encouragement": "Good job choosing an efficient strategy."
                 }
                 """;
+    }
+
+    private String starterCodeBlock() {
+        return """
+                          "starterCode": {
+                            "java": "public class Main {}",
+                            "python": "def solve():\\n    pass",
+                            "javascript": "function solve() {}",
+                            "cpp": "int main() { return 0; }"
+                          }
+                """.trim();
+    }
+
+    private String hiddenTestsBlock() {
+        return """
+                          "hiddenTests": [
+                            {
+                              "stdin": "",
+                              "expectedOutput": "6"
+                            }
+                          ]
+                """.trim();
     }
 
     private String improvementsBlock() {

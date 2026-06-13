@@ -26,6 +26,8 @@ import com.codequest.flashcard.Flashcard;
 import com.codequest.flashcard.FlashcardRepository;
 import com.codequest.level.Level;
 import com.codequest.level.LevelRepository;
+import com.codequest.problem.CodingProblem;
+import com.codequest.problem.CodingProblemRepository;
 import com.codequest.quiz.Quiz;
 import com.codequest.quiz.QuizRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -52,6 +54,9 @@ class CourseControllerTest {
 
     @Autowired
     private FlashcardRepository flashcardRepository;
+
+    @Autowired
+    private CodingProblemRepository codingProblemRepository;
 
     @Test
     void shouldGenerateCourseForAuthenticatedUser() throws Exception {
@@ -183,7 +188,9 @@ class CourseControllerTest {
                 .andExpect(jsonPath("$.levels[0].quizQuestions").isArray())
                 .andExpect(jsonPath("$.levels[0].quizQuestions.length()").value(0))
                 .andExpect(jsonPath("$.levels[0].flashcards").isArray())
-                .andExpect(jsonPath("$.levels[0].flashcards.length()").value(0));
+                .andExpect(jsonPath("$.levels[0].flashcards.length()").value(0))
+                .andExpect(jsonPath("$.levels[0].codingProblems").isArray())
+                .andExpect(jsonPath("$.levels[0].codingProblems.length()").value(0));
     }
 
     @Test
@@ -271,6 +278,62 @@ class CourseControllerTest {
                 .andExpect(jsonPath("$.levels[0].flashcards[0].back").value("A hierarchical structure where each node has at most two children."))
                 .andExpect(jsonPath("$.levels[0].flashcards[0].conceptTag").value("trees"))
                 .andExpect(jsonPath("$.levels[0].quizQuestions").isArray());
+    }
+
+    @Test
+    void shouldFetchPersistedCodingProblemsWithoutExposingHiddenTests() throws Exception {
+        String accessToken = registerAndLogin("fetchcodingproblems-" + System.currentTimeMillis() + "@example.com");
+
+        GenerateCourseRequest request = new GenerateCourseRequest("Graphs", CourseDifficulty.BEGINNER, "Interview prep");
+        String generateResponseBody = mockMvc.perform(post("/api/courses/generate")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        GenerateCourseResponse generatedCourse = objectMapper.readValue(generateResponseBody, GenerateCourseResponse.class);
+        Course course = courseRepository.findById(generatedCourse.courseId()).orElseThrow();
+        Level firstLevel = levelRepository.findByCourseIdOrderByOrderNumberAsc(course.getId()).get(0);
+        codingProblemRepository.save(new CodingProblem(
+                UUID.randomUUID(),
+                firstLevel,
+                "Find Target Index",
+                "Return the target index in a sorted array or -1.",
+                java.util.Map.of(
+                        "java", "public class Main {}",
+                        "python", "def solve():\n    pass",
+                        "javascript", "function solve() {}",
+                        "cpp", "int main() { return 0; }"
+                ),
+                java.util.List.of(java.util.Map.of("stdin", "", "expectedOutput", "4")),
+                java.util.List.of(java.util.Map.of("stdin", "", "expectedOutput", "7")),
+                "EASY",
+                100,
+                java.time.Instant.now(),
+                java.time.Instant.now()
+        ));
+
+        mockMvc.perform(get("/api/courses/{courseId}", generatedCourse.courseId())
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.levels[0].codingProblems").isArray())
+                .andExpect(jsonPath("$.levels[0].codingProblems[0].problemId").exists())
+                .andExpect(jsonPath("$.levels[0].codingProblems[0].title").value("Find Target Index"))
+                .andExpect(jsonPath("$.levels[0].codingProblems[0].description").value("Return the target index in a sorted array or -1."))
+                .andExpect(jsonPath("$.levels[0].codingProblems[0].difficulty").value("EASY"))
+                .andExpect(jsonPath("$.levels[0].codingProblems[0].xpReward").value(100))
+                .andExpect(jsonPath("$.levels[0].codingProblems[0].starterCode.java").value("public class Main {}"))
+                .andExpect(jsonPath("$.levels[0].codingProblems[0].sampleTestCases[0].expectedOutput").value("4"))
+                .andExpect(jsonPath("$.levels[0].codingProblems[0].hiddenTests").doesNotExist())
+                .andExpect(jsonPath("$.levels[0].codingProblems[0].hidden_tests_json").doesNotExist())
+                .andExpect(jsonPath("$.levels[0].codingProblems[0].correctAnswer").doesNotExist())
+                .andExpect(jsonPath("$.levels[0].codingProblems[0].password").doesNotExist())
+                .andExpect(jsonPath("$.levels[0].codingProblems[0].token").doesNotExist())
+                .andExpect(jsonPath("$.levels[0].codingProblems[0].secret").doesNotExist())
+                .andExpect(jsonPath("$.stackTrace").doesNotExist());
     }
 
     @Test

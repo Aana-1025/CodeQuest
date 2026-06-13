@@ -60,7 +60,25 @@ public class PromptBuilder {
         prompt.append("          \"title\": \"string\",\n");
         prompt.append("          \"description\": \"string\",\n");
         prompt.append("          \"difficulty\": \"EASY\",\n");
-        prompt.append("          \"xpReward\": 50\n");
+        prompt.append("          \"xpReward\": 50,\n");
+        prompt.append("          \"starterCode\": {\n");
+        prompt.append("            \"java\": \"string\",\n");
+        prompt.append("            \"python\": \"string\",\n");
+        prompt.append("            \"javascript\": \"string\",\n");
+        prompt.append("            \"cpp\": \"string\"\n");
+        prompt.append("          },\n");
+        prompt.append("          \"sampleTestCases\": [\n");
+        prompt.append("            {\n");
+        prompt.append("              \"stdin\": \"string\",\n");
+        prompt.append("              \"expectedOutput\": \"string\"\n");
+        prompt.append("            }\n");
+        prompt.append("          ],\n");
+        prompt.append("          \"hiddenTests\": [\n");
+        prompt.append("            {\n");
+        prompt.append("              \"stdin\": \"string\",\n");
+        prompt.append("              \"expectedOutput\": \"string\"\n");
+        prompt.append("            }\n");
+        prompt.append("          ]\n");
         prompt.append("        }\n");
         prompt.append("      ]\n");
         prompt.append("    }\n");
@@ -82,6 +100,9 @@ public class PromptBuilder {
         prompt.append("- each quiz correctAnswer must be exactly one of A, B, C, or D.\n");
         prompt.append("- each quiz item must include explanation, conceptTag, and xpReward.\n");
         prompt.append("- each coding problem difficulty must be exactly EASY, MEDIUM, or HARD.\n");
+        prompt.append("- each coding problem must include starterCode with java, python, javascript, and cpp keys.\n");
+        prompt.append("- each coding problem must include sampleTestCases and hiddenTests arrays with at least 1 item each.\n");
+        prompt.append("- each test case must include stdin and expectedOutput strings. Use an empty string when stdin is not needed.\n");
         prompt.append("- do not include trailing commas, comments, markdown fences, or extra keys outside the schema.\n");
         prompt.append("- Keep the output educational, concise, and valid JSON.\n");
 
