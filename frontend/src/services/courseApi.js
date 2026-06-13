@@ -289,18 +289,28 @@ async function runCode(problemId, payload) {
   if (response.status === 400) {
     const error = new Error("Please check your code runner input and try again.");
     error.status = 400;
+    error.code = data?.code ?? null;
     throw error;
   }
 
   if (response.status === 503) {
     const error = new Error("Code runner is currently unavailable. Please try again later.");
     error.status = 503;
+    error.code = data?.code ?? null;
+    throw error;
+  }
+
+  if (response.status === 500) {
+    const error = new Error("Code runner failed safely. Please check the backend logs and try again.");
+    error.status = 500;
+    error.code = data?.code ?? null;
     throw error;
   }
 
   if (!response.ok) {
     const error = new Error("Could not run code right now. Please try again.");
     error.status = response.status;
+    error.code = data?.code ?? null;
     error.data = data ?? null;
     throw error;
   }
@@ -350,18 +360,21 @@ async function submitCode(problemId, payload) {
   if (response.status === 400) {
     const error = new Error("Please check your code submit input and try again.");
     error.status = 400;
+    error.code = data?.code ?? null;
     throw error;
   }
 
   if (response.status === 503) {
     const error = new Error("Code runner is currently unavailable. Please try again later.");
     error.status = 503;
+    error.code = data?.code ?? null;
     throw error;
   }
 
   if (!response.ok) {
     const error = new Error("Could not submit code right now. Please try again.");
     error.status = response.status;
+    error.code = data?.code ?? null;
     error.data = data ?? null;
     throw error;
   }
@@ -468,12 +481,14 @@ async function getCodeSubmissions(problemId, page = 0, size = 20) {
   if (response.status === 400) {
     const error = new Error("Please check the submissions history request and try again.");
     error.status = 400;
+    error.code = data?.code ?? null;
     throw error;
   }
 
   if (!response.ok) {
     const error = new Error("Could not load code submissions right now. Please try again.");
     error.status = response.status;
+    error.code = data?.code ?? null;
     error.data = data ?? null;
     throw error;
   }

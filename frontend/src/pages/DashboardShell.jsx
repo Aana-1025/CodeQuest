@@ -55,6 +55,9 @@ const MONACO_EDITOR_OPTIONS = {
   scrollBeyondLastLine: false,
 };
 
+const DEMO_PROBLEM_UUID = "11111111-1111-1111-1111-111111111111";
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 class MonacoEditorErrorBoundary extends Component {
   constructor(props) {
     super(props);
@@ -118,7 +121,7 @@ function CodeEditorField({ language, value, onChange }) {
 }
 
 const INITIAL_CODE_RUNNER_FORM = {
-  problemId: "",
+  problemId: DEMO_PROBLEM_UUID,
   language: "java",
   code: CODE_RUNNER_STARTER_CODE.java,
   stdin: "",
@@ -126,6 +129,34 @@ const INITIAL_CODE_RUNNER_FORM = {
   problemTitle: "",
   problemDescription: "",
 };
+
+function isValidProblemUuid(problemId) {
+  return UUID_PATTERN.test(problemId.trim());
+}
+
+function getMissingProblemIdMessage(action) {
+  if (action === "run") {
+    return "Enter a problem UUID before running code.";
+  }
+
+  if (action === "submit") {
+    return "Enter a problem UUID before submitting code.";
+  }
+
+  return "Enter a problem UUID before loading submissions.";
+}
+
+function getInvalidProblemIdMessage(action) {
+  if (action === "run") {
+    return "Enter a valid problem UUID before running code.";
+  }
+
+  if (action === "submit") {
+    return "Enter a valid problem UUID before submitting code.";
+  }
+
+  return "Enter a valid problem UUID before loading submissions.";
+}
 
 function getCourseBadgeLabel(generatedCourse) {
   if (generatedCourse.cacheHit) {
@@ -403,6 +434,10 @@ function getCodeRunnerErrorMessage(error) {
 
   if (error?.status === 503) {
     return "Code runner is currently unavailable. Please try again later.";
+  }
+
+  if (error?.status === 500) {
+    return "Code runner failed safely. Please check the backend logs and try again.";
   }
 
   return "Could not run code right now. Please try again.";
@@ -1194,7 +1229,19 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
     const trimmedProblemId = codeRunnerForm.problemId.trim();
     const trimmedCode = codeRunnerForm.code.trim();
 
-    if (!trimmedProblemId || !trimmedCode) {
+    setCodeRunnerResult(null);
+
+    if (!trimmedProblemId) {
+      setCodeRunnerError(getMissingProblemIdMessage("run"));
+      return;
+    }
+
+    if (!isValidProblemUuid(trimmedProblemId)) {
+      setCodeRunnerError(getInvalidProblemIdMessage("run"));
+      return;
+    }
+
+    if (!trimmedCode) {
       setCodeRunnerError("Please check your code runner input and try again.");
       return;
     }
@@ -1261,7 +1308,20 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
     const trimmedCode = codeRunnerForm.code.trim();
     const trimmedExpectedOutput = codeRunnerForm.expectedOutput.trim();
 
-    if (!trimmedProblemId || !trimmedCode) {
+    setCodeSubmitResult(null);
+    setCodeSubmitProfileMessage("");
+
+    if (!trimmedProblemId) {
+      setCodeSubmitError(getMissingProblemIdMessage("submit"));
+      return;
+    }
+
+    if (!isValidProblemUuid(trimmedProblemId)) {
+      setCodeSubmitError(getInvalidProblemIdMessage("submit"));
+      return;
+    }
+
+    if (!trimmedCode) {
       setCodeSubmitError("Please check your code submit input and try again.");
       return;
     }
@@ -1311,7 +1371,16 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
     const trimmedProblemId = codeRunnerForm.problemId.trim();
 
     if (!trimmedProblemId) {
-      setCodeSubmissionsHistoryError("Please check the submissions history request and try again.");
+      setCodeSubmissionsHistory(null);
+      setCodeSubmissionsHistoryLoaded(false);
+      setCodeSubmissionsHistoryError(getMissingProblemIdMessage("submissions"));
+      return;
+    }
+
+    if (!isValidProblemUuid(trimmedProblemId)) {
+      setCodeSubmissionsHistory(null);
+      setCodeSubmissionsHistoryLoaded(false);
+      setCodeSubmissionsHistoryError(getInvalidProblemIdMessage("submissions"));
       return;
     }
 
@@ -1914,6 +1983,84 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
     );
   }
 
+  const profileName = typeof profile?.name === "string" && profile.name.trim()
+    ? profile.name.trim()
+    : "CodeQuest Learner";
+  const profileEmail = typeof profile?.email === "string" && profile.email.trim()
+    ? profile.email.trim()
+    : "Profile not loaded yet";
+  const profileRank = profile?.rank ?? "Unknown";
+  const profileXp = profile?.xp ?? 0;
+  const profileStreak = profile?.streak ?? 0;
+  const leaderboardPosition = leaderboard?.currentUser?.rankPosition ?? null;
+  const generatedLevels = Array.isArray(generatedCourse?.levels) ? generatedCourse.levels : [];
+  const generatedLevelCount = generatedLevels.length;
+  const currentCourseLabel = generatedCourse?.title ?? "No active course yet";
+  const learningStatus = generatedCourse
+    ? courseMapLoading
+      ? "Loading map"
+      : "Course ready"
+    : generationLoading
+      ? "Generating"
+      : "Ready to begin";
+  const nextActionItems = [
+    generatedCourse
+      ? "Open the course map to move from course creation into lesson-by-lesson practice."
+      : "Generate a personalized Java learning path to populate your learning workspace.",
+    codeRunnerForm.problemId.trim()
+      ? "Run or submit code for the current problem ID from the practice workspace."
+      : "Add a problem ID in the code practice area before running or submitting code.",
+    leaderboardLoaded
+      ? "Refresh the leaderboard whenever you want an updated snapshot of XP standings."
+      : "Load the leaderboard to compare your XP progress with other learners.",
+    quizAttemptHistoryLoaded
+      ? "Review quiz history to spot concepts that still need reinforcement."
+      : "Load quiz attempt history after lessons to review mistakes and explanations.",
+  ];
+  const navItems = [
+    { id: "overview-section", label: "Overview" },
+    { id: "learn-section", label: "Learn" },
+    { id: "practice-section", label: "Practice" },
+    { id: "history-section", label: "History" },
+    { id: "progress-section", label: "Progress" },
+  ];
+  const statCards = [
+    {
+      label: "XP",
+      value: profileXp,
+      detail: "Total points earned",
+      className: "border-blue-100 bg-blue-50",
+    },
+    {
+      label: "Rank",
+      value: profileRank,
+      detail: "Current learning tier",
+      className: "border-violet-100 bg-violet-50",
+    },
+    {
+      label: "Streak",
+      value: profileStreak,
+      detail: "Daily learning streak",
+      className: "border-emerald-100 bg-emerald-50",
+    },
+    {
+      label: "Leaderboard",
+      value: leaderboardPosition ? `#${leaderboardPosition}` : "Load rank",
+      detail: leaderboardLoaded ? "Latest standing snapshot" : "Available after loading leaderboard",
+      className: "border-orange-100 bg-orange-50",
+    },
+  ];
+  const scrollToSection = (sectionId) => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    document.getElementById(sectionId)?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
@@ -2207,7 +2354,7 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
                     type="text"
                     value={codeRunnerForm.problemId}
                     onChange={(event) => handleCodeRunnerFieldChange("problemId", event.target.value)}
-                    placeholder="manual-problem-1"
+                    placeholder={DEMO_PROBLEM_UUID}
                     className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                   />
                 </div>

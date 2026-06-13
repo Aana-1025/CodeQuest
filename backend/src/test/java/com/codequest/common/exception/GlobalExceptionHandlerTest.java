@@ -4,17 +4,21 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import java.util.UUID;
 
 class GlobalExceptionHandlerTest {
 
@@ -60,6 +64,18 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.timestamp").exists());
     }
 
+    @Test
+    void shouldReturnValidationErrorForInvalidUuidPathVariable() throws Exception {
+        mockMvc.perform(get("/api/test/uuid/not-a-uuid"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.code").value(ErrorCode.VALIDATION_ERROR.name()))
+                .andExpect(jsonPath("$.message").value("Invalid UUID format."))
+                .andExpect(jsonPath("$.path").value("/api/test/uuid/not-a-uuid"))
+                .andExpect(jsonPath("$.requestId").exists())
+                .andExpect(jsonPath("$.timestamp").exists());
+    }
+
     @RestController
     static class TestController {
 
@@ -71,6 +87,11 @@ class GlobalExceptionHandlerTest {
         @PostMapping("/api/test/generic-error")
         void triggerGenericError() {
             throw new RuntimeException("Test exception");
+        }
+
+        @GetMapping("/api/test/uuid/{id}")
+        void triggerUuidTypeMismatch(@PathVariable("id") UUID id) {
+            // Test-only endpoint for UUID path validation failure.
         }
     }
 

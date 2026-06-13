@@ -137,6 +137,31 @@ class ProblemControllerTest {
     }
 
     @Test
+    void shouldReturn400WhenRunProblemIdIsNotUuid() throws Exception {
+        LoginResponse loginResponse = registerAndLogin("probleminvaliduuid-" + System.currentTimeMillis() + "@example.com");
+
+        mockMvc.perform(post("/api/problems/{problemId}/run", "manual-problem-1")
+                        .header("Authorization", "Bearer " + loginResponse.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "language": "java",
+                                  "code": "public class Main {}",
+                                  "stdin": "",
+                                  "expectedOutput": ""
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.message").value("Invalid UUID format."))
+                .andExpect(jsonPath("$.stackTrace").doesNotExist())
+                .andExpect(content().string(not(containsString("java.lang"))))
+                .andExpect(content().string(not(containsString("org.springframework"))));
+
+        verifyNoInteractions(problemService);
+    }
+
+    @Test
     void shouldReturn503WhenProblemServiceMapsRunnerUnavailable() throws Exception {
         LoginResponse loginResponse = registerAndLogin("problem503-" + System.currentTimeMillis() + "@example.com");
         UUID problemId = UUID.randomUUID();
