@@ -5,14 +5,14 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Frontend / Monaco Editor
-Current feature: Monaco Editor Integration Foundation completed, frontend-build-verified, browser-manually-verified for Monaco editor visibility/editing flow, safe Piston-unavailable Run Code path, safe AI-unavailable review path, committed, pushed, and awaiting Build Log docs commit
-Latest commit: `6e5097a feat: add monaco code editor`
-Previous docs commit: `28857c1 docs: record frontend ai code review ui`
-Previous feature commit: `428301a feat: add frontend ai code review ui`
+Current module: Code Runner / Local Piston Runtime
+Current feature: Code Runner invalid problem-id validation and local self-hosted Piston Java run verification completed, frontend-build-verified, backend-test-verified, browser-manually-verified, committed, pushed, and awaiting Build Log docs commit
+Latest commit: `e30e126 fix: validate code runner problem ids`
+Previous feature commit: `6e5097a feat: add monaco code editor`
+Previous docs commit: `2c612ef docs: record monaco code editor`
 Current branch: main
-Test status: Frontend `cd frontend && npm run build` PASS after Monaco Editor Integration Foundation according to Codex output and user-side verification flow. Manual browser verification PASS: DashboardShell Code Runner now shows a Monaco editor in place of the previous plain code textarea, Java syntax highlighting and line numbers are visible, code can be edited through Monaco, the existing character counter remains visible and updates from the same editor-backed `code` state, and existing Run Code / Submit Code / AI Code Review flows continue to use the same code state. Manual regression verification PASS for safe external-service-unavailable paths: clicking `Run Code` with Java hello-world code reaches the backend and shows the known safe Piston-unavailable message `Code runner is currently unavailable. Please try again later.`, and clicking `Review Code with AI` reaches the backend AI review flow and shows the safe AI-unavailable message `AI review service is currently unavailable. Please try again later.` when Gemini/AI service is unavailable. The existing Code Submission History, Quiz Attempt History, Course Progress, Next Actions, Leaderboard, Generate Course, and other dashboard sections still render. The UI did not show raw stack traces, raw backend JSON dumps, raw Gemini response bodies, raw prompts, raw Piston internals, access tokens, refresh tokens, passwords, roles, token hashes, userId, hidden tests, correctAnswer, expectedOutput/stdin internals, or secrets. Scope checks PASS: only `frontend/src/pages/DashboardShell.jsx`, `frontend/package.json`, and `frontend/package-lock.json` changed for the feature; backend, backend Docker files, backend/pom.xml, migrations, application.yml, docs, Build Log, README, .github, docker-compose, CI/CD, deployment, and Phase 2 files were not part of the feature implementation.
-Git status: clean after `6e5097a feat: add monaco code editor` was pushed to `main`; Build Log docs update in progress
+Test status: Frontend `cd frontend && npm run build` PASS according to Codex output after the invalid problem-id validation fix. Backend `cd backend && .\mvnw.cmd test` PASS according to Codex output after the invalid UUID backend handling fix. Manual browser verification PASS: entering non-UUID problem id `manual-problem-1` now shows `Enter a valid problem UUID before running code.` and does not send `/api/problems/manual-problem-1/run`; the same invalid UUID validation behavior is implemented for Submit Code and Load Submissions. Valid UUID problem id `11111111-1111-1111-1111-111111111111` reaches the backend. Local self-hosted Piston was manually installed and started through Docker Desktop using `ghcr.io/engineer-man/piston`, privileged mode, port `2000:2000`, persistent packages volume outside the repo, `/tmp:exec` tmpfs, and higher Piston run/compile timeout env values. Java runtime `java 15.0.2` was installed through Piston package API. Direct local Piston `POST http://localhost:2000/api/v2/execute` returned `stdout`/`output` containing `Hello CodeQuest\n`, `code=0`, and no stderr for a simple Java Main program. CodeQuest backend was then started with `PISTON_BASE_URL=http://localhost:2000/api/v2`; browser Run Code executed Java successfully and displayed stdout/output such as `Hello CodeQuest` and `Antara`. The UI correctly showed `Output did not match expected output` when actual stdout/output differed from the Expected Output field; this is expected behavior, not a bug. Scope checks PASS according to Codex output: changed files for the committed fix were `backend/src/main/java/com/codequest/common/exception/GlobalExceptionHandler.java`, `backend/src/test/java/com/codequest/common/exception/GlobalExceptionHandlerTest.java`, `backend/src/test/java/com/codequest/problem/ProblemControllerTest.java`, `frontend/src/pages/DashboardShell.jsx`, and `frontend/src/services/courseApi.js`. Forbidden files were untouched: docs/Build Log during implementation, README, .github, docker-compose, backend Docker files, backend/pom.xml, DB migrations, frontend package files, and Phase 2 files.
+Git status: clean after `e30e126 fix: validate code runner problem ids` was pushed to `main`; Build Log docs update in progress
 
 ## Completed Features
 - [x] Project setup
@@ -87,6 +87,7 @@ Git status: clean after `6e5097a feat: add monaco code editor` was pushed to `ma
 - [x] Frontend Code Submission History UI
 - [x] Frontend AI Code Review UI
 - [x] Monaco Editor Integration
+- [x] Code Runner invalid problem-id validation and local Piston Java run verification
 - [ ] Dashboard UI polish / section organization
 - [ ] CI/CD
 - [ ] Deployment
@@ -102,6 +103,14 @@ Git status: clean after `6e5097a feat: add monaco code editor` was pushed to `ma
 - Frontend: React + Vite + Tailwind.
 - Security: Spring Security + JWT + BCrypt.
 - Code execution: Piston API only. Never execute user code inside the backend.
+- CodeQuest must never execute user code inside the Spring Boot backend. Local/self-hosted Piston is allowed because it is a separate Piston API service running outside CodeQuest and CodeQuest only calls it over HTTP.
+- Public Piston `/execute` is not reliable for the project demo because it can be whitelist-only/unavailable. For local demos, use self-hosted Piston through Docker Desktop and set backend env `PISTON_BASE_URL=http://localhost:2000/api/v2`.
+- Local self-hosted Piston verification used Docker image `ghcr.io/engineer-man/piston`, container name `codequest-piston`, privileged mode, port `2000:2000`, persistent package volume outside the repo at `C:\Users\hp\Desktop\piston-local-data\packages:/piston/packages`, and `--tmpfs /tmp:exec`.
+- Local Piston should be started with higher timeout env values for Java demo reliability: `PISTON_RUN_TIMEOUT=10000` and `PISTON_COMPILE_TIMEOUT=10000`.
+- Local Piston Java runtime was installed through Piston package API using package `java` version `15.0.2`.
+- Direct local Piston endpoint for self-hosted mode is `http://localhost:2000/api/v2/execute`; do not append `/piston` for the self-hosted base URL.
+- Direct local Piston runtime check is `curl.exe http://localhost:2000/api/v2/runtimes`; a working Java demo should show `java` version `15.0.2`.
+- The expected-output comparison for Run Code is strict after trimming primary output and expected output. If stdout/output differs from the Expected Output field, `Output did not match expected output` is correct behavior.
 - AI: Gemini API through GeminiService only.
 - Backend Docker Setup Foundation is implemented as a backend-only Docker image build foundation.
 - Backend Dockerfile uses a multi-stage Java 21 build with `eclipse-temurin:21-jdk` for the builder stage and `eclipse-temurin:21-jre` for the runtime stage.
@@ -132,6 +141,10 @@ Git status: clean after `6e5097a feat: add monaco code editor` was pushed to `ma
 - Frontend Code Runner now uses Monaco editor for the main code input after Monaco Editor Integration Foundation.
 - Frontend code runner supports starter code for Java, Python, JavaScript, and C++ without overwriting user-edited code unexpectedly.
 - Frontend code runner validates blank problem id, blank code, and code length over 20000 characters before sending the request.
+- Frontend code runner now validates that problem id is a UUID before Run Code, Submit Code, and Load Submissions requests.
+- Frontend code runner default demo problem id is UUID-style `11111111-1111-1111-1111-111111111111` instead of non-UUID `manual-problem-1`.
+- Non-UUID `manual-problem-1` is intentionally blocked client-side with `Enter a valid problem UUID before running code.` and should not send a backend run request.
+- Backend global exception handling maps invalid UUID path variable conversion failures to safe HTTP 400 ErrorDTO instead of leaking a generic 500.
 - Frontend code runner renders stdout, stderr, output, exitCode, runtimeMs, passed status, and safe message as plain text only.
 - Frontend code runner shows safe error messages for 401, 400, 503, and generic failures.
 - Frontend code runner intentionally does not display access tokens, refresh tokens, passwords, roles, token hashes, userId, raw backend JSON, raw Piston internals, hidden tests, correct answers, stack traces, or secrets.
@@ -901,6 +914,7 @@ Git status: clean after `6e5097a feat: add monaco code editor` was pushed to `ma
 
 ## Bugs / Issues
 - None blocking currently.
+- Code Runner invalid problem-id / local Piston note: No blocking issue after fix and manual verification. Invalid non-UUID problem id `manual-problem-1` now shows `Enter a valid problem UUID before running code.` and is blocked before the backend request. Valid UUID `11111111-1111-1111-1111-111111111111` reaches backend. Local self-hosted Piston was configured through Docker Desktop with Java runtime `15.0.2`, and direct Piston execution returned `Hello CodeQuest`. CodeQuest backend started with `PISTON_BASE_URL=http://localhost:2000/api/v2` successfully executed Java from the browser. `Output did not match expected output` is expected when actual stdout/output differs from the Expected Output field. Public Piston can still be unavailable/whitelist-only; for demos, keep local Docker Piston running.
 - Monaco Editor Integration Foundation note: No blocking issue after browser verification. Manual dashboard verification showed the Code Runner section now renders a Monaco editor in place of the old code textarea, with Java syntax highlighting, line numbers, editable code, and the existing character counter still visible. Run Code regression verification showed the known safe Piston-unavailable message `Code runner is currently unavailable. Please try again later.` after click, which means the Monaco-backed code state still reaches the backend flow and the unavailable state is the existing external Piston condition, not a Monaco/frontend break. AI Code Review regression verification showed the safe unavailable message `AI review service is currently unavailable. Please try again later.` when Gemini/AI service is unavailable. Existing Code Submission History, Quiz Attempt History, Course Progress, Next Actions, Leaderboard, Generate Course, and dashboard sections still render. The UI did not expose raw stack traces, raw backend JSON dumps, raw Gemini bodies, raw prompts, raw Piston internals, access tokens, refresh tokens, passwords, roles, token hashes, userId, hidden tests, correctAnswer, expectedOutput/stdin internals, or secrets. Scope stayed frontend-only with expected changes limited to `frontend/src/pages/DashboardShell.jsx`, `frontend/package.json`, and `frontend/package-lock.json`; no backend, DB migration, Docker, docs/Build Log during implementation, README, .github, docker-compose, CI/CD, deployment, or Phase 2 files changed.
 - Frontend AI Code Review UI Foundation note: No blocking issue after browser verification of the safe AI-unavailable path and Run Code regression path. Manual dashboard verification showed the `AI Code Review` panel visible near Code Runner with optional Problem Title and Problem Description fields. Clicking `Review Code with AI` with Java hello-world code and optional context reached the backend AI review flow and showed the expected safe unavailable message `AI review service is currently unavailable. Please try again later.` This is acceptable because backend AI review already safely returns 503 when Gemini/config/service is unavailable. Run Code was also regression-checked and still showed the known safe Piston-unavailable message `Code runner is currently unavailable. Please try again later.` after click, which means the frontend button/request path is still active and the unavailable state is the existing external Piston condition, not a new frontend break. The UI did not expose raw stack traces, raw backend JSON dumps, raw Gemini bodies, raw prompts, raw Piston internals, access tokens, refresh tokens, passwords, roles, token hashes, userId, hidden tests, correctAnswer, expectedOutput/stdin internals, or secrets. Scope stayed frontend-only with expected changes limited to `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`; no backend, DB migration, Docker, docs/Build Log during implementation, README, .github, docker-compose, frontend package, CI/CD, deployment, or Phase 2 files changed.
 - Frontend Code Submission History UI Foundation note: No blocking issue after browser verification of the empty-history path. Manual dashboard verification showed the `Code Submission History` section visible near the Code Runner / Code Submit controls. Refresh Submissions worked for UUID-style problem id `11111111-1111-1111-1111-111111111111`; the UI displayed page metadata `Page: 0`, `Size: 20`, `Total Items: 0`, `Total Pages: 0`; the empty state `No submissions found for this problem yet.` appeared; and Previous/Next pagination controls were disabled for the empty result. This is acceptable because local Piston unavailability meant no successful runner-backed submissions existed for that problem. The UI did not expose raw stack traces, raw backend JSON dumps, raw Piston internals, access tokens, refresh tokens, passwords, roles, token hashes, userId, hidden tests, correctAnswer, expectedOutput, stdin, or secrets. Scope stayed frontend-only with expected changes limited to `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`; no backend, DB migration, Docker, docs/Build Log during implementation, README, .github, docker-compose, frontend package, CI/CD, deployment, or Phase 2 files changed.
@@ -1190,9 +1204,17 @@ Git status: clean after `6e5097a feat: add monaco code editor` was pushed to `ma
 
 | 70 | 2026-06-11 | Monaco Editor Integration Foundation | Frontend / Code Editor | frontend/src/pages/DashboardShell.jsx; frontend/package.json; frontend/package-lock.json | Frontend `cd frontend && npm run build` PASS according to Codex output. Manual browser verification PASS: Monaco editor rendered in the Code Runner section, Java syntax highlighting and line numbers were visible, code editing worked through the editor-backed state, character counter stayed visible, Run Code still showed the known safe `Code runner is currently unavailable. Please try again later.` Piston-unavailable message, AI Code Review still showed safe `AI review service is currently unavailable. Please try again later.` when Gemini/AI was unavailable, and existing dashboard sections still rendered. Scope checks clean: only DashboardShell and frontend package files changed; no backend, docs, Build Log during implementation, Docker, CI/CD, deployment, or Phase 2 files changed. | `6e5097a feat: add monaco code editor`. Added `@monaco-editor/react`, replaced the code textarea with Monaco while preserving the existing `code` state, language mapping, starter-code guard, blank/length validation, Run Code, Submit Code, Code Submission History, and AI Code Review flows. No backend/API changes, no local code execution, no auto-run/submit/review, no local/session storage, and no dashboard reorganization. |
 
+| 71 | 2026-06-13 | Code Runner invalid problem-id validation and local Piston Java run verification | Frontend + Backend Common Exception + Local Runtime | backend/src/main/java/com/codequest/common/exception/GlobalExceptionHandler.java; backend/src/test/java/com/codequest/common/exception/GlobalExceptionHandlerTest.java; backend/src/test/java/com/codequest/problem/ProblemControllerTest.java; frontend/src/pages/DashboardShell.jsx; frontend/src/services/courseApi.js | Frontend `cd frontend && npm run build` PASS according to Codex output. Backend `cd backend && .\mvnw.cmd test` PASS according to Codex output. Manual browser verification PASS: invalid `manual-problem-1` shows UUID validation message and does not call backend; valid UUID reaches backend; local self-hosted Piston with Java 15.0.2 executes Java successfully through direct Piston and through CodeQuest browser Run Code. | `e30e126 fix: validate code runner problem ids`. Added frontend UUID validation for Run Code, Submit Code, and Load Submissions; changed demo problem id to `11111111-1111-1111-1111-111111111111`; improved safe run-code error mapping; added safe backend handling for invalid UUID path variable conversion as 400 ErrorDTO; verified self-hosted Docker Piston local Java execution with `PISTON_BASE_URL=http://localhost:2000/api/v2`. No migrations, package changes, Docker file changes, README, CI/CD, deployment, dashboard redesign, or Phase 2 work. |
+
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
 |---|---|---|---|---|
+| 2026-06-13 | `cd frontend && npm run build` after Code Runner invalid problem-id validation fix | PASS | Frontend build passed according to Codex output after default UUID, UUID validation, and safe error-message updates in DashboardShell/courseApi. | Yes |
+| 2026-06-13 | `cd backend && .\mvnw.cmd test` after invalid UUID backend handling fix | PASS | Backend tests passed according to Codex output after GlobalExceptionHandler invalid UUID mapping and focused controller/exception tests. | Yes |
+| 2026-06-13 | `docker run -d --privileged --name codequest-piston -p 2000:2000 -e PISTON_RUN_TIMEOUT=10000 -e PISTON_COMPILE_TIMEOUT=10000 -v C:\Users\hp\Desktop\piston-local-data\packages:/piston/packages --tmpfs /tmp:exec ghcr.io/engineer-man/piston` | PASS | Local Piston container started and exposed API on `0.0.0.0:2000`. Initial non-privileged container had failed with read-only filesystem isolate error; fixed by privileged mode and tmpfs. | Yes |
+| 2026-06-13 | `curl.exe http://localhost:2000/api/v2/runtimes` after installing Java package | PASS | Local Piston returned `[{"language":"java","version":"15.0.2","aliases":[]}]`. | Yes |
+| 2026-06-13 | Direct local Piston `POST http://localhost:2000/api/v2/execute` with Java Main and timeout fields | PASS | Local Piston returned `stdout`/`output` containing `Hello CodeQuest\n`, `code=0`, and no stderr. Initial default request hit time-limit; fixed by restarting Piston with higher configured run/compile timeouts. | Yes |
+| 2026-06-13 | Browser CodeQuest Run Code with backend `PISTON_BASE_URL=http://localhost:2000/api/v2` | PASS | Browser Run Code executed Java and displayed stdout/output such as `Hello CodeQuest` and `Antara`; valid output mismatch message appeared only when Expected Output differed from actual output. | Yes |
 | 2026-06-11 | `cd frontend && npm run build` after Monaco Editor Integration Foundation | PASS | Frontend build passed after adding `@monaco-editor/react` and replacing the Code Runner code textarea with Monaco editor. Manual browser verification confirmed Monaco renders and existing safe Run Code / AI Review unavailable paths still work. | Yes |
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
 | 2026-05-03 | `cd backend && .\mvnw.cmd test` | PASS | - | - |
@@ -1306,6 +1328,7 @@ Git status: clean after `6e5097a feat: add monaco code editor` was pushed to `ma
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
 |---|---|---|---|---|
+| 2026-06-13 | Code Runner invalid problem-id validation and local Piston Java run verification | Browser dashboard invalid/valid problem-id checks plus Docker self-hosted Piston direct/API/browser run checks | Invalid `manual-problem-1` shows `Enter a valid problem UUID before running code.` and does not call backend; valid UUID `11111111-1111-1111-1111-111111111111` reaches backend; local Piston container runs on port 2000; Java runtime `15.0.2` is installed; direct Piston Java execute returns `Hello CodeQuest`; CodeQuest browser Run Code executes Java when backend uses `PISTON_BASE_URL=http://localhost:2000/api/v2`; `Output did not match expected output` appears only when expected output differs from actual output. | Passed |
 | 2026-06-11 | Monaco Editor Integration Foundation | Browser dashboard Monaco editor verification plus Run Code and AI Review regression checks | Monaco editor renders in Code Runner with Java syntax highlighting and line numbers, code is editable through the existing code state, character counter remains visible, Run Code shows safe known Piston-unavailable message when external runner is unavailable, AI Review shows safe AI-unavailable message when Gemini/AI is unavailable, existing dashboard sections remain visible, and no raw JSON/stack traces/tokens/passwords/raw Gemini/raw prompt/raw Piston/secrets are visible. | Passed |
 | 2026-06-11 | Frontend AI Code Review UI Foundation | Browser dashboard AI Code Review verification and Run Code regression verification | AI Code Review panel renders near Code Runner, optional problem title/description fields work, clicking Review Code with AI shows safe `AI review service is currently unavailable. Please try again later.` when Gemini/AI is unavailable, Run Code still shows safe `Code runner is currently unavailable. Please try again later.` for known Piston-unavailable path, existing dashboard sections remain visible, and no raw JSON/stack traces/tokens/passwords/raw Gemini/raw prompt/raw Piston/secrets are visible. | Passed |
 | 2026-06-10 | Frontend Code Runner UI Foundation | Browser dashboard Code Runner verification | Code Runner section renders, UUID-style problem id reaches backend, Java code can be entered, safe Piston-unavailable message displays, and no raw stack traces/raw Piston internals/tokens/passwords/userId/secrets are visible. | Passed |
@@ -8354,6 +8377,166 @@ frontend/package.json
 frontend/package-lock.json
 ```
 
+## Code Runner Invalid UUID + Local Piston Java Verification Commands
+
+### 1. Start Docker Desktop first
+
+Docker Desktop must be running before any Docker command works.
+
+```powershell
+docker --version
+docker ps
+```
+
+`docker ps` should not show a Docker daemon connection error.
+
+### 2. Start self-hosted Piston locally
+
+Keep Piston data outside the Git repo.
+
+```powershell
+mkdir C:\Users\hp\Desktop\piston-local-data -Force
+mkdir C:\Users\hp\Desktop\piston-local-data\packages -Force
+
+docker rm -f codequest-piston
+
+docker run -d `
+  --privileged `
+  --name codequest-piston `
+  -p 2000:2000 `
+  -e PISTON_RUN_TIMEOUT=10000 `
+  -e PISTON_COMPILE_TIMEOUT=10000 `
+  -v C:\Users\hp\Desktop\piston-local-data\packages:/piston/packages `
+  --tmpfs /tmp:exec `
+  ghcr.io/engineer-man/piston
+```
+
+Check logs and API:
+
+```powershell
+docker ps
+docker logs codequest-piston --tail 80
+curl.exe http://localhost:2000/api/v2/runtimes
+```
+
+If runtimes returns `[]`, install Java package through the package API.
+
+```powershell
+$javaPackage = @{
+  language = "java"
+  version = "15.0.2"
+} | ConvertTo-Json
+
+Invoke-RestMethod -Method Post -Uri "http://localhost:2000/api/v2/packages" -ContentType "application/json" -Body $javaPackage
+
+curl.exe http://localhost:2000/api/v2/runtimes
+```
+
+Expected Java runtime:
+
+```json
+[{"language":"java","version":"15.0.2","aliases":[]}]
+```
+
+### 3. Direct Piston Java execute test
+
+```powershell
+$pistonBody = @{
+  language = "java"
+  version = "15.0.2"
+  files = @(
+    @{
+      name = "Main.java"
+      content = "public class Main { public static void main(String[] args) { System.out.println(""Hello CodeQuest""); } }"
+    }
+  )
+  stdin = ""
+  compile_timeout = 10000
+  run_timeout = 10000
+  compile_memory_limit = -1
+  run_memory_limit = -1
+} | ConvertTo-Json -Depth 5
+
+$response = Invoke-RestMethod -Method Post -Uri "http://localhost:2000/api/v2/execute" -ContentType "application/json" -Body $pistonBody
+$response | ConvertTo-Json -Depth 10
+```
+
+Expected output contains:
+
+```text
+Hello CodeQuest
+```
+
+### 4. Start CodeQuest backend with local Piston
+
+Stop any already-running backend first with `Ctrl + C`, then start backend with local Piston env.
+
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject\backend
+
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
+$env:DATABASE_USERNAME="postgres"
+$env:DATABASE_PASSWORD="YOUR_REAL_LOCAL_POSTGRES_PASSWORD"
+$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
+$env:PISTON_BASE_URL="http://localhost:2000/api/v2"
+
+.\mvnw.cmd spring-boot:run
+```
+
+### 5. Start frontend
+
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject\frontend
+npm run dev
+```
+
+Open:
+
+```text
+http://localhost:5173
+```
+
+### 6. Browser Run Code verification
+
+Use:
+
+```text
+Problem ID: 11111111-1111-1111-1111-111111111111
+Language: Java
+Expected Output: Hello CodeQuest
+```
+
+Code:
+
+```java
+public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello CodeQuest");
+    }
+}
+```
+
+Expected result:
+- Code executes successfully.
+- stdout/output contains `Hello CodeQuest`.
+- If Expected Output exactly matches actual output after trimming, passed state should be true/matched.
+- If Expected Output differs, `Output did not match expected output` is correct behavior.
+
+### 7. Invalid UUID verification
+
+Use:
+
+```text
+Problem ID: manual-problem-1
+```
+
+Click Run Code.
+
+Expected:
+- UI shows `Enter a valid problem UUID before running code.`
+- Browser Network does not send `/api/problems/manual-problem-1/run`.
+
+
 ## Next Chat Prompt
 Use this prompt in the next chat if this one becomes slow:
 
@@ -8490,30 +8673,46 @@ Critical project rules:
 ```
 
 ## Latest Safe Continuation Notes
-- Latest feature commit pushed to main: `6e5097a feat: add monaco code editor`.
-- Previous docs commit on main: `28857c1 docs: record frontend ai code review ui`.
-- Previous feature commit on main: `428301a feat: add frontend ai code review ui`.
-- Monaco Editor Integration Foundation is the latest completed feature.
-- Monaco feature changed only `frontend/src/pages/DashboardShell.jsx`, `frontend/package.json`, and `frontend/package-lock.json`.
-- `@monaco-editor/react` is installed in the frontend.
-- Code Runner now uses Monaco editor instead of the old plain textarea.
-- Monaco editor preserves the same existing `code` React state.
-- Run Code, Submit Code, AI Code Review, code length validation, blank validation, and character count all use the Monaco-backed code state.
-- Monaco language mapping is `java`, `python`, `javascript`, and `cpp`.
-- Monaco editor is configured with minimap disabled, font size 14, automatic layout, word wrap, and no scroll beyond last line.
-- Existing starter-code/language-change guard remains in place to avoid unexpectedly overwriting user-edited code.
-- Monaco editor content is not stored in localStorage or sessionStorage.
-- Monaco does not execute code locally.
-- Monaco does not call Piston or Gemini directly from the frontend.
-- Monaco feature did not change backend APIs, DB migrations, Docker, CI/CD, deployment, README, screenshots, demo video, resume bullets, or Phase 2 scope.
-- Manual browser verification passed:
-  - Code Runner renders Monaco with Java syntax highlighting and line numbers.
-  - Character counter remains visible.
-  - Run Code still shows safe known Piston-unavailable message when external Piston is unavailable.
-  - AI Code Review still shows safe AI-unavailable message when Gemini/AI service is unavailable.
-  - Existing dashboard sections such as Code Submission History, Quiz Attempt History, Course Progress, Next Actions, Leaderboard, and Generate Course still render.
-  - No raw JSON, stack traces, tokens, passwords, raw Gemini response bodies, raw prompts, raw Piston internals, hidden tests, correctAnswer, expectedOutput/stdin internals, or secrets were visible.
-- Known safe unavailable message for code runner: `Code runner is currently unavailable. Please try again later.`
-- Known safe unavailable message for AI review: `AI review service is currently unavailable. Please try again later.`
+- Latest feature commit pushed to main: `e30e126 fix: validate code runner problem ids`.
+- Previous docs commit on main: `2c612ef docs: record monaco code editor`.
+- Previous feature commit on main: `6e5097a feat: add monaco code editor`.
+- Code Runner invalid problem-id validation and local Piston Java run verification is the latest completed work.
+- Changed files in latest feature commit:
+  - `backend/src/main/java/com/codequest/common/exception/GlobalExceptionHandler.java`
+  - `backend/src/test/java/com/codequest/common/exception/GlobalExceptionHandlerTest.java`
+  - `backend/src/test/java/com/codequest/problem/ProblemControllerTest.java`
+  - `frontend/src/pages/DashboardShell.jsx`
+  - `frontend/src/services/courseApi.js`
+- The fix was committed and pushed as `e30e126 fix: validate code runner problem ids`.
+- Frontend build passed according to Codex output: `cd frontend && npm run build`.
+- Backend tests passed according to Codex output: `cd backend && .\mvnw.cmd test`.
+- Frontend now validates problem id UUID format before Run Code, Submit Code, and Load Submissions.
+- Default demo Code Runner problem id is now `11111111-1111-1111-1111-111111111111`.
+- Invalid non-UUID `manual-problem-1` is blocked client-side and shows `Enter a valid problem UUID before running code.`
+- Backend now maps invalid UUID path variable conversion to safe HTTP 400 ErrorDTO instead of generic 500.
+- Public Piston `/execute` should not be relied on for demos because it can be unavailable/whitelist-only.
+- Local self-hosted Piston was manually set up through Docker Desktop using `ghcr.io/engineer-man/piston`.
+- Local Piston container name used during verification: `codequest-piston`.
+- Local Piston API URL used during verification: `http://localhost:2000/api/v2`.
+- Local Piston direct execute endpoint: `http://localhost:2000/api/v2/execute`.
+- Backend env for local Piston demo: `$env:PISTON_BASE_URL="http://localhost:2000/api/v2"`.
+- Local Piston was run with:
+  - `--privileged`
+  - `-p 2000:2000`
+  - `-e PISTON_RUN_TIMEOUT=10000`
+  - `-e PISTON_COMPILE_TIMEOUT=10000`
+  - `-v C:\Users\hp\Desktop\piston-local-data\packages:/piston/packages`
+  - `--tmpfs /tmp:exec`
+- Java package installed in local Piston: `java` version `15.0.2`.
+- Direct Piston runtime check returned `java 15.0.2`.
+- Direct Piston Java execute test returned `Hello CodeQuest`.
+- Browser CodeQuest Run Code test with local Piston executed Java and displayed stdout/output such as `Hello CodeQuest` and `Antara`.
+- `Output did not match expected output` is expected when actual stdout/output differs from the Expected Output field.
+- For a passing browser Run Code demo, make code output and Expected Output exactly match after trimming, for example code prints `Antara` and Expected Output is `Antara`.
+- CodeQuest backend must still never execute user code locally. Code execution remains Piston API only.
+- Keep Docker Desktop and `codequest-piston` running during local demo if Run Code needs to execute successfully.
+- If Piston is not running or `PISTON_BASE_URL` is not set on backend startup, Run Code may safely show `Code runner is currently unavailable. Please try again later.`
+- Known safe unavailable message for AI review remains `AI review service is currently unavailable. Please try again later.` when Gemini/AI is unavailable.
 - Next recommended feature: Dashboard UI polish / section organization.
-- Do not start Dashboard UI polish until Build Log docs update after Monaco is committed and `git status --short` is clean.
+- Do not start Dashboard UI polish until this Build Log docs update is committed and `git status --short` is clean.
+
