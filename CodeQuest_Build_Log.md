@@ -5,14 +5,14 @@ This file solves the long-chat slowdown problem. Update it manually after every 
 
 ## Current Status
 Phase: MVP
-Current module: Code Runner / Local Piston Runtime
-Current feature: Code Runner invalid problem-id validation and local self-hosted Piston Java run verification completed, frontend-build-verified, backend-test-verified, browser-manually-verified, committed, pushed, and awaiting Build Log docs commit
-Latest commit: `e30e126 fix: validate code runner problem ids`
-Previous feature commit: `6e5097a feat: add monaco code editor`
-Previous docs commit: `2c612ef docs: record monaco code editor`
+Current module: Coding Problems Persistence / Course Learning Data
+Current feature: Backend Coding Problems Persistence Foundation completed, backend-test-verified, placeholder-runtime-manually-verified, committed, pushed, and awaiting Build Log docs commit
+Latest commit: `035da32 feat: persist coding problems`
+Previous docs commit: `680ea2b docs: record code runner local piston verification`
+Previous feature commit: `e30e126 fix: validate code runner problem ids`
 Current branch: main
-Test status: Frontend `cd frontend && npm run build` PASS according to Codex output after the invalid problem-id validation fix. Backend `cd backend && .\mvnw.cmd test` PASS according to Codex output after the invalid UUID backend handling fix. Manual browser verification PASS: entering non-UUID problem id `manual-problem-1` now shows `Enter a valid problem UUID before running code.` and does not send `/api/problems/manual-problem-1/run`; the same invalid UUID validation behavior is implemented for Submit Code and Load Submissions. Valid UUID problem id `11111111-1111-1111-1111-111111111111` reaches the backend. Local self-hosted Piston was manually installed and started through Docker Desktop using `ghcr.io/engineer-man/piston`, privileged mode, port `2000:2000`, persistent packages volume outside the repo, `/tmp:exec` tmpfs, and higher Piston run/compile timeout env values. Java runtime `java 15.0.2` was installed through Piston package API. Direct local Piston `POST http://localhost:2000/api/v2/execute` returned `stdout`/`output` containing `Hello CodeQuest\n`, `code=0`, and no stderr for a simple Java Main program. CodeQuest backend was then started with `PISTON_BASE_URL=http://localhost:2000/api/v2`; browser Run Code executed Java successfully and displayed stdout/output such as `Hello CodeQuest` and `Antara`. The UI correctly showed `Output did not match expected output` when actual stdout/output differed from the Expected Output field; this is expected behavior, not a bug. Scope checks PASS according to Codex output: changed files for the committed fix were `backend/src/main/java/com/codequest/common/exception/GlobalExceptionHandler.java`, `backend/src/test/java/com/codequest/common/exception/GlobalExceptionHandlerTest.java`, `backend/src/test/java/com/codequest/problem/ProblemControllerTest.java`, `frontend/src/pages/DashboardShell.jsx`, and `frontend/src/services/courseApi.js`. Forbidden files were untouched: docs/Build Log during implementation, README, .github, docker-compose, backend Docker files, backend/pom.xml, DB migrations, frontend package files, and Phase 2 files.
-Git status: clean after `e30e126 fix: validate code runner problem ids` was pushed to `main`; Build Log docs update in progress
+Test status: Backend `cd backend && .\mvnw.cmd test` PASS according to Codex output after Backend Coding Problems Persistence Foundation. Manual placeholder runtime verification PASS: registered/login test user `coding.problem.20260613132321@test.com`, generated placeholder course `Coding Problems Placeholder Test 20260613132321`, fetched the course through `GET /api/courses/{courseId}`, confirmed every placeholder level returned `codingProblems: []` while existing `quizQuestions` and `flashcards` arrays remained stable, confirmed response safety checks returned `False` for `hiddenTests`, `hidden_tests_json`, `hidden`, `password`, `token`, and `secret`, and confirmed PostgreSQL `coding_problems` count remained `0` globally and `0` for the placeholder course. Codex automated coverage reported repository JSON persistence, placeholder zero-row behavior, AI-success persistence wiring, cache-hit no-duplication behavior, safe course fetch DTO exposure without hidden tests, expanded AI parser/prompt schema, and existing run/submit/history tests still passing. Live Gemini coding-problem persistence was not manually confirmed in this turn because the manual verification intentionally used Gemini-disabled placeholder generation; AI coding-problem persistence is verified by automated mocked tests.
+Git status: `CodeQuest_Build_Log.md` modified after `035da32 feat: persist coding problems` was pushed to `main`; Build Log docs update in progress
 
 ## Completed Features
 - [x] Project setup
@@ -88,6 +88,31 @@ Git status: clean after `e30e126 fix: validate code runner problem ids` was push
 - [x] Frontend AI Code Review UI
 - [x] Monaco Editor Integration
 - [x] Code Runner invalid problem-id validation and local Piston Java run verification
+- [ ] Backend profile update endpoint
+- [ ] Frontend profile edit UI
+- [ ] Public course discovery endpoint
+- [ ] Frontend public course discovery UI
+- [ ] Course enrollment endpoint
+- [ ] Frontend course enrollment flow
+- [ ] Backend level detail endpoint
+- [ ] Frontend lesson fetch from level detail endpoint
+- [x] Backend coding problems persistence
+- [x] AI-generated coding problems persistence
+- [ ] Frontend coding challenge display from persisted problems
+- [ ] Hidden test based code submission
+- [ ] Persisted coding problem test-case runner
+- [ ] Backend AI explain-error endpoint
+- [ ] Frontend explain runtime error UI
+- [ ] Daily challenge endpoint
+- [ ] Daily challenge table / seed strategy
+- [ ] Frontend daily challenge UI
+- [ ] Backend achievements / badges foundation
+- [ ] Frontend achievements display
+- [ ] Full level quiz submit endpoint / contract alignment
+- [ ] First-attempt quiz XP anti-farming
+- [ ] Perfect quiz bonus
+- [ ] Rate limiting for login, course generation, and code execution
+- [ ] Swagger/OpenAPI annotation audit
 - [ ] Dashboard UI polish / section organization
 - [ ] CI/CD
 - [ ] Deployment
@@ -112,6 +137,19 @@ Git status: clean after `e30e126 fix: validate code runner problem ids` was push
 - Direct local Piston runtime check is `curl.exe http://localhost:2000/api/v2/runtimes`; a working Java demo should show `java` version `15.0.2`.
 - The expected-output comparison for Run Code is strict after trimming primary output and expected output. If stdout/output differs from the Expected Output field, `Output did not match expected output` is correct behavior.
 - AI: Gemini API through GeminiService only.
+- Backend Coding Problems Persistence Foundation is implemented.
+- V10 Flyway migration `V10__create_coding_problems_table.sql` creates `coding_problems`.
+- `coding_problems` belongs to levels through `level_id` and stores `title`, `description`, `starter_code_json`, visible `test_cases_json`, hidden `hidden_tests_json`, `difficulty`, `xp_reward`, timestamps, and indexes.
+- Coding problems are persisted only from already parsed and validated successful AI course-generation output.
+- Placeholder courses create zero coding problem rows.
+- Cache hits must not duplicate coding problem rows.
+- `GET /api/courses/{courseId}` now returns safe `codingProblems` arrays on each level when persisted coding problems exist.
+- Course fetch coding problem response exposes safe fields such as `problemId`, `title`, `description`, `difficulty`, `xpReward`, `starterCode`, and visible/sample test cases.
+- Course fetch coding problem response must never expose hidden tests, `hiddenTests`, `hidden_tests_json`, raw entities, correct answers, secrets, tokens, or stack traces.
+- `PromptBuilder` and `ResponseParser` now request and validate expanded coding problem schema with starter code, sample test cases, and hidden tests.
+- Live Gemini coding-problem persistence was not manually confirmed in the Backend Coding Problems Persistence Foundation task; automated mocked tests verify the AI-success persistence path.
+- Existing Run Code and Submit Code endpoints still accept `problemId` path values for API compatibility and are not yet changed to execute persisted visible/hidden test cases.
+- Hidden-test based code submission and persisted coding problem test-case runner remain deferred to a later backend feature.
 - Backend Docker Setup Foundation is implemented as a backend-only Docker image build foundation.
 - Backend Dockerfile uses a multi-stage Java 21 build with `eclipse-temurin:21-jdk` for the builder stage and `eclipse-temurin:21-jre` for the runtime stage.
 - Backend Docker build uses the Maven Wrapper inside Linux with `./mvnw`; it must not use system Maven or plain `mvn`.
@@ -635,7 +673,7 @@ Git status: clean after `e30e126 fix: validate code runner problem ids` was push
 - Run-only endpoint does not award XP and does not call `XPService`.
 - Run-only endpoint does not persist code, submissions, histories, attempts, or code-submission rows.
 - Run-only endpoint keeps `problemId` in the path and response for API contract compatibility.
-- Because coding problem persistence is not currently implemented, run-only currently does not perform a DB lookup for `problemId` and does not create fake seed problems.
+- Even though coding problem persistence is now implemented, run-only still does not perform a coding-problem DB lookup in the current MVP and does not create fake seed problems; persisted problem execution is deferred.
 - Run-code response is safe and may include `problemId`, `language`, `stdout`, `stderr`, `output`, `exitCode`, nullable `runtimeMs`, nullable `passed`, and safe `message`.
 - Run-code pass/fail comparison trims the primary output and expected output only for comparison.
 - If `expectedOutput` is present and trimmed output matches, `passed=true`.
@@ -657,7 +695,7 @@ Git status: clean after `e30e126 fix: validate code runner problem ids` was push
 - V9 Flyway migration `V9__create_code_submissions_table.sql` creates `code_submissions`.
 - `code_submissions` includes `id`, `user_id`, `problem_id`, `language`, `code`, `passed`, `passed_test_cases`, `total_test_cases`, nullable `runtime_ms`, nullable `memory_kb`, nullable `ai_review`, `submitted_at`, `created_at`, and `updated_at`.
 - V9 adds indexes for `user_id`, `(user_id, problem_id)`, `problem_id`, and `submitted_at`.
-- Because coding problem persistence is not currently implemented, submit stores the path `problemId` for API compatibility and does not create fake seed problems.
+- Even though coding problem persistence is now implemented, submit still stores the path `problemId` for API compatibility and does not yet execute persisted visible/hidden test cases or create fake seed problems.
 - Because the current Piston response abstraction does not expose runtime timing/memory, submit may return/persist nullable `runtimeMs` and nullable `memoryKb`.
 - Submit uses a one visible-test MVP comparison, so `passed_test_cases` and `total_test_cases` are based on the expected-output comparison.
 - Code submit awards coding XP only when `passed=true` and the authenticated user has no earlier passed submission for the same problem.
@@ -805,7 +843,7 @@ Git status: clean after `e30e126 fix: validate code runner problem ids` was push
   - level xpReward
   - validated quiz questions from AI success responses
   - validated flashcards from AI success responses
-- Coding problems from parsed AI output are still not persisted yet because their DB tables/features are not implemented.
+- Coding problems from parsed AI output are now persisted after `035da32 feat: persist coding problems` when Gemini returns a valid expanded coding-problem schema; placeholder courses still persist zero coding problem rows.
 - Placeholder fallback courses keep `sourceType=PLACEHOLDER`.
 - Existing deterministic placeholder levels must remain compatible with frontend.
 - `CourseController` remains unchanged.
@@ -914,6 +952,7 @@ Git status: clean after `e30e126 fix: validate code runner problem ids` was push
 
 ## Bugs / Issues
 - None blocking currently.
+- Backend Coding Problems Persistence Foundation note: No blocking issue after automated tests and placeholder manual verification. Manual verification used Gemini-disabled placeholder generation; the generated placeholder course returned `codingProblems: []` on all levels, existing `quizQuestions` and `flashcards` remained stable, response safety checks showed no hidden tests/secrets/tokens/passwords, and PostgreSQL showed `0` coding problem rows globally and `0` rows for the placeholder course. Live Gemini coding-problem persistence was not manually confirmed in that turn; automated tests cover the AI-success persistence path, cache-hit no-duplication behavior, safe DTO exposure, parser validation, and repository JSON persistence. Scope stayed backend-only with expected changes limited to V10 migration, coding problem entity/repository/DTO, course service/level response, AI prompt/parser coding-problem schema, and related backend tests; frontend, backend/pom.xml, V1-V9 migrations, Docker, .github, README, and Build Log during implementation were untouched.
 - Code Runner invalid problem-id / local Piston note: No blocking issue after fix and manual verification. Invalid non-UUID problem id `manual-problem-1` now shows `Enter a valid problem UUID before running code.` and is blocked before the backend request. Valid UUID `11111111-1111-1111-1111-111111111111` reaches backend. Local self-hosted Piston was configured through Docker Desktop with Java runtime `15.0.2`, and direct Piston execution returned `Hello CodeQuest`. CodeQuest backend started with `PISTON_BASE_URL=http://localhost:2000/api/v2` successfully executed Java from the browser. `Output did not match expected output` is expected when actual stdout/output differs from the Expected Output field. Public Piston can still be unavailable/whitelist-only; for demos, keep local Docker Piston running.
 - Monaco Editor Integration Foundation note: No blocking issue after browser verification. Manual dashboard verification showed the Code Runner section now renders a Monaco editor in place of the old code textarea, with Java syntax highlighting, line numbers, editable code, and the existing character counter still visible. Run Code regression verification showed the known safe Piston-unavailable message `Code runner is currently unavailable. Please try again later.` after click, which means the Monaco-backed code state still reaches the backend flow and the unavailable state is the existing external Piston condition, not a Monaco/frontend break. AI Code Review regression verification showed the safe unavailable message `AI review service is currently unavailable. Please try again later.` when Gemini/AI service is unavailable. Existing Code Submission History, Quiz Attempt History, Course Progress, Next Actions, Leaderboard, Generate Course, and dashboard sections still render. The UI did not expose raw stack traces, raw backend JSON dumps, raw Gemini bodies, raw prompts, raw Piston internals, access tokens, refresh tokens, passwords, roles, token hashes, userId, hidden tests, correctAnswer, expectedOutput/stdin internals, or secrets. Scope stayed frontend-only with expected changes limited to `frontend/src/pages/DashboardShell.jsx`, `frontend/package.json`, and `frontend/package-lock.json`; no backend, DB migration, Docker, docs/Build Log during implementation, README, .github, docker-compose, CI/CD, deployment, or Phase 2 files changed.
 - Frontend AI Code Review UI Foundation note: No blocking issue after browser verification of the safe AI-unavailable path and Run Code regression path. Manual dashboard verification showed the `AI Code Review` panel visible near Code Runner with optional Problem Title and Problem Description fields. Clicking `Review Code with AI` with Java hello-world code and optional context reached the backend AI review flow and showed the expected safe unavailable message `AI review service is currently unavailable. Please try again later.` This is acceptable because backend AI review already safely returns 503 when Gemini/config/service is unavailable. Run Code was also regression-checked and still showed the known safe Piston-unavailable message `Code runner is currently unavailable. Please try again later.` after click, which means the frontend button/request path is still active and the unavailable state is the existing external Piston condition, not a new frontend break. The UI did not expose raw stack traces, raw backend JSON dumps, raw Gemini bodies, raw prompts, raw Piston internals, access tokens, refresh tokens, passwords, roles, token hashes, userId, hidden tests, correctAnswer, expectedOutput/stdin internals, or secrets. Scope stayed frontend-only with expected changes limited to `frontend/src/pages/DashboardShell.jsx` and `frontend/src/services/courseApi.js`; no backend, DB migration, Docker, docs/Build Log during implementation, README, .github, docker-compose, frontend package, CI/CD, deployment, or Phase 2 files changed.
@@ -1206,6 +1245,8 @@ Git status: clean after `e30e126 fix: validate code runner problem ids` was push
 
 | 71 | 2026-06-13 | Code Runner invalid problem-id validation and local Piston Java run verification | Frontend + Backend Common Exception + Local Runtime | backend/src/main/java/com/codequest/common/exception/GlobalExceptionHandler.java; backend/src/test/java/com/codequest/common/exception/GlobalExceptionHandlerTest.java; backend/src/test/java/com/codequest/problem/ProblemControllerTest.java; frontend/src/pages/DashboardShell.jsx; frontend/src/services/courseApi.js | Frontend `cd frontend && npm run build` PASS according to Codex output. Backend `cd backend && .\mvnw.cmd test` PASS according to Codex output. Manual browser verification PASS: invalid `manual-problem-1` shows UUID validation message and does not call backend; valid UUID reaches backend; local self-hosted Piston with Java 15.0.2 executes Java successfully through direct Piston and through CodeQuest browser Run Code. | `e30e126 fix: validate code runner problem ids`. Added frontend UUID validation for Run Code, Submit Code, and Load Submissions; changed demo problem id to `11111111-1111-1111-1111-111111111111`; improved safe run-code error mapping; added safe backend handling for invalid UUID path variable conversion as 400 ErrorDTO; verified self-hosted Docker Piston local Java execution with `PISTON_BASE_URL=http://localhost:2000/api/v2`. No migrations, package changes, Docker file changes, README, CI/CD, deployment, dashboard redesign, or Phase 2 work. |
 
+| 72 | 2026-06-13 | Backend Coding Problems Persistence Foundation | Backend / Course + Problem + AI Parser | backend/src/main/resources/db/migration/V10__create_coding_problems_table.sql; backend/src/main/java/com/codequest/problem/CodingProblem.java; backend/src/main/java/com/codequest/problem/CodingProblemRepository.java; backend/src/main/java/com/codequest/problem/dto/CodingProblemResponse.java; backend/src/main/java/com/codequest/course/CourseService.java; backend/src/main/java/com/codequest/course/dto/CourseLevelResponse.java; backend/src/main/java/com/codequest/ai/AiCodingProblemResponse.java; backend/src/main/java/com/codequest/ai/ResponseParser.java; backend/src/main/java/com/codequest/ai/PromptBuilder.java; backend/src/test/java/com/codequest/problem/CodingProblemRepositoryTest.java; backend/src/test/java/com/codequest/course/CourseServiceTest.java; backend/src/test/java/com/codequest/course/CourseControllerTest.java; backend/src/test/java/com/codequest/ai/ResponseParserTest.java; backend/src/test/java/com/codequest/ai/PromptBuilderTest.java | Backend `cd backend && .\mvnw.cmd test` PASS according to Codex output. Manual placeholder verification PASS: generated/fetched a Gemini-disabled placeholder course, confirmed `codingProblems: []` on all levels, confirmed no hidden tests/secrets/tokens/passwords in course response, and confirmed PostgreSQL `coding_problems` count remained `0` globally and for the placeholder course. | `035da32 feat: persist coding problems`. Added V10 `coding_problems` table, CodingProblem entity/repository/safe DTO, AI-success coding-problem persistence, expanded AI coding-problem prompt/parser validation, and safe `codingProblems` in GET `/api/courses/{courseId}`. Placeholder courses create zero coding problems, cache hits do not duplicate rows, hidden tests are stored for future use but never returned, and live Gemini coding-problem persistence was not manually confirmed in this turn. No frontend, pom, old migration, Docker, .github, README, hidden-test submit, level-detail endpoint, or Phase 2 work. |
+
 ## Test Results Log
 | Date | Command | Result | Failure summary | Fixed? |
 |---|---|---|---|---|
@@ -1328,6 +1369,7 @@ Git status: clean after `e30e126 fix: validate code runner problem ids` was push
 ## Manual Verification Log
 | Date | Feature | Manual/API check | Expected result | Status |
 |---|---|---|---|---|
+| 2026-06-13 | Backend Coding Problems Persistence Foundation | PowerShell API + PostgreSQL placeholder verification | Registered/logged in a test user, generated a Gemini-disabled placeholder course, fetched it through GET `/api/courses/{courseId}`, confirmed each level had empty `codingProblems`, confirmed hidden tests/secrets/tokens/passwords were absent, confirmed `coding_problems` count stayed `0` globally and `0` for that placeholder course, and confirmed existing quiz/flashcard response fields stayed stable. | Passed |
 | 2026-06-13 | Code Runner invalid problem-id validation and local Piston Java run verification | Browser dashboard invalid/valid problem-id checks plus Docker self-hosted Piston direct/API/browser run checks | Invalid `manual-problem-1` shows `Enter a valid problem UUID before running code.` and does not call backend; valid UUID `11111111-1111-1111-1111-111111111111` reaches backend; local Piston container runs on port 2000; Java runtime `15.0.2` is installed; direct Piston Java execute returns `Hello CodeQuest`; CodeQuest browser Run Code executes Java when backend uses `PISTON_BASE_URL=http://localhost:2000/api/v2`; `Output did not match expected output` appears only when expected output differs from actual output. | Passed |
 | 2026-06-11 | Monaco Editor Integration Foundation | Browser dashboard Monaco editor verification plus Run Code and AI Review regression checks | Monaco editor renders in Code Runner with Java syntax highlighting and line numbers, code is editable through the existing code state, character counter remains visible, Run Code shows safe known Piston-unavailable message when external runner is unavailable, AI Review shows safe AI-unavailable message when Gemini/AI is unavailable, existing dashboard sections remain visible, and no raw JSON/stack traces/tokens/passwords/raw Gemini/raw prompt/raw Piston/secrets are visible. | Passed |
 | 2026-06-11 | Frontend AI Code Review UI Foundation | Browser dashboard AI Code Review verification and Run Code regression verification | AI Code Review panel renders near Code Runner, optional problem title/description fields work, clicking Review Code with AI shows safe `AI review service is currently unavailable. Please try again later.` when Gemini/AI is unavailable, Run Code still shows safe `Code runner is currently unavailable. Please try again later.` for known Piston-unavailable path, existing dashboard sections remain visible, and no raw JSON/stack traces/tokens/passwords/raw Gemini/raw prompt/raw Piston/secrets are visible. | Passed |
@@ -8377,6 +8419,94 @@ frontend/package.json
 frontend/package-lock.json
 ```
 
+
+## Backend Coding Problems Persistence Foundation Manual Test Commands
+
+Use this after `035da32 feat: persist coding problems` when verifying placeholder safety locally.
+
+Start backend with Gemini disabled:
+
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject\backend
+
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/codequest"
+$env:DATABASE_USERNAME="postgres"
+$env:DATABASE_PASSWORD="YOUR_REAL_LOCAL_POSTGRES_PASSWORD"
+$env:JWT_SECRET="dev-only-change-this-secret-dev-only-change-this-secret"
+
+Remove-Item Env:GEMINI_API_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:GEMINI_MODEL -ErrorAction SilentlyContinue
+Remove-Item Env:GEMINI_BASE_URL -ErrorAction SilentlyContinue
+
+.\mvnw.cmd spring-boot:run
+```
+
+In another PowerShell terminal:
+
+```powershell
+cd C:\Users\hp\Desktop\CodeQuestFinalProject
+
+$unique = Get-Date -Format "yyyyMMddHHmmss"
+$email = "coding.problem.$unique@test.com"
+
+$registerBody = @{
+  name = "Coding Problem Test"
+  email = $email
+  password = "Password@123"
+} | ConvertTo-Json
+
+Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/auth/register" -ContentType "application/json" -Body $registerBody
+
+$loginBody = @{
+  email = $email
+  password = "Password@123"
+} | ConvertTo-Json
+
+$login = Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/auth/login" -ContentType "application/json" -Body $loginBody
+$token = $login.accessToken
+$headers = @{ Authorization = "Bearer $token" }
+
+$courseBody = @{
+  topic = "Coding Problems Placeholder Test $unique"
+  difficulty = "BEGINNER"
+  goal = "manual verification"
+} | ConvertTo-Json
+
+$course = Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/courses/generate" -Headers $headers -ContentType "application/json" -Body $courseBody
+$courseId = $course.courseId
+
+$fetchedCourse = Invoke-RestMethod -Method Get -Uri "http://localhost:8080/api/courses/$courseId" -Headers $headers
+$fetchedCourse | ConvertTo-Json -Depth 20
+
+$json = $fetchedCourse | ConvertTo-Json -Depth 50
+$json.Contains("hiddenTests")
+$json.Contains("hidden_tests_json")
+$json.Contains("hidden")
+$json.Contains("password")
+$json.Contains("token")
+$json.Contains("secret")
+
+& "C:\Program Files\PostgreSQL\17\bin\psql.exe" -U postgres -d codequest -c "SELECT COUNT(*) FROM coding_problems;"
+& "C:\Program Files\PostgreSQL\17\bin\psql.exe" -U postgres -d codequest -c "SELECT COUNT(*) FROM coding_problems cp JOIN levels l ON cp.level_id = l.id WHERE l.course_id = '$courseId';"
+
+$fetchedCourse.levels.Count
+$fetchedCourse.levels[0].title
+$fetchedCourse.levels[0].quizQuestions
+$fetchedCourse.levels[0].flashcards
+$fetchedCourse.levels[0].codingProblems
+```
+
+Expected:
+- Register/login succeeds.
+- Placeholder course generates with `sourceType=PLACEHOLDER`.
+- GET course returns three placeholder levels.
+- Each placeholder level has `codingProblems: []`.
+- Existing `quizQuestions` and `flashcards` fields remain stable.
+- Safety checks return `False` for hidden tests, secrets, tokens, and passwords.
+- PostgreSQL `coding_problems` count is `0` globally if no earlier AI coding problems exist, and `0` for the placeholder course.
+- Live Gemini AI coding-problem persistence is not required for this placeholder manual verification; automated tests cover the AI-success path.
+
+
 ## Code Runner Invalid UUID + Local Piston Java Verification Commands
 
 ### 1. Start Docker Desktop first
@@ -8673,46 +8803,57 @@ Critical project rules:
 ```
 
 ## Latest Safe Continuation Notes
-- Latest feature commit pushed to main: `e30e126 fix: validate code runner problem ids`.
-- Previous docs commit on main: `2c612ef docs: record monaco code editor`.
-- Previous feature commit on main: `6e5097a feat: add monaco code editor`.
-- Code Runner invalid problem-id validation and local Piston Java run verification is the latest completed work.
+- Latest feature commit pushed to main: `035da32 feat: persist coding problems`.
+- Previous docs commit on main: `680ea2b docs: record code runner local piston verification`.
+- Previous feature commit before coding-problem persistence: `e30e126 fix: validate code runner problem ids`.
+- Backend Coding Problems Persistence Foundation is the latest completed feature work.
 - Changed files in latest feature commit:
-  - `backend/src/main/java/com/codequest/common/exception/GlobalExceptionHandler.java`
-  - `backend/src/test/java/com/codequest/common/exception/GlobalExceptionHandlerTest.java`
-  - `backend/src/test/java/com/codequest/problem/ProblemControllerTest.java`
-  - `frontend/src/pages/DashboardShell.jsx`
-  - `frontend/src/services/courseApi.js`
-- The fix was committed and pushed as `e30e126 fix: validate code runner problem ids`.
-- Frontend build passed according to Codex output: `cd frontend && npm run build`.
+  - `backend/src/main/resources/db/migration/V10__create_coding_problems_table.sql`
+  - `backend/src/main/java/com/codequest/problem/CodingProblem.java`
+  - `backend/src/main/java/com/codequest/problem/CodingProblemRepository.java`
+  - `backend/src/main/java/com/codequest/problem/dto/CodingProblemResponse.java`
+  - `backend/src/main/java/com/codequest/course/CourseService.java`
+  - `backend/src/main/java/com/codequest/course/dto/CourseLevelResponse.java`
+  - `backend/src/main/java/com/codequest/ai/AiCodingProblemResponse.java`
+  - `backend/src/main/java/com/codequest/ai/ResponseParser.java`
+  - `backend/src/main/java/com/codequest/ai/PromptBuilder.java`
+  - `backend/src/test/java/com/codequest/problem/CodingProblemRepositoryTest.java`
+  - `backend/src/test/java/com/codequest/course/CourseServiceTest.java`
+  - `backend/src/test/java/com/codequest/course/CourseControllerTest.java`
+  - `backend/src/test/java/com/codequest/ai/ResponseParserTest.java`
+  - `backend/src/test/java/com/codequest/ai/PromptBuilderTest.java`
+- The coding-problem persistence feature was committed and pushed as `035da32 feat: persist coding problems`.
 - Backend tests passed according to Codex output: `cd backend && .\mvnw.cmd test`.
-- Frontend now validates problem id UUID format before Run Code, Submit Code, and Load Submissions.
-- Default demo Code Runner problem id is now `11111111-1111-1111-1111-111111111111`.
-- Invalid non-UUID `manual-problem-1` is blocked client-side and shows `Enter a valid problem UUID before running code.`
-- Backend now maps invalid UUID path variable conversion to safe HTTP 400 ErrorDTO instead of generic 500.
-- Public Piston `/execute` should not be relied on for demos because it can be unavailable/whitelist-only.
-- Local self-hosted Piston was manually set up through Docker Desktop using `ghcr.io/engineer-man/piston`.
-- Local Piston container name used during verification: `codequest-piston`.
-- Local Piston API URL used during verification: `http://localhost:2000/api/v2`.
-- Local Piston direct execute endpoint: `http://localhost:2000/api/v2/execute`.
-- Backend env for local Piston demo: `$env:PISTON_BASE_URL="http://localhost:2000/api/v2"`.
-- Local Piston was run with:
-  - `--privileged`
-  - `-p 2000:2000`
-  - `-e PISTON_RUN_TIMEOUT=10000`
-  - `-e PISTON_COMPILE_TIMEOUT=10000`
-  - `-v C:\Users\hp\Desktop\piston-local-data\packages:/piston/packages`
-  - `--tmpfs /tmp:exec`
-- Java package installed in local Piston: `java` version `15.0.2`.
-- Direct Piston runtime check returned `java 15.0.2`.
-- Direct Piston Java execute test returned `Hello CodeQuest`.
-- Browser CodeQuest Run Code test with local Piston executed Java and displayed stdout/output such as `Hello CodeQuest` and `Antara`.
-- `Output did not match expected output` is expected when actual stdout/output differs from the Expected Output field.
-- For a passing browser Run Code demo, make code output and Expected Output exactly match after trimming, for example code prints `Antara` and Expected Output is `Antara`.
-- CodeQuest backend must still never execute user code locally. Code execution remains Piston API only.
-- Keep Docker Desktop and `codequest-piston` running during local demo if Run Code needs to execute successfully.
-- If Piston is not running or `PISTON_BASE_URL` is not set on backend startup, Run Code may safely show `Code runner is currently unavailable. Please try again later.`
+- Manual placeholder verification passed:
+  - registered/login test user `coding.problem.20260613132321@test.com`
+  - generated placeholder course `Coding Problems Placeholder Test 20260613132321`
+  - fetched course `e17b7452-6165-4e34-b1fc-dfc316aaef76`
+  - confirmed all three placeholder levels returned `codingProblems: []`
+  - confirmed `quizQuestions` and `flashcards` fields remained stable
+  - confirmed response safety checks were `False` for `hiddenTests`, `hidden_tests_json`, `hidden`, `password`, `token`, and `secret`
+  - confirmed PostgreSQL `SELECT COUNT(*) FROM coding_problems;` returned `0`
+  - confirmed PostgreSQL count joined through that placeholder course returned `0`
+- Live Gemini coding-problem persistence was not manually confirmed in the coding-problem persistence task because the manual verification intentionally disabled Gemini and used placeholder generation.
+- Automated tests cover the AI-success coding problem persistence path, cache-hit no-duplication behavior, safe course fetch response, hidden-test non-exposure, parser validation, prompt schema, and repository JSON persistence.
+- V10 migration creates `coding_problems`.
+- Coding problems belong to levels and store starter code JSON, visible/sample tests JSON, hidden tests JSON, difficulty, XP reward, and timestamps.
+- Placeholder courses create zero coding problem rows.
+- Cache hits must not duplicate coding problem rows.
+- GET `/api/courses/{courseId}` can now return safe `codingProblems` arrays per level.
+- Hidden tests are stored for future submit work but are never returned in course responses.
+- Existing Run Code / Submit Code / Submission History / AI Code Review / Monaco flows must not be considered hidden-test aware yet.
+- Existing Run Code and Submit Code still use the path `problemId` compatibility flow and do not yet perform persisted coding-problem test-case execution.
+- Local Piston Java execution remains verified from the prior feature; use local Docker Piston for demos:
+  - Piston API URL: `http://localhost:2000/api/v2`
+  - Backend env: `$env:PISTON_BASE_URL="http://localhost:2000/api/v2"`
+  - Java runtime: `java 15.0.2`
+- `Output did not match expected output` remains expected when actual stdout/output differs from the Expected Output field.
+- Known safe unavailable message for Run Code remains `Code runner is currently unavailable. Please try again later.` when Piston is unavailable or backend is not configured with `PISTON_BASE_URL`.
 - Known safe unavailable message for AI review remains `AI review service is currently unavailable. Please try again later.` when Gemini/AI is unavailable.
-- Next recommended feature: Dashboard UI polish / section organization.
-- Do not start Dashboard UI polish until this Build Log docs update is committed and `git status --short` is clean.
-
+- Current pending Build Log task: commit this Build Log docs update after replacing `CodeQuest_Build_Log.md`.
+- Recommended next feature after this Build Log docs commit and clean git status:
+  1. Backend `GET /api/levels/{levelId}` level-detail endpoint.
+  2. Frontend Lesson view fetches selected level from level-detail endpoint.
+  3. Frontend Coding Challenges section displays persisted coding problems and can fill existing Code Runner fields.
+- Do not implement hidden-test based code submission in the same next prompt as level-detail/frontend coding-challenge display; hidden-test submit should be a separate backend-focused feature.
+- Do not start the next feature until this Build Log docs update is committed and `git status --short` is clean.
