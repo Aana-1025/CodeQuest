@@ -51,19 +51,19 @@ public class ProgressService {
         Level level = levelRepository.findById(levelId)
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Level not found."));
 
-        Progress existingProgress = progressRepository.findByUserIdAndLevelId(userId, levelId).orElse(null);
-        if (existingProgress != null && existingProgress.isCompleted()) {
+        LevelReadState levelReadState = getLevelReadState(userId, level);
+        if (levelReadState.completed()) {
             return new LevelCompletionResponse(
                     level.getId(),
                     true,
                     true,
                     0,
                     currentXp(user),
-                    existingProgress.getCompletedAt()
+                    levelReadState.completedAt()
             );
         }
 
-        if (!isUnlockedForUser(userId, level)) {
+        if (!levelReadState.unlocked()) {
             throw new ApiException(ErrorCode.FORBIDDEN, "Complete previous levels before unlocking this level.");
         }
 
@@ -71,9 +71,9 @@ public class ProgressService {
         int xpAwarded = level.getXpReward() == null ? 0 : level.getXpReward();
         User updatedUser = xpService.addXpAndRecalculateRank(user, xpAwarded);
 
-        Progress progress = existingProgress == null
+        Progress progress = levelReadState.progress() == null
                 ? createNewProgress(updatedUser, level, now)
-                : markProgressCompleted(existingProgress, now);
+                : markProgressCompleted(levelReadState.progress(), now);
         progressRepository.save(progress);
 
         return new LevelCompletionResponse(
@@ -135,6 +135,20 @@ public class ProgressService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public LevelReadState getLevelReadState(UUID userId, Level level) {
+        Progress existingProgress = progressRepository.findByUserIdAndLevelId(userId, level.getId()).orElse(null);
+        boolean completed = existingProgress != null && existingProgress.isCompleted();
+        boolean unlocked = completed || isUnlockedForUser(userId, level);
+
+        return new LevelReadState(
+                completed,
+                unlocked,
+                completed ? existingProgress.getCompletedAt() : null,
+                existingProgress
+        );
+    }
+
     private int currentXp(User user) {
         return user.getXp() == null ? 0 : user.getXp();
     }
@@ -181,5 +195,13 @@ public class ProgressService {
         progress.setCompletedAt(now);
         progress.setUpdatedAt(now);
         return progress;
+    }
+
+    public record LevelReadState(
+            boolean completed,
+            boolean unlocked,
+            Instant completedAt,
+            Progress progress
+    ) {
     }
 }

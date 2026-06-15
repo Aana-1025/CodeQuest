@@ -5,6 +5,7 @@ import {
   completeLevel,
   generateCourse,
   getCourseById,
+  getLevelDetails,
   getCourseProgress,
   getCodeSubmissions,
   getLeaderboard,
@@ -228,6 +229,17 @@ function normalizeFlashcards(level) {
   return flashcardSource.filter((card) => card && typeof card === "object");
 }
 
+function normalizeCodingProblems(level) {
+  const codingProblemCandidates = [level?.codingProblems, level?.problems];
+  const codingProblemSource = codingProblemCandidates.find(Array.isArray);
+
+  if (!codingProblemSource) {
+    return [];
+  }
+
+  return codingProblemSource.filter((problem) => problem && typeof problem === "object");
+}
+
 function getOptionLabel(index) {
   return ["A", "B", "C", "D"][index] || String(index + 1);
 }
@@ -397,6 +409,22 @@ function getCompleteLevelErrorMessage(error) {
   }
 
   return "Could not complete this level right now.";
+}
+
+function getLevelDetailsErrorMessage(error) {
+  if (error?.status === 401) {
+    return "Please log in again to open this lesson.";
+  }
+
+  if (error?.status === 403) {
+    return "Complete previous levels before opening this lesson.";
+  }
+
+  if (error?.status === 404) {
+    return "This lesson is no longer available.";
+  }
+
+  return "Could not open this lesson right now.";
 }
 
 function getLeaderboardErrorMessage(error) {
@@ -589,6 +617,67 @@ function getSubmissionStatusClass(submission) {
   return "border-slate-200 bg-slate-50 text-slate-700";
 }
 
+function getCodingChallengeStarterCode(starterCode, language) {
+  if (!starterCode || typeof starterCode !== "object") {
+    return "";
+  }
+
+  const directMatch = starterCode[language];
+  if (typeof directMatch === "string" && directMatch.trim()) {
+    return directMatch;
+  }
+
+  const normalizedEntries = Object.entries(starterCode).find(([key, value]) => (
+    typeof key === "string"
+      && key.trim().toLowerCase() === language
+      && typeof value === "string"
+      && value.trim()
+  ));
+
+  return normalizedEntries ? normalizedEntries[1] : "";
+}
+
+function getCodingChallengePreviewCode(codingProblem, language) {
+  const languageStarter = getCodingChallengeStarterCode(codingProblem?.starterCode, language);
+  if (languageStarter) {
+    return {
+      label: language,
+      code: languageStarter,
+    };
+  }
+
+  const firstStarterCodeEntry = Object.entries(codingProblem?.starterCode ?? {}).find(([, value]) => (
+    typeof value === "string" && value.trim()
+  ));
+
+  if (!firstStarterCodeEntry) {
+    return null;
+  }
+
+  return {
+    label: firstStarterCodeEntry[0],
+    code: firstStarterCodeEntry[1],
+  };
+}
+
+function getSampleTestCaseInput(sampleTestCase) {
+  if (!sampleTestCase || typeof sampleTestCase !== "object") {
+    return "";
+  }
+
+  const stdin = sampleTestCase.stdin ?? sampleTestCase.input;
+  return typeof stdin === "string" ? stdin : "";
+}
+
+function getSampleTestCaseOutput(sampleTestCase) {
+  if (!sampleTestCase || typeof sampleTestCase !== "object") {
+    return "";
+  }
+
+  const expectedOutput = sampleTestCase.expectedOutput ?? sampleTestCase.output;
+  return typeof expectedOutput === "string" ? expectedOutput : "";
+}
+
 function mergeCourseMapLevels(courseMap, courseProgress) {
   const progressLevels = Array.isArray(courseProgress?.levels) ? courseProgress.levels : [];
   const progressByLevelId = new Map(
@@ -627,6 +716,8 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
   const [generatedCourse, setGeneratedCourse] = useState(null);
   const [courseMapLoading, setCourseMapLoading] = useState(false);
   const [courseMapError, setCourseMapError] = useState("");
+  const [lessonLoadingLevelId, setLessonLoadingLevelId] = useState("");
+  const [lessonOpenError, setLessonOpenError] = useState("");
   const [courseMap, setCourseMap] = useState(null);
   const [courseProgress, setCourseProgress] = useState(null);
   const [courseProgressError, setCourseProgressError] = useState("");
@@ -659,8 +750,10 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
   const [codeRunnerForm, setCodeRunnerForm] = useState(INITIAL_CODE_RUNNER_FORM);
   const [codeRunnerLoading, setCodeRunnerLoading] = useState(false);
   const [codeRunnerError, setCodeRunnerError] = useState("");
+  const [codeRunnerInfo, setCodeRunnerInfo] = useState("");
   const [codeRunnerResult, setCodeRunnerResult] = useState(null);
   const [codeRunnerCodeTouched, setCodeRunnerCodeTouched] = useState(false);
+  const [loadedCodingProblemStarterCode, setLoadedCodingProblemStarterCode] = useState(null);
   const [codeSubmitLoading, setCodeSubmitLoading] = useState(false);
   const [codeSubmitError, setCodeSubmitError] = useState("");
   const [codeSubmitResult, setCodeSubmitResult] = useState(null);
@@ -813,6 +906,8 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
       });
       setGeneratedCourse(response);
       setCourseMap(null);
+      setLessonLoadingLevelId("");
+      setLessonOpenError("");
       setCourseProgress(null);
       setCourseMapError("");
       setCourseProgressError("");
@@ -838,6 +933,8 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
 
     setCourseMapLoading(true);
     setCourseMapError("");
+    setLessonLoadingLevelId("");
+    setLessonOpenError("");
     setCourseProgressError("");
     resetLevelCompletionState();
 
@@ -883,7 +980,19 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
         }
 
         const mergedLevels = mergeCourseMapLevels(courseMap, progress);
-        return mergedLevels.find((level) => level.levelId === currentLevel.levelId) ?? currentLevel;
+        const progressLevel = mergedLevels.find((level) => level.levelId === currentLevel.levelId);
+
+        if (!progressLevel) {
+          return currentLevel;
+        }
+
+        return {
+          ...currentLevel,
+          completed: progressLevel.completed,
+          unlocked: progressLevel.unlocked,
+          completedAt: progressLevel.completedAt ?? null,
+          progressAvailable: progressLevel.progressAvailable,
+        };
       });
       return progress;
     } catch (error) {
@@ -898,6 +1007,8 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
 
   const handleBackToDashboard = () => {
     setCourseMapError("");
+    setLessonLoadingLevelId("");
+    setLessonOpenError("");
     setCourseMap(null);
     setCourseProgress(null);
     setCourseProgressError("");
@@ -905,16 +1016,35 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
     setSelectedLevel(null);
   };
 
-  const handleOpenLesson = (level) => {
+  const handleOpenLesson = async (level) => {
     if (level.progressAvailable && !level.unlocked) {
       return;
     }
 
+    if (!level?.levelId) {
+      setLessonOpenError("This lesson is not available yet.");
+      return;
+    }
+
     clearLevelCompletionFeedback(level.levelId);
-    setSelectedLevel(level);
+    setLessonLoadingLevelId(level.levelId);
+    setLessonOpenError("");
+
+    try {
+      const response = await getLevelDetails(level.levelId);
+      setSelectedLevel({
+        ...response,
+        progressAvailable: true,
+      });
+    } catch (error) {
+      setLessonOpenError(getLevelDetailsErrorMessage(error));
+    } finally {
+      setLessonLoadingLevelId("");
+    }
   };
 
   const handleBackToCourseMap = () => {
+    setLessonOpenError("");
     setSelectedLevel(null);
   };
 
@@ -1209,6 +1339,7 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
   };
 
   const handleCodeRunnerFieldChange = (field, value) => {
+    setCodeRunnerInfo("");
     setCodeRunnerForm((current) => ({
       ...current,
       [field]: value,
@@ -1216,10 +1347,48 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
   };
 
   const handleCodeLanguageChange = (language) => {
+    const challengeStarter = getCodingChallengeStarterCode(loadedCodingProblemStarterCode, language);
+
     setCodeRunnerForm((current) => ({
       ...current,
       language,
-      code: codeRunnerCodeTouched ? current.code : CODE_RUNNER_STARTER_CODE[language],
+      code: codeRunnerCodeTouched
+        ? current.code
+        : challengeStarter || CODE_RUNNER_STARTER_CODE[language],
+    }));
+  };
+
+  const handleUseCodingChallenge = (codingProblem) => {
+    if (!codingProblem?.problemId) {
+      return;
+    }
+
+    const firstSampleTestCase = Array.isArray(codingProblem.sampleTestCases)
+      ? codingProblem.sampleTestCases[0]
+      : null;
+    const starterCode = getCodingChallengeStarterCode(codingProblem.starterCode, codeRunnerForm.language);
+
+    setLoadedCodingProblemStarterCode(codingProblem.starterCode ?? null);
+    setCodeRunnerCodeTouched(false);
+    setCodeRunnerError("");
+    setCodeRunnerInfo("Coding challenge loaded into Code Runner.");
+    setCodeRunnerResult(null);
+    setCodeSubmitError("");
+    setCodeSubmitResult(null);
+    setAiCodeReviewError("");
+    setAiCodeReviewResult(null);
+    setCodeSubmissionsHistory(null);
+    setCodeSubmissionsHistoryLoaded(false);
+    setCodeSubmissionsHistoryError("");
+    setCodeSubmissionsHistoryPage(0);
+    setCodeRunnerForm((current) => ({
+      ...current,
+      problemId: codingProblem.problemId,
+      code: starterCode || current.code,
+      stdin: getSampleTestCaseInput(firstSampleTestCase),
+      expectedOutput: getSampleTestCaseOutput(firstSampleTestCase),
+      problemTitle: codingProblem.title ?? "",
+      problemDescription: codingProblem.description ?? "",
     }));
   };
 
@@ -1229,6 +1398,7 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
     const trimmedProblemId = codeRunnerForm.problemId.trim();
     const trimmedCode = codeRunnerForm.code.trim();
 
+    setCodeRunnerInfo("");
     setCodeRunnerResult(null);
 
     if (!trimmedProblemId) {
@@ -1273,6 +1443,7 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
   const handleAiCodeReview = async () => {
     const trimmedCode = codeRunnerForm.code.trim();
 
+    setCodeRunnerInfo("");
     if (!trimmedCode) {
       setAiCodeReviewError("Please check your AI review input and try again.");
       return;
@@ -1308,6 +1479,7 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
     const trimmedCode = codeRunnerForm.code.trim();
     const trimmedExpectedOutput = codeRunnerForm.expectedOutput.trim();
 
+    setCodeRunnerInfo("");
     setCodeSubmitResult(null);
     setCodeSubmitProfileMessage("");
 
@@ -1370,6 +1542,7 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
   const loadCodeSubmissionsHistory = async (page = 0) => {
     const trimmedProblemId = codeRunnerForm.problemId.trim();
 
+    setCodeRunnerInfo("");
     if (!trimmedProblemId) {
       setCodeSubmissionsHistory(null);
       setCodeSubmissionsHistoryLoaded(false);
@@ -1429,6 +1602,7 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
   if (courseMap && selectedLevel) {
     const quizQuestions = normalizeQuizQuestions(selectedLevel);
     const flashcards = normalizeFlashcards(selectedLevel);
+    const codingProblems = normalizeCodingProblems(selectedLevel);
     const selectedLevelId = selectedLevel.levelId;
     const selectedLevelCompleteLoading = Boolean(levelCompletionLoading[selectedLevelId]);
     const selectedLevelCompleteError = levelCompletionErrors[selectedLevelId];
@@ -1466,7 +1640,7 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
         <div className="px-4 py-8 sm:px-8">
           <div className="mx-auto max-w-4xl space-y-6">
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-sm text-slate-500">{courseMap.title}</p>
+              <p className="text-sm text-slate-500">{selectedLevel.courseTitle || courseMap.title}</p>
               <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm font-semibold text-slate-500">Level {selectedLevel.orderNumber}</p>
@@ -1733,6 +1907,117 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
+                  <h3 className="text-xl font-semibold text-slate-900">Coding Challenges</h3>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Load a persisted challenge into the existing code runner without auto-running or auto-submitting code.
+                  </p>
+                </div>
+              </div>
+
+              {codingProblems.length === 0 ? (
+                <div className="mt-4 rounded-xl bg-slate-50 p-5">
+                  <p className="text-sm text-slate-600">Coding challenges are not available for this level yet.</p>
+                </div>
+              ) : (
+                <div className="mt-5 space-y-4">
+                  {codingProblems.map((codingProblem, problemIndex) => {
+                    const previewStarter = getCodingChallengePreviewCode(codingProblem, codeRunnerForm.language);
+                    const sampleTestCases = Array.isArray(codingProblem.sampleTestCases)
+                      ? codingProblem.sampleTestCases
+                      : [];
+
+                    return (
+                      <div
+                        key={codingProblem.problemId ?? `coding-problem-${problemIndex}`}
+                        className="rounded-xl border border-slate-200 bg-slate-50 p-5"
+                      >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <h4 className="text-lg font-semibold text-slate-900">
+                              {codingProblem.title || "Coding challenge"}
+                            </h4>
+                            <p className="mt-2 text-sm leading-6 text-slate-600">
+                              {codingProblem.description || "Description is not available yet."}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {codingProblem.difficulty && (
+                              <span className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-800">
+                                {codingProblem.difficulty}
+                              </span>
+                            )}
+                            <span className="rounded-full bg-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                              XP {codingProblem.xpReward ?? 0}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => handleUseCodingChallenge(codingProblem)}
+                            className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700"
+                          >
+                            Use in Code Runner
+                          </button>
+                          {codingProblem.problemId && (
+                            <p className="text-xs text-slate-500">Problem ID: {codingProblem.problemId}</p>
+                          )}
+                        </div>
+
+                        <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
+                          <p className="text-sm font-semibold text-slate-700">Sample Test Cases</p>
+                          {sampleTestCases.length === 0 ? (
+                            <p className="mt-2 text-sm text-slate-600">No sample test cases are available yet.</p>
+                          ) : (
+                            <div className="mt-3 space-y-3">
+                              {sampleTestCases.map((sampleTestCase, sampleIndex) => (
+                                <div
+                                  key={`sample-test-${problemIndex}-${sampleIndex}`}
+                                  className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+                                >
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Sample {sampleIndex + 1}
+                                  </p>
+                                  <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+                                    <div>
+                                      <p className="text-sm font-semibold text-slate-700">Standard Input</p>
+                                      <pre className="mt-2 whitespace-pre-wrap break-words text-sm text-slate-700">
+                                        {getSampleTestCaseInput(sampleTestCase) || "No sample input."}
+                                      </pre>
+                                    </div>
+                                    <div>
+                                      <p className="text-sm font-semibold text-slate-700">Expected Output</p>
+                                      <pre className="mt-2 whitespace-pre-wrap break-words text-sm text-slate-700">
+                                        {getSampleTestCaseOutput(sampleTestCase) || "No sample output."}
+                                      </pre>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
+                          <p className="text-sm font-semibold text-slate-700">
+                            Starter Code Preview
+                            {previewStarter?.label ? ` (${previewStarter.label})` : ""}
+                          </p>
+                          <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words text-sm text-slate-700">
+                            {previewStarter?.code || "Starter code is not available for this challenge yet."}
+                          </pre>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
                   <h3 className="text-xl font-semibold text-slate-900">Flashcards</h3>
                   <p className="mt-1 text-sm text-slate-600">Quick review foundation for this lesson. Flashcard study flow will expand when persistence is available.</p>
                 </div>
@@ -1889,6 +2174,15 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
                     {courseProgressError}
                   </div>
                 )}
+
+                {lessonOpenError && (
+                  <div
+                    className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+                    role="alert"
+                  >
+                    {lessonOpenError}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1900,6 +2194,7 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
                   const lockedExplanation = getLockedExplanation(level);
                   const isCompleteButtonVisible = level.unlocked && !level.completed;
                   const isLevelCompleting = Boolean(levelCompletionLoading[level.levelId]);
+                  const isLessonOpening = lessonLoadingLevelId === level.levelId;
                   const levelCompleteError = levelCompletionErrors[level.levelId];
                   const levelCompleteSuccess = levelCompletionSuccess[level.levelId];
                   const levelCompleteMessage = levelCompletionMessages[level.levelId];
@@ -1935,10 +2230,10 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
                         <button
                           type="button"
                           onClick={() => handleOpenLesson(level)}
-                          disabled={level.progressAvailable && !level.unlocked}
+                          disabled={(level.progressAvailable && !level.unlocked) || isLessonOpening}
                           className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
                         >
-                          Open Lesson
+                          {isLessonOpening ? "Opening..." : "Open Lesson"}
                         </button>
 
                         {isCompleteButtonVisible && (
@@ -2575,6 +2870,15 @@ export default function DashboardShell({ profile, onRefreshProfile, onBackHome }
                   role="alert"
                 >
                   {codeRunnerError}
+                </div>
+              )}
+
+              {codeRunnerInfo && (
+                <div
+                  className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+                  role="status"
+                >
+                  {codeRunnerInfo}
                 </div>
               )}
 
